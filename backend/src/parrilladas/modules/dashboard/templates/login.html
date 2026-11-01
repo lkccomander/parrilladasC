@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Ingresar{% endblock %}
+{% block layout %}narrow{% endblock %}
+{% block content %}
+  <section class="card">
+    <p class="eyebrow">ACCESO PRIVADO</p>
+    <h1>Bienvenido de nuevo</h1>
+    <p>Ingrese con su cuenta de trabajo.</p>
+    <form method="post" action="/login" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ context.csrf_token }}">
+      <label>
+        Correo electrónico<input name="email"
+                                 type="email"
+                                 autocomplete="username"
+                                 maxlength="254"
+                                 required
+                                 autofocus>
+      </label>
+      <label>
+        Contraseña<input name="password"
+                         type="password"
+                         autocomplete="current-password"
+                         maxlength="128"
+                         required>
+      </label>
+      <button type="submit">Ingresar</button>
+    </form>
+    <p class="help">Si necesita acceso o recuperar su contraseña, contacte al administrador.</p>
+  </section>
+{% endblock %}

@@ -1,14 +1,11 @@
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Parrillas en su Casa</title>
-  </head>
-  <body>
-    <main>
-      <h1>Parrillas en su Casa</h1>
-      <p>La plataforma comercial está en preparación.</p>
-    </main>
-  </body>
-</html>
+{% extends "base.html" %}
+{% block title %}Bienvenido{% endblock %}
+{% block layout %}narrow{% endblock %}
+{% block content %}
+  <section class="card welcome">
+    <p class="eyebrow">PARRILLAS EN SU CASA</p>
+    <h1>La atención comienza aquí.</h1>
+    <p>Acceso privado al panel de gestión comercial.</p>
+    <a class="button" href="/login">Ingresar al panel</a>
+  </section>
+{% endblock %}

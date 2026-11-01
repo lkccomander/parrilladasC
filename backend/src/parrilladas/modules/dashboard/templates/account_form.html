@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar cuenta' if account else 'Crear cuenta' }}{% endblock %}
+{% block content %}
+  <a class="back" href="/dashboard/accounts">← Volver a cuentas</a>
+  <h1>{{ 'Editar cuenta' if account else 'Crear cuenta' }}</h1>
+  <div class="card form-card">
+    <form method="post"
+          action="/dashboard/accounts/{{ account.id if account else 'new' }}"
+          class="stack">
+      <input type="hidden" name="csrf_token" value="{{ context.csrf_token }}">
+      <label>
+        Nombre
+        <input name="display_name" value="{{ values.get('display_name', '') }}"
+               maxlength="120" required autocomplete="name">
+      </label>
+      <label>
+        Correo electrónico
+        <input name="email" type="email" value="{{ values.get('email', '') }}"
+               maxlength="254" required autocomplete="off">
+      </label>
+      <label>
+        Rol
+        <select name="role" required>
+          <option value="sales" {% if values.get('role') == 'sales' %}selected{% endif %}>
+            Sales · Atención y ventas
+          </option>
+          <option value="admin" {% if values.get('role') == 'admin' %}selected{% endif %}>
+            Admin · Acceso completo y cuentas
+          </option>
+        </select>
+      </label>
+      <label>
+        {{ 'Nueva contraseña (opcional)' if account else 'Contraseña inicial' }}
+        <input name="password" type="password" autocomplete="new-password"
+               minlength="15" maxlength="128" aria-describedby="password-help"
+               {% if not account %}required{% endif %}>
+      </label>
+      <p class="help" id="password-help">
+        Use entre 15 y 128 caracteres. Puede usar una frase larga con espacios.
+        {% if account %}Deje el campo vacío para conservar la contraseña.{% endif %}
+      </p>
+      {% if account %}
+        <label class="checkbox">
+          <input name="is_active" type="checkbox"
+                 {% if values.get('is_active') %}checked{% endif %}>
+          Cuenta activa
+        </label>
+        <p class="help">
+          Al guardar cambios se cierran las sesiones de esta cuenta.
+          Desactive la cuenta para revocar el acceso y conservar su historial.
+        </p>
+      {% endif %}
+      <div class="actions">
+        <button type="submit">{{ 'Guardar cambios' if account else 'Crear cuenta' }}</button>
+        <a href="/dashboard/accounts">Cancelar</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

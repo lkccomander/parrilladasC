@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Panel comercial{% endblock %} · Parrillas en su Casa</title>
+    <link rel="stylesheet" href="/static/dashboard.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand"
+         href="{% if context and context.account %}/dashboard{% else %}/{% endif %}">PARRILLAS <span>EN SU CASA</span></a>
+      {% if context and context.account %}
+        <div class="identity">
+          <span>
+            {{ context.account.display_name }}
+            <small>{{ 'Admin' if context.account.role == 'admin' else 'Sales' }}</small>
+          </span>
+          <form method="post" action="/logout">
+            <input type="hidden"
+                   name="csrf_token"
+                   value="{{ context.csrf_token }}">
+            <button class="quiet" type="submit">Cerrar sesión</button>
+          </form>
+        </div>
+      {% endif %}
+    </header>
+    {% if context and context.account %}
+      <nav aria-label="Navegación principal">
+        <a href="/dashboard"
+           {% if request.url.path == '/dashboard' %}aria-current="page"{% endif %}>Inicio</a>
+        {% if context.account.role == 'admin' %}
+          <a href="/dashboard/accounts"
+             {% if request.url.path.startswith('/dashboard/accounts') %}aria-current="page"{% endif %}>
+            Cuentas
+          </a>
+        {% endif %}
+      </nav>
+    {% endif %}
+    <main class="{% block layout %}container{% endblock %}">
+      {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
+    <footer>
+      Parrillas en su Casa · Gestión comercial
+    </footer>
+  </body>
+</html>

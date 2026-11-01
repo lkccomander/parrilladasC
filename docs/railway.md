@@ -39,12 +39,14 @@ Antes de cada despliegue, Railway ejecuta `alembic upgrade head`. Si falla la mi
 
 ## Comprobación
 
-- `/`: página de preparación pública.
+- `/`: acceso público al panel.
+- `/login`: formulario de acceso, sin registro público.
+- `/dashboard`: panel privado; `/dashboard/accounts` requiere Admin.
 - `/health/live`: proceso disponible.
 - `/health/ready`: conectividad a PostgreSQL.
 - `/docs` y `/openapi.json`: deshabilitados en producción.
 
-Este primer despliegue establece infraestructura. El login, dashboard comercial, envío de mensajes, PDF y tareas se implementan posteriormente. Todavía no corresponde conectar el webhook real de WhatsApp.
+El panel incluye login, permisos y gestión de cuentas. Antes de ingresar, crear el primer Admin mediante el comando privado documentado en [acceso y cuentas](accounts.md). Envío de mensajes, cotizaciones, PDF y tareas se implementan posteriormente. Todavía no corresponde conectar el webhook real de WhatsApp.
 
 ## Costos y datos
 

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Cuentas{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">EQUIPO</p>
+      <h1>Cuentas de acceso</h1>
+      <p>Controle quién puede entrar y qué puede administrar.</p>
+    </div>
+    <a class="button" href="/dashboard/accounts/new">Crear cuenta</a>
+  </div>
+  <div class="card table-wrap">
+    <table>
+      <caption class="sr-only">Cuentas del equipo</caption>
+      <thead>
+        <tr>
+          <th scope="col">Nombre</th>
+          <th scope="col">Correo</th>
+          <th scope="col">Rol</th>
+          <th scope="col">Estado</th>
+          <th scope="col"><span class="sr-only">Acciones</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in accounts %}
+          <tr>
+            <td>
+              {{ account.display_name }}
+              {% if account.id == context.account.id %}<small>(usted)</small>{% endif %}
+            </td>
+            <td>{{ account.email }}</td>
+            <td>{{ 'Admin' if account.role == 'admin' else 'Sales' }}</td>
+            <td>
+              <span class="badge {{ 'muted' if not account.is_active else '' }}">
+                {{ 'Activa' if account.is_active else 'Inactiva' }}
+              </span>
+            </td>
+            <td>
+              <a href="/dashboard/accounts/{{ account.id }}"
+                 aria-label="Editar cuenta de {{ account.display_name }}">Editar</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="help">
+    Las cuentas se desactivan para conservar su historial.
+    Admin administra cuentas; Sales accede a las funciones comerciales.
+  </p>
+{% endblock %}

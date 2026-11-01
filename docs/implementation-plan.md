@@ -10,15 +10,17 @@
 - [x] Docker Compose y workflow CI con PostgreSQL efímero.
 - [x] Pruebas de aprobación de cotización, aplicación y migraciones.
 
-La existencia del workflow no implica que GitHub Actions ya se haya ejecutado; se activará al publicar.
+GitHub Actions ejecuta los checks en cada push. Railway despliega `main` con migración previa y health check.
 
-## Siguiente: acceso y cuentas
+## Acceso y cuentas
 
-- [ ] Bootstrap seguro del primer Admin.
-- [ ] Login/logout con sesiones y protección CSRF.
-- [ ] CRUD de cuentas para Admin; desactivación conserva historial.
-- [ ] Permisos Admin/Sales, comprobados en backend.
-- [ ] Pruebas de autorización, contraseñas y desactivación.
+- [x] Bootstrap seguro del primer Admin mediante comando privado, sin contraseña por defecto.
+- [x] Login/logout con sesiones persistentes y protección CSRF.
+- [x] CRUD de cuentas para Admin; desactivación/reactivación conserva historial.
+- [x] Permisos Admin/Sales, comprobados en backend.
+- [x] Pruebas de autorización, contraseñas, throttling, concurrencia y desactivación.
+
+Antes del primer ingreso en producción, el operador debe crear el Admin en una terminal privada. Instrucciones: [acceso y cuentas](accounts.md).
 
 ## Conversaciones y leads
 
@@ -39,7 +41,8 @@ La existencia del workflow no implica que GitHub Actions ya se haya ejecutado; s
 
 ## Lanzamiento
 
-- [ ] Elegir hosting dentro del presupuesto y configurar backups.
+- [x] Seleccionar Railway y desplegar aplicación/PostgreSQL con conexión privada.
+- [ ] Configurar backups y comprobar consumo dentro del presupuesto.
 - [ ] Staging, secretos independientes y prueba completa con Meta.
 - [ ] Restauración de backup, permisos y recuperación de fallos.
 - [ ] Piloto con Daniel y guía de operación.

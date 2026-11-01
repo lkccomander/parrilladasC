@@ -1,12 +1,15 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import sessionmaker
 
 from parrilladas import __version__
 from parrilladas.core.config import Settings
+from parrilladas.core.security_headers import SecurityHeadersMiddleware
 from parrilladas.db.session import create_database_engine
 from parrilladas.modules.dashboard.router import router as dashboard_router
 from parrilladas.modules.health.router import router as health_router
@@ -34,6 +37,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url="/docs" if development_docs else None,
         redoc_url=None,
         openapi_url="/openapi.json" if development_docs else None,
+    )
+    app.state.secure_cookies = settings.app_env in {"staging", "production"}
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.mount(
+        "/static",
+        StaticFiles(directory=Path(__file__).parent / "modules" / "dashboard" / "static"),
+        name="static",
     )
     app.include_router(health_router)
     app.include_router(dashboard_router)

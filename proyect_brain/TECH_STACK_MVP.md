@@ -69,7 +69,7 @@ El seguimiento se registra como recordatorio interno para Daniel, sin envío aut
 
 ## Decisiones restantes
 
-- Desactivación o eliminación de cuentas, conservando historial.
+- Política de cuentas definida: desactivación/reactivación, conservando historial; sin borrado físico.
 - Plantilla visual y contenido final de la cotización.
 - Seguimiento del presupuesto de Railway, incluyendo base de datos y backups.
 - Retención y almacenamiento de PDFs.

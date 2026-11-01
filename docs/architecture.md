@@ -50,15 +50,15 @@ Se crean archivos conforme existe comportamiento que implementar; las carpetas n
 - Cuentas referenciadas por historial no deben borrarse en cascada. Implementar desactivación para conservar trazabilidad.
 - Modelos y migraciones son la base inicial, no sustituyen validación de schemas, permisos o transacciones.
 
-## Seguridad y operación por implementar
+## Seguridad y operación
 
-Antes de exponer datos privados: sesiones seguras, contraseñas con hash resistente, CSRF para formularios y HTMX, roles comprobados en servidor, límites de intentos y bootstrap de administrador sin contraseña por defecto.
+El módulo accounts implementa sesiones persistentes opacas, Argon2id, CSRF para formularios y futuros clientes HTMX, roles comprobados en servidor, límites de intentos y bootstrap de administrador sin contraseña por defecto. Detalles y operación: [acceso y cuentas](accounts.md).
 
 Antes de conectar Meta: validación de firma sobre el body original, verificación de webhook, persistencia idempotente antes de confirmar recepción, separación entre bot y atención humana, y reintentos persistentes. No usar tareas en memoria para envíos críticos. No registrar tokens ni contenido sensible por defecto.
 
 El envío de cotización y la creación de recordatorio requieren una estrategia transaccional/outbox para recuperarse de fallos entre DB y Meta. La aprobación por sí sola no crea un envío. Un recordatorio interno nunca dispara un WhatsApp al cliente.
 
-Uploads y PDFs permanecerán privados con acceso autorizado. La elección de almacenamiento, backups y hosting queda pendiente. Docker ejecuta la app como usuario sin privilegios; la configuración y los datos se mantienen fuera de la imagen.
+Uploads y PDFs permanecerán privados con acceso autorizado. Railway aloja la aplicación y PostgreSQL; almacenamiento de PDFs y verificación de backups siguen pendientes. Docker ejecuta la app como usuario sin privilegios; la configuración y los datos se mantienen fuera de la imagen.
 
 ## Referencias
 

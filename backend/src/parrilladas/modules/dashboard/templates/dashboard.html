@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+  <p class="eyebrow">PANEL COMERCIAL</p>
+  <h1>Hola, {{ context.account.display_name }}</h1>
+  <p class="lead">Su espacio para organizar la atención de Parrillas en su Casa.</p>
+  <div class="grid">
+    {% if context.account.role == "admin" %}<section class="card"><span class="badge">Disponible</span><h2>Cuentas de acceso</h2><p>Administre el equipo, sus permisos y el acceso al panel.</p><a class="button" href="/dashboard/accounts">Administrar cuentas</a></section>{% endif %}
+    <section class="card">
+      <span class="badge muted">Próximamente</span>
+      <h2>Atención y ventas</h2>
+      <p>Las conversaciones de WhatsApp, cotizaciones y recordatorios estarán disponibles en la siguiente etapa.</p>
+    </section>
+  </div>
+{% endblock %}

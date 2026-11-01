@@ -6,9 +6,11 @@ Plataforma comercial de Parrillas en su Casa: WhatsApp guiado, atención humana 
 
 ## Estado
 
-Proyecto inicializado. Funcionan la aplicación FastAPI, la página pública de preparación, health checks, modelos y migraciones iniciales. Autenticación, CRUD, conversaciones reales, PDF y recordatorios operativos son los próximos módulos por implementar. No conectar aún el webhook de producción.
+Funcionan FastAPI, PostgreSQL, health checks, login/logout, permisos Admin/Sales y gestión de cuentas desde el dashboard. Las cuentas se desactivan para conservar el historial. Conversaciones reales, cotizaciones, PDF y recordatorios operativos son los próximos módulos. No conectar aún el webhook de producción.
 
-Stack confirmado: Python 3.12, FastAPI, PostgreSQL, SQLAlchemy, Alembic, Jinja2 y HTMX. HTMX se incorporará en las pantallas interactivas; esta base no necesita JavaScript todavía.
+Stack confirmado: Python 3.12, FastAPI, PostgreSQL, SQLAlchemy, Alembic, Jinja2 y HTMX. HTMX se incorporará cuando aporte interacción útil; las pantallas actuales funcionan sin JavaScript.
+
+Panel privado: `/dashboard`. Crear el primer Admin con `parrilladas-admin bootstrap-admin` desde una terminal privada con el entorno y la base correctos. No hay contraseña predeterminada. Consultar [acceso y cuentas](docs/accounts.md).
 
 ## Inicio con Docker
 
