@@ -20,3 +20,6 @@ rendered
 rendered_web
 storage
 .local
+.railway
+.railway-config-*
+**/node_modules

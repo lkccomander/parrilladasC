@@ -1,0 +1,15 @@
+{
+  "name": "parrilladas-infrastructure",
+  "private": true,
+  "scripts": {
+    "plan": "node cli.cjs config plan",
+    "apply": "node cli.cjs config apply"
+  },
+  "dependencies": {
+    "@railway/cli": "5.71.0",
+    "railway": "3.16.0"
+  },
+  "overrides": {
+    "tar": "7.5.22"
+  }
+}

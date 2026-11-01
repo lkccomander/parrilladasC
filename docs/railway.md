@@ -1,12 +1,28 @@
 # Railway
 
-La aplicación se despliega desde la raíz del repositorio mediante el `Dockerfile`. `railway.json` configura migraciones previas al despliegue y el health check `/health/ready`.
+La aplicación se despliega desde la raíz del repositorio mediante el `Dockerfile`. `.railway/railway.ts` configura los servicios y las migraciones previas al despliegue, junto con el health check `/health/ready`. Railway no aplica `railway.json` a servicios nuevos; se utiliza Infrastructure as Code.
 
 Proyecto: [parrilladasC](https://railway.com/project/832fef61-ac94-4c39-baf0-44cc2ffc7614). Entorno inicial: `production`. Repositorio de la aplicación: `lkccomander/parrilladasC`, rama `main`.
 
+URL inicial: https://web-production-528a1.up.railway.app
+
+## Aplicar cambios de infraestructura
+
+Herramientas: Node.js, CLI y SDK de Railway fijados en `.railway/package-lock.json`. La versión local evita depender del CLI global del equipo.
+
+```sh
+npm ci --prefix .railway
+npm run --prefix .railway plan
+npm run --prefix .railway apply
+```
+
+Revisar el plan antes de aplicar: para cambios de despliegue no se esperan eliminaciones de servicios, variables o volúmenes. Las variables son `unmanaged`: IaC no lee ni escribe sus valores, que permanecen en Railway. Importar con `--variables=unmanaged`; no usar `--include-variables`.
+
+Los pushes de código a `main` disparan el despliegue de `web`. Los cambios en `.railway/` requieren plan y aplicación explícita; Railway no evalúa ese archivo durante cada build de la aplicación. No guardar tokens personales en GitHub para automatizar esta operación.
+
 ## Servicios
 
-- `web`: aplicación FastAPI y páginas Jinja2; una sola instancia inicial.
+- `web`: aplicación FastAPI y páginas Jinja2; una sola instancia inicial, con límite de 1 CPU y 512 MiB de memoria.
 - `Postgres`: PostgreSQL con volumen persistente y conexión privada desde `web`.
 
 Variables de `web`:
@@ -36,4 +52,4 @@ Presupuesto objetivo del proyecto: USD 35 mensuales. Los cobros dependen del con
 
 Un volumen persistente no sustituye backups. La configuración y restauración de backups deben verificarse antes de usar datos de clientes.
 
-Referencias: [configuración como código](https://docs.railway.com/config-as-code/reference), [PostgreSQL](https://docs.railway.com/databases/postgresql), [control de costos](https://docs.railway.com/pricing/cost-control).
+Referencias: [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code), [PostgreSQL](https://docs.railway.com/databases/postgresql), [control de costos](https://docs.railway.com/pricing/cost-control).
