@@ -20,7 +20,7 @@ Este documento registra las decisiones confirmadas por el usuario y prevalece so
 | Acceso a datos y migraciones | SQLAlchemy + Alembic |
 | Dashboard privado | Jinja2 + HTMX |
 
-El backend sirve el dashboard y recibe los webhooks de WhatsApp en una misma aplicación. No se requiere una aplicación frontend separada para este MVP. El proveedor de hosting, la librería de PDF y la implementación de trabajos persistentes quedan por seleccionar.
+El backend sirve el dashboard y recibe los webhooks de WhatsApp en una misma aplicación. No se requiere una aplicación frontend separada para este MVP. Hosting seleccionado: Railway, con servicios web y PostgreSQL privados entre sí. La librería de PDF y la implementación de trabajos persistentes quedan por seleccionar.
 
 ## Operación confirmada
 
@@ -71,7 +71,7 @@ El seguimiento se registra como recordatorio interno para Daniel, sin envío aut
 
 - Desactivación o eliminación de cuentas, conservando historial.
 - Plantilla visual y contenido final de la cotización.
-- Proveedor de hosting y distribución del presupuesto, incluyendo base de datos y backups.
+- Seguimiento del presupuesto de Railway, incluyendo base de datos y backups.
 - Retención y almacenamiento de PDFs.
 - Librería de generación de PDF y trabajos persistentes para reintentos y recordatorios.
 - Después del lanzamiento: definir alcance y calendario compartido para la integración de Google Calendar.

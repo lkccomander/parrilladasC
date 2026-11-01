@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     @classmethod
     def require_postgres(cls, value: SecretStr) -> SecretStr:
         url = make_url(value.get_secret_value())
-        if url.drivername != "postgresql+psycopg":
-            raise ValueError("DATABASE_URL must use postgresql+psycopg://")
-        return value
+        if url.drivername not in {"postgres", "postgresql", "postgresql+psycopg"}:
+            raise ValueError("DATABASE_URL must be a PostgreSQL URL using psycopg")
+        # Managed providers supply a standard PostgreSQL URL. Select our installed
+        # driver explicitly while preserving encoded credentials and query options.
+        return SecretStr(
+            url.set(drivername="postgresql+psycopg").render_as_string(hide_password=False)
+        )

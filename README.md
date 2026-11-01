@@ -74,6 +74,8 @@ Revisar los cambios, reinstalar en un entorno limpio y ejecutar CI antes de publ
 
 Consultar [arquitectura](docs/architecture.md), [plan de implementación](docs/implementation-plan.md) y [decisiones del MVP](proyect_brain/TECH_STACK_MVP.md).
 
+Configuración de despliegue e infraestructura: [Railway](docs/railway.md).
+
 ## Git y GitHub
 
 Repositorio: [lkccomander/parrilladasC](https://github.com/lkccomander/parrilladasC), rama `main`. Se conserva el commit inicial y la licencia MIT del repositorio. Revisar los archivos elegidos y ejecutar los checks antes de cada commit. Los archivos locales con credenciales, `.env`, `.gitnexus`, previews, uploads y documentos comerciales originales DOCX/PDF están excluidos.
