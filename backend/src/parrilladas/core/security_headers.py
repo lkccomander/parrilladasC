@@ -21,7 +21,7 @@ class SecurityHeadersMiddleware:
                 # FastAPI's development-only Swagger page loads its own scripts.
                 if scope["path"] != "/docs":
                     headers["Content-Security-Policy"] = (
-                        "default-src 'none'; style-src 'self'; img-src 'self'; "
+                        "default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; "
                         "form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
                     )
             await send(message)

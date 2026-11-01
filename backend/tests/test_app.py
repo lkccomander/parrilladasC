@@ -35,3 +35,18 @@ def test_production_disables_api_documentation():
     with TestClient(create_app(settings)) as client:
         assert client.get("/docs").status_code == 404
         assert client.get("/openapi.json").status_code == 404
+
+
+def test_legal_pages_are_public_without_database_access(client):
+    for path, heading in [
+        ("/privacy", "Política de privacidad"),
+        ("/terms-of-service", "Términos de servicio"),
+    ]:
+        response = client.get(path)
+        assert response.status_code == 200
+        assert heading in response.text
+        assert 'href="/login"' in response.text
+        assert 'href="/privacy"' in response.text
+        assert 'href="/terms-of-service"' in response.text
+        assert "Welcome to Nicaragua" not in response.text
+        assert "font-src 'self'" in response.headers["content-security-policy"]

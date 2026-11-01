@@ -1,0 +1,115 @@
+{% extends "legal_base.html" %}
+{% block title %}Política de privacidad{% endblock %}
+{% block legal_title %}Política de privacidad{% endblock %}
+{% block legal_toc %}
+  <a href="#alcance">01 / Alcance</a>
+  <a href="#informacion">02 / Información que tratamos</a>
+  <a href="#uso">03 / Para qué se utiliza</a>
+  <a href="#proveedores">04 / Proveedores y acceso</a>
+  <a href="#conservacion">05 / Conservación</a>
+  <a href="#seguridad">06 / Seguridad y cookies</a>
+  <a href="#derechos">07 / Sus derechos</a>
+  <a href="#contacto">08 / Contacto y cambios</a>
+{% endblock %}
+{% block legal_copy %}
+  <section id="alcance">
+    <h2>01. Su información, con cuidado</h2>
+    <p>
+      Esta política describe el uso de información personal en la atención comercial
+      de Parrillas en su Casa, las consultas por WhatsApp y el panel privado del equipo.
+      No es necesario crear una cuenta de administrador para solicitar una cotización.
+    </p>
+  </section>
+  <section id="informacion">
+    <h2>02. Información que tratamos</h2>
+    <p>Según la consulta o el servicio solicitado, podemos recibir:</p>
+    <ul>
+      <li>Nombre y número de WhatsApp del contacto.</li>
+      <li>Mensajes y datos del evento: fecha, horario, ubicación, cantidad de invitados y servicio solicitado.</li>
+      <li>Información necesaria para preparar, revisar y dar seguimiento a una cotización.</li>
+      <li>Para miembros del equipo: nombre, correo, rol y datos necesarios para proteger su acceso al panel.</li>
+    </ul>
+    <p>
+      Evite enviar contraseñas, datos de tarjetas, documentos de identidad o información
+      sensible en una consulta. Para estimar el servicio bastan los datos relevantes del evento;
+      no se necesitan nombres ni datos identificativos de los niños invitados.
+    </p>
+  </section>
+  <section id="uso">
+    <h2>03. Para qué se utiliza</h2>
+    <p>
+      La información permite responder consultas, confirmar los detalles del evento,
+      elaborar cotizaciones y coordinar el servicio solicitado. Los recordatorios del
+      panel ayudan al equipo a organizar su seguimiento interno.
+    </p>
+    <p>
+      La cuenta y la sesión del equipo se utilizan para controlar el acceso y los permisos.
+      Una consulta no implica autorización para campañas publicitarias ni para otros usos
+      ajenos a la solicitud. Cuando corresponda, solicitaremos su consentimiento de forma expresa.
+    </p>
+    <p>
+      Puede decidir qué información facilitar. Sin una fecha, cantidad de invitados o
+      ubicación suficientes, es posible que el equipo no pueda preparar una cotización completa.
+    </p>
+  </section>
+  <section id="proveedores">
+    <h2>04. Quién puede acceder</h2>
+    <p>
+      El equipo autorizado de Parrillas en su Casa accede a la información necesaria para
+      atender las solicitudes. No vendemos los datos de nuestros contactos.
+    </p>
+    <p>
+      WhatsApp y Meta intervienen en el transporte de mensajes; Railway proporciona el
+      alojamiento de la plataforma y su base de datos. Estos proveedores pueden procesar
+      información en infraestructura fuera de Costa Rica, de acuerdo con sus servicios
+      y condiciones. También podrá comunicarse información cuando una obligación legal lo requiera.
+    </p>
+  </section>
+  <section id="conservacion">
+    <h2>05. Durante cuánto tiempo</h2>
+    <p>
+      Conservamos la información necesaria para gestionar la solicitud, la prestación del
+      servicio y las obligaciones legales aplicables. Puede solicitar información sobre
+      la conservación de su caso y pedir la eliminación de datos que ya no sean necesarios.
+    </p>
+    <p>
+      Desactivar una cuenta del equipo impide nuevos accesos; el historial comercial puede
+      conservar la referencia a esa cuenta para mantener la trazabilidad de las operaciones.
+    </p>
+  </section>
+  <section id="seguridad">
+    <h2>06. Seguridad y cookies</h2>
+    <p>
+      El panel utiliza acceso autenticado, permisos por rol y medidas para proteger las
+      contraseñas y las sesiones. Ningún sistema puede garantizar una protección absoluta.
+    </p>
+    <p>
+      El inicio de sesión utiliza una cookie necesaria para identificar la sesión y
+      proteger los formularios. La plataforma no incorpora cookies de publicidad ni
+      analítica de terceros. Los servicios externos, como WhatsApp, tienen sus propias políticas.
+    </p>
+  </section>
+  <section id="derechos">
+    <h2>07. Acceso, corrección y eliminación</h2>
+    <p>
+      Puede solicitar acceso a sus datos, corregir información, pedir su eliminación cuando
+      proceda y revocar el consentimiento para tratamientos que dependan de él.
+      También puede solicitar que se detengan las comunicaciones no necesarias.
+    </p>
+    <p>
+      Contacte al equipo por el canal indicado a continuación. Para proteger su información,
+      podremos verificar su identidad con los datos mínimos necesarios. Las solicitudes se
+      atenderán conforme a la normativa aplicable; una obligación legal puede exigir conservar
+      determinados registros.
+    </p>
+  </section>
+  <section id="contacto">
+    <h2>08. Contacto y actualizaciones</h2>
+    {% include "legal_contact.html" %}
+    <p>
+      Publicaremos en esta página las modificaciones de la política y su fecha de actualización.
+      Un cambio en el uso de sus datos que requiera consentimiento se comunicará para solicitarlo.
+    </p>
+    <p>Consulte también los <a href="/terms-of-service">términos de servicio</a>.</p>
+  </section>
+{% endblock %}

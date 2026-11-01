@@ -1,30 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Ingresar{% endblock %}
-{% block layout %}narrow{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block header %}{% endblock %}
+{% block layout %}auth-layout{% endblock %}
+{% block notices %}{% endblock %}
 {% block content %}
-  <section class="card">
-    <p class="eyebrow">ACCESO PRIVADO</p>
-    <h1>Bienvenido de nuevo</h1>
-    <p>Ingrese con su cuenta de trabajo.</p>
-    <form method="post" action="/login" class="stack">
+  <section class="auth-card" aria-labelledby="login-title">
+    <a class="auth-brand" href="/" aria-label="Parrillas en su Casa, inicio">
+      <img src="/static/images/logo-parrillas.png" alt="Parrillas en su Casa"
+           width="678" height="309">
+    </a>
+    <div class="auth-heading">
+      <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>Panel de gestión</p>
+      <h1 id="login-title">Bienvenido de nuevo</h1>
+      <p>Todo listo para una buena atención.</p>
+    </div>
+    {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="/login" class="stack auth-form">
       <input type="hidden" name="csrf_token" value="{{ context.csrf_token }}">
-      <label>
-        Correo electrónico<input name="email"
-                                 type="email"
-                                 autocomplete="username"
-                                 maxlength="254"
-                                 required
-                                 autofocus>
-      </label>
-      <label>
-        Contraseña<input name="password"
-                         type="password"
-                         autocomplete="current-password"
-                         maxlength="128"
-                         required>
-      </label>
-      <button type="submit">Ingresar</button>
+      <label for="login-email">Correo electrónico</label>
+      <input id="login-email" name="email" type="email" autocomplete="username"
+             placeholder="nombre@ejemplo.com" maxlength="254" required autofocus>
+      <label for="login-password">Contraseña</label>
+      <input id="login-password" name="password" type="password" autocomplete="current-password"
+             placeholder="Ingrese su contraseña" maxlength="128" required>
+      <button type="submit">Ingresar <span aria-hidden="true">↗</span></button>
     </form>
-    <p class="help">Si necesita acceso o recuperar su contraseña, contacte al administrador.</p>
+    <p class="auth-help">¿Necesita acceso? Contacte al administrador.</p>
+    <p class="auth-access">Acceso exclusivo para el equipo autorizado</p>
   </section>
 {% endblock %}

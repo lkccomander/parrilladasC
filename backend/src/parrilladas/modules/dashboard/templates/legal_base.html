@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block layout %}legal-layout{% endblock %}
+{% block content %}
+  <a class="back" href="/login">← Volver al inicio de sesión</a>
+  <header class="legal-heading">
+    <p class="eyebrow">Parrillas en su Casa</p>
+    <h1>{% block legal_title %}{% endblock %}</h1>
+    <p class="legal-date">Última actualización: 1 de noviembre de 2026</p>
+  </header>
+  <div class="legal-grid">
+    <nav class="legal-toc" aria-label="Contenido de esta página">
+      <p>En esta página</p>
+      {% block legal_toc %}{% endblock %}
+    </nav>
+    <article class="legal-copy">
+      {% block legal_copy %}{% endblock %}
+    </article>
+  </div>
+{% endblock %}

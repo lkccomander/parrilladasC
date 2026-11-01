@@ -12,6 +12,8 @@ Stack confirmado: Python 3.12, FastAPI, PostgreSQL, SQLAlchemy, Alembic, Jinja2 
 
 Panel privado: `/dashboard`. Crear el primer Admin con `parrilladas-admin bootstrap-admin` desde una terminal privada con el entorno y la base correctos. No hay contraseña predeterminada. Consultar [acceso y cuentas](docs/accounts.md).
 
+El login y el panel comparten el diseño oscuro de las referencias acordadas, con fuentes locales. Páginas públicas: `/privacy` y `/terms-of-service`. Consultar [diseño y contenido legal](docs/interface.md) para referencias, licencias y datos comerciales pendientes de completar.
+
 ## Inicio con Docker
 
 Desde la raíz, copiar `.env.example` a `.env` y ejecutar:

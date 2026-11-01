@@ -72,6 +72,16 @@ def index(request: Request) -> HTMLResponse:
     return page(request, "index.html")
 
 
+@router.get("/privacy", response_class=HTMLResponse)
+def privacy(request: Request) -> HTMLResponse:
+    return page(request, "privacy.html")
+
+
+@router.get("/terms-of-service", response_class=HTMLResponse)
+def terms_of_service(request: Request) -> HTMLResponse:
+    return page(request, "terms.html")
+
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, service: Service, context: Context) -> Response:
     if context and context.account:

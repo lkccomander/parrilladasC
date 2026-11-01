@@ -1,0 +1,102 @@
+{% extends "legal_base.html" %}
+{% block title %}Términos de servicio{% endblock %}
+{% block legal_title %}Términos de servicio{% endblock %}
+{% block legal_toc %}
+  <a href="#alcance">01 / Alcance del servicio</a>
+  <a href="#consultas">02 / Consultas y cotizaciones</a>
+  <a href="#confirmacion">03 / Confirmación y cambios</a>
+  <a href="#mensajeria">04 / Atención por WhatsApp</a>
+  <a href="#cuentas">05 / Cuentas y uso responsable</a>
+  <a href="#privacidad">06 / Privacidad</a>
+  <a href="#disponibilidad">07 / Disponibilidad</a>
+  <a href="#contacto">08 / Contacto y actualizaciones</a>
+{% endblock %}
+{% block legal_copy %}
+  <section id="alcance">
+    <h2>01. Atención para su evento</h2>
+    <p>
+      Estas condiciones describen el uso de los canales digitales de Parrillas en su Casa
+      para consultar sobre servicios de parrillada, solicitar cotizaciones y coordinar la atención.
+      El panel privado está reservado al equipo autorizado.
+    </p>
+  </section>
+  <section id="consultas">
+    <h2>02. Consultas y cotizaciones</h2>
+    <p>
+      Para preparar una propuesta, el equipo puede solicitar fecha, cantidad de invitados,
+      ubicación, horario y preferencias del servicio. Facilite información correcta y
+      comunique cualquier cambio que afecte la cotización.
+    </p>
+    <p>
+      Los precios y las condiciones se revisan para cada solicitud. Un borrador o una
+      respuesta inicial no constituye una reserva confirmada. La propuesta final debe
+      indicar el alcance del servicio, precio y condiciones acordadas.
+    </p>
+  </section>
+  <section id="confirmacion">
+    <h2>03. Confirmación y cambios</h2>
+    <p>
+      La disponibilidad, el menú, las condiciones de pago y la confirmación del evento
+      requieren coordinación con el equipo. No se presume una tarifa ni un porcentaje
+      de anticipo por el simple uso de esta plataforma.
+    </p>
+    <p>
+      Solicite al equipo cualquier cambio de fecha, invitados o servicio. Las condiciones
+      de modificación o cancelación deberán comunicarse y acordarse en la contratación
+      correspondiente, sin limitar los derechos que reconoce la legislación aplicable.
+    </p>
+  </section>
+  <section id="mensajeria">
+    <h2>04. Comunicación por WhatsApp</h2>
+    <p>
+      Si inicia una consulta por WhatsApp, el equipo podrá responder sobre esa solicitud,
+      pedir aclaraciones y coordinar el servicio. Puede pedir que se detengan las
+      comunicaciones no necesarias. Las promociones requieren la autorización que corresponda.
+    </p>
+    <p>
+      La atención puede combinar preguntas guiadas y revisión humana. Los recordatorios
+      internos del equipo no equivalen a mensajes automáticos al cliente ni a una reserva.
+    </p>
+  </section>
+  <section id="cuentas">
+    <h2>05. Cuentas y uso responsable</h2>
+    <p>
+      Las cuentas del panel son personales y se asignan por el administrador. No comparta
+      su contraseña ni utilice una cuenta ajena. Informe al administrador si sospecha
+      un acceso no autorizado.
+    </p>
+    <p>
+      Utilice los canales para fines legítimos. No intente acceder a información de otras
+      personas, evadir controles de seguridad ni interferir con el funcionamiento del servicio.
+      El administrador puede desactivar cuentas del equipo cuando ya no corresponda su acceso.
+    </p>
+  </section>
+  <section id="privacidad">
+    <h2>06. Información personal</h2>
+    <p>
+      El tratamiento de datos de contacto, mensajes, detalles del evento y cuentas del equipo
+      se describe en la <a href="/privacy">política de privacidad</a>. Facilite solo la
+      información necesaria para atender su solicitud.
+    </p>
+  </section>
+  <section id="disponibilidad">
+    <h2>07. Disponibilidad de los canales</h2>
+    <p>
+      El sitio y WhatsApp pueden experimentar interrupciones, mantenimiento o retrasos
+      de proveedores externos. Si no recibe confirmación, consulte al equipo antes de
+      asumir que una solicitud, un cambio o una reserva ha sido aceptado.
+    </p>
+    <p>
+      Estas condiciones no excluyen responsabilidades ni derechos que sean obligatorios
+      según la legislación aplicable.
+    </p>
+  </section>
+  <section id="contacto">
+    <h2>08. Contacto y actualizaciones</h2>
+    {% include "legal_contact.html" %}
+    <p>
+      Las actualizaciones se publicarán en esta página con su fecha. Los cambios no
+      sustituyen las condiciones ya acordadas para un evento sin la coordinación correspondiente.
+    </p>
+  </section>
+{% endblock %}
