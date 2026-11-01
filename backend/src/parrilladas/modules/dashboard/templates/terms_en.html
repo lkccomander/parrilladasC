@@ -1,0 +1,101 @@
+{% extends "legal_base.html" %}
+{% block title %}Terms of service{% endblock %}
+{% block legal_title %}Terms of service{% endblock %}
+{% block legal_toc %}
+  <a href="#scope">01 / Service scope</a>
+  <a href="#inquiries">02 / Inquiries and quotes</a>
+  <a href="#confirmation">03 / Confirmation and changes</a>
+  <a href="#messaging">04 / WhatsApp support</a>
+  <a href="#accounts">05 / Accounts and responsible use</a>
+  <a href="#privacy">06 / Privacy</a>
+  <a href="#availability">07 / Availability</a>
+  <a href="#contact">08 / Contact and updates</a>
+{% endblock %}
+{% block legal_copy %}
+  <section id="scope">
+    <h2>01. Support for your event</h2>
+    <p>
+      These terms describe the use of Parrillas en su Casa's digital channels to inquire
+      about barbecue catering services, request quotes and coordinate assistance.
+      The private dashboard is reserved for authorized team members.
+    </p>
+  </section>
+  <section id="inquiries">
+    <h2>02. Inquiries and quotes</h2>
+    <p>
+      To prepare a proposal, the team may request the date, number of guests, location,
+      time and service preferences. Provide accurate information and communicate any
+      changes that affect the quote.
+    </p>
+    <p>
+      Prices and conditions are reviewed for each request. A draft or an initial response
+      does not constitute a confirmed booking. The final proposal must state the scope
+      of the service, price and agreed conditions.
+    </p>
+  </section>
+  <section id="confirmation">
+    <h2>03. Confirmation and changes</h2>
+    <p>
+      Availability, the menu, payment terms and event confirmation require coordination
+      with the team. Simply using this platform does not establish a rate or deposit percentage.
+    </p>
+    <p>
+      Ask the team about any changes to the date, guest count or service. Modification
+      or cancellation conditions must be communicated and agreed upon in the relevant
+      service agreement, without limiting rights recognized by applicable law.
+    </p>
+  </section>
+  <section id="messaging">
+    <h2>04. Communication through WhatsApp</h2>
+    <p>
+      If you start an inquiry through WhatsApp, the team may respond about that request,
+      ask for clarification and coordinate the service. You can ask for nonessential
+      communications to stop. Promotions require the applicable authorization.
+    </p>
+    <p>
+      Support may combine guided questions and human review. Internal team reminders
+      do not constitute automatic messages to the customer or a booking.
+    </p>
+  </section>
+  <section id="accounts">
+    <h2>05. Accounts and responsible use</h2>
+    <p>
+      Dashboard accounts are personal and assigned by the administrator. Do not share
+      your password or use someone else's account. Tell the administrator if you suspect
+      unauthorized access.
+    </p>
+    <p>
+      Use the channels for lawful purposes. Do not attempt to access other people's
+      information, bypass security controls or interfere with the service.
+      The administrator may deactivate team accounts when access is no longer appropriate.
+    </p>
+  </section>
+  <section id="privacy">
+    <h2>06. Personal information</h2>
+    <p>
+      The processing of contact details, messages, event information and team accounts
+      is described in the <a href="/privacy?lang=en">privacy policy</a>.
+      Provide only the information needed to handle your request.
+    </p>
+  </section>
+  <section id="availability">
+    <h2>07. Channel availability</h2>
+    <p>
+      The website and WhatsApp may experience interruptions, maintenance or delays
+      from external providers. If you do not receive confirmation, check with the team
+      before assuming that a request, change or booking has been accepted.
+    </p>
+    <p>
+      These terms do not exclude responsibilities or rights that are mandatory under
+      applicable law.
+    </p>
+  </section>
+  <section id="contact">
+    <h2>08. Contact and updates</h2>
+    {% include "legal_contact.html" %}
+    <p>
+      Updates will be published on this page with their date. Changes do not replace
+      conditions already agreed upon for an event without the corresponding coordination.
+    </p>
+  </section>
+{% endblock %}

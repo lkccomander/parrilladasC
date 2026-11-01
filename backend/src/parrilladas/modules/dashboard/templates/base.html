@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="{{ page_language|default('es') }}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,7 +8,9 @@
     <link rel="stylesheet" href="/static/dashboard.css">
   </head>
   <body class="{% block body_class %}{% endblock %}">
-    <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
+    <a class="skip-link" href="#main-content">
+      {{ 'Skip to main content' if page_language == 'en' else 'Saltar al contenido principal' }}
+    </a>
     {% block header %}
       <header class="topbar">
         <a class="brand"
@@ -49,10 +51,17 @@
       {% block content %}{% endblock %}
     </main>
     <footer class="site-footer">
-      <span>Parrillas en su Casa <span class="footer-detail">· Gestión comercial</span></span>
-      <nav aria-label="Información legal">
-        <a href="/terms-of-service">Términos de servicio</a>
-        <a href="/privacy">Privacidad</a>
+      <span>
+        Parrillas en su Casa
+        <span class="footer-detail">· {{ 'Sales management' if page_language == 'en' else 'Gestión comercial' }}</span>
+      </span>
+      <nav aria-label="{{ 'Legal information' if page_language == 'en' else 'Información legal' }}">
+        <a href="/terms-of-service{{ '?lang=en' if page_language == 'en' else '' }}">
+          {{ 'Terms of service' if page_language == 'en' else 'Términos de servicio' }}
+        </a>
+        <a href="/privacy{{ '?lang=en' if page_language == 'en' else '' }}">
+          {{ 'Privacy' if page_language == 'en' else 'Privacidad' }}
+        </a>
       </nav>
     </footer>
   </body>

@@ -24,6 +24,8 @@ Los tokens de color, tipografía y superficies están en `static/dashboard.css`.
 
 Las páginas son públicas y no consultan la base de datos. El contacto confirmado por el usuario es `info@parrillasensucasa.com`, centralizado en `legal_contact.html` para ambas páginas.
 
+Español es el idioma predeterminado. Las versiones en inglés se encuentran en `/privacy?lang=en` y `/terms-of-service?lang=en`; el botón del encabezado cambia entre ambos idiomas. El índice, la fecha, el contacto y el pie se traducen junto con el contenido. Los enlaces entre las páginas legales mantienen el idioma seleccionado, indicado también en `html[lang]` y el header HTTP `Content-Language`. Solo se aceptan `es` y `en`. Al modificar el texto legal, actualizar también su traducción para mantener el mismo contenido en ambos idiomas.
+
 El contenido describe WhatsApp, los datos del evento, el acceso del equipo y los proveedores actuales. No se añade un consentimiento implícito por visitar el sitio, una autorización de marketing por consultar, precios, anticipos ni condiciones de cancelación no confirmadas. Las condiciones del evento se coordinan con el equipo.
 
 La identidad jurídica/domicilio del responsable y los plazos concretos de conservación no se han proporcionado. Deben completarse y revisarse junto con las condiciones comerciales antes del lanzamiento con datos de clientes; el texto no constituye una certificación de cumplimiento legal. Como referencia de revisión se consultaron la [Ley 8968, texto oficial](https://pgrweb.go.cr/DOCS/NORMAS/1/VIGENTE/L/2010-2019/2010-2014/2011/1153F/DCEF7.HTML) y las [preguntas frecuentes de PRODHAB](https://www.prodhab.go.cr/preguntasfrecuentes.aspx).

@@ -1,15 +1,30 @@
 {% extends "base.html" %}
 {% block layout %}legal-layout{% endblock %}
 {% block content %}
-  <a class="back" href="/login">← Volver al inicio de sesión</a>
+  <a class="back" href="/login">
+    ← {{ 'Back to sign in' if page_language == 'en' else 'Volver al inicio de sesión' }}
+  </a>
   <header class="legal-heading">
-    <p class="eyebrow">Parrillas en su Casa</p>
+    <div class="legal-topline">
+      <p class="eyebrow">Parrillas en su Casa</p>
+      {% if page_language == 'en' %}
+        <a class="button quiet language-switch" href="{{ legal_path }}" lang="es" hreflang="es">
+          Español
+        </a>
+      {% else %}
+        <a class="button quiet language-switch" href="{{ legal_path }}?lang=en" lang="en" hreflang="en">
+          English
+        </a>
+      {% endif %}
+    </div>
     <h1>{% block legal_title %}{% endblock %}</h1>
-    <p class="legal-date">Última actualización: 1 de noviembre de 2026</p>
+    <p class="legal-date">
+      {{ 'Last updated: November 1, 2026' if page_language == 'en' else 'Última actualización: 1 de noviembre de 2026' }}
+    </p>
   </header>
   <div class="legal-grid">
-    <nav class="legal-toc" aria-label="Contenido de esta página">
-      <p>En esta página</p>
+    <nav class="legal-toc" aria-label="{{ 'On this page' if page_language == 'en' else 'Contenido de esta página' }}">
+      <p>{{ 'On this page' if page_language == 'en' else 'En esta página' }}</p>
       {% block legal_toc %}{% endblock %}
     </nav>
     <article class="legal-copy">

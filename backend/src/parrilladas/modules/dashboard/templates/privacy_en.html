@@ -1,0 +1,115 @@
+{% extends "legal_base.html" %}
+{% block title %}Privacy policy{% endblock %}
+{% block legal_title %}Privacy policy{% endblock %}
+{% block legal_toc %}
+  <a href="#scope">01 / Scope</a>
+  <a href="#information">02 / Information we process</a>
+  <a href="#use">03 / How we use it</a>
+  <a href="#providers">04 / Providers and access</a>
+  <a href="#retention">05 / Retention</a>
+  <a href="#security">06 / Security and cookies</a>
+  <a href="#rights">07 / Your rights</a>
+  <a href="#contact">08 / Contact and updates</a>
+{% endblock %}
+{% block legal_copy %}
+  <section id="scope">
+    <h2>01. Taking care of your information</h2>
+    <p>
+      This policy describes how personal information is used in Parrillas en su Casa's
+      sales support, WhatsApp inquiries and private team dashboard.
+      You do not need an administrator account to request a quote.
+    </p>
+  </section>
+  <section id="information">
+    <h2>02. Information we process</h2>
+    <p>Depending on your inquiry or the service requested, we may receive:</p>
+    <ul>
+      <li>The contact person's name and WhatsApp number.</li>
+      <li>Messages and event details: date, time, location, number of guests and requested service.</li>
+      <li>Information needed to prepare, review and follow up on a quote.</li>
+      <li>For team members: name, email, role and information needed to protect their dashboard access.</li>
+    </ul>
+    <p>
+      Avoid sending passwords, payment card details, identity documents or sensitive
+      information in an inquiry. Relevant event details are sufficient to estimate the service;
+      we do not need names or identifying information about children attending the event.
+    </p>
+  </section>
+  <section id="use">
+    <h2>03. How we use it</h2>
+    <p>
+      This information allows us to answer inquiries, confirm event details, prepare quotes
+      and coordinate the requested service. Dashboard reminders help the team organize
+      its internal follow-up.
+    </p>
+    <p>
+      Team accounts and sessions are used to control access and permissions. An inquiry
+      does not authorize advertising campaigns or other uses unrelated to your request.
+      Where applicable, we will ask for your explicit consent.
+    </p>
+    <p>
+      You can choose what information to provide. Without a sufficiently clear date,
+      number of guests or location, the team may be unable to prepare a complete quote.
+    </p>
+  </section>
+  <section id="providers">
+    <h2>04. Who can access it</h2>
+    <p>
+      Authorized Parrillas en su Casa team members access the information needed to
+      handle requests. We do not sell our contacts' data.
+    </p>
+    <p>
+      WhatsApp and Meta handle message delivery; Railway hosts the platform and its
+      database. These providers may process information on infrastructure outside
+      Costa Rica under their services and terms. Information may also be disclosed
+      when required by a legal obligation.
+    </p>
+  </section>
+  <section id="retention">
+    <h2>05. How long we keep it</h2>
+    <p>
+      We keep the information needed to handle your request, provide the service and
+      meet applicable legal obligations. You can ask about retention in your case and
+      request deletion of data that is no longer needed.
+    </p>
+    <p>
+      Deactivating a team account prevents further access; sales records may retain a
+      reference to that account to preserve the traceability of operations.
+    </p>
+  </section>
+  <section id="security">
+    <h2>06. Security and cookies</h2>
+    <p>
+      The dashboard uses authenticated access, role-based permissions and measures to
+      protect passwords and sessions. No system can guarantee absolute protection.
+    </p>
+    <p>
+      Sign-in uses a necessary cookie to identify the session and protect forms.
+      The platform does not include advertising cookies or third-party analytics.
+      External services, such as WhatsApp, have their own policies.
+    </p>
+  </section>
+  <section id="rights">
+    <h2>07. Access, correction and deletion</h2>
+    <p>
+      You can request access to your data, correct information, request deletion where
+      applicable and withdraw consent for processing that relies on it.
+      You can also ask for nonessential communications to stop.
+    </p>
+    <p>
+      Contact the team using the channel below. To protect your information, we may
+      verify your identity using the minimum information necessary. Requests will be
+      handled in accordance with applicable law; a legal obligation may require us
+      to retain certain records.
+    </p>
+  </section>
+  <section id="contact">
+    <h2>08. Contact and updates</h2>
+    {% include "legal_contact.html" %}
+    <p>
+      We will publish changes to this policy and their update date on this page.
+      If a change in the use of your data requires consent, we will notify you and request it.
+    </p>
+    <p>See also our <a href="/terms-of-service?lang=en">terms of service</a>.</p>
+  </section>
+{% endblock %}

@@ -615,6 +615,23 @@ td a {
   margin-bottom: 36px;
 }
 
+.legal-topline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.legal-topline .eyebrow {
+  margin: 0;
+}
+
+.language-switch {
+  flex-shrink: 0;
+}
+
 .legal-heading h1 {
   margin-bottom: 18px;
 }

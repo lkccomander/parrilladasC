@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
@@ -73,13 +74,27 @@ def index(request: Request) -> HTMLResponse:
 
 
 @router.get("/privacy", response_class=HTMLResponse)
-def privacy(request: Request) -> HTMLResponse:
-    return page(request, "privacy.html")
+def privacy(request: Request, lang: Literal["es", "en"] = "es") -> HTMLResponse:
+    response = page(
+        request,
+        "privacy_en.html" if lang == "en" else "privacy.html",
+        page_language=lang,
+        legal_path="/privacy",
+    )
+    response.headers["Content-Language"] = lang
+    return response
 
 
 @router.get("/terms-of-service", response_class=HTMLResponse)
-def terms_of_service(request: Request) -> HTMLResponse:
-    return page(request, "terms.html")
+def terms_of_service(request: Request, lang: Literal["es", "en"] = "es") -> HTMLResponse:
+    response = page(
+        request,
+        "terms_en.html" if lang == "en" else "terms.html",
+        page_language=lang,
+        legal_path="/terms-of-service",
+    )
+    response.headers["Content-Language"] = lang
+    return response
 
 
 @router.get("/login", response_class=HTMLResponse)
