@@ -18,7 +18,15 @@ npm run --prefix .railway apply
 
 Revisar el plan antes de aplicar: para cambios de despliegue no se esperan eliminaciones de servicios, variables o volúmenes. Las variables son `unmanaged`: IaC no lee ni escribe sus valores, que permanecen en Railway. Importar con `--variables=unmanaged`; no usar `--include-variables`.
 
-Los pushes de código a `main` disparan el despliegue de `web`. Los cambios en `.railway/` requieren plan y aplicación explícita; Railway no evalúa ese archivo durante cada build de la aplicación. No guardar tokens personales en GitHub para automatizar esta operación.
+El flujo objetivo es push a `main` → GitHub Actions → despliegue automático de `web`. La fuente GitHub está conectada, pero Railway todavía rechaza crear el trigger automático porque no reconoce a un miembro del proyecto con acceso al repositorio. El propietario debe conectar GitHub en Railway y conceder acceso a `lkccomander/parrilladasC`; después habilitar autodeploy para `main`, con Wait for CI.
+
+Mientras se completa esa conexión, desplegar explícitamente desde el último commit de GitHub (no sube archivos locales):
+
+```sh
+node .railway/cli.cjs redeploy --service web --from-source --yes
+```
+
+Los cambios en `.railway/` requieren plan y aplicación explícita; Railway no evalúa ese archivo durante cada build de la aplicación. Revisar diferencias con el estado actual, incluyendo cambios de región o serverless hechos en el dashboard. No guardar tokens personales en GitHub para automatizar esta operación.
 
 ## Servicios
 
