@@ -2,6 +2,8 @@
 
 Read `docs/architecture.md`, `docs/implementation-plan.md` and `proyect_brain/TECH_STACK_MVP.md` before changing the application.
 
+- Deploy Admin (`parrilladas.admin`) and API (`parrilladas.main`) as separate services. Admin calls API over HTTP with Bearer JWT; only API has database credentials and the JWT signing key.
+- Dashboard code may import contracts/schemas, never business services, repositories or ORM models. Keep CSRF validation on forms and API mutations.
 - Keep Python code under `backend/src/parrilladas` in feature modules.
 - Routes handle HTTP; services own use cases and explicit transactions; repositories own SQL. Add layers only when behavior needs them.
 - Do not put business rules in `main.py`, dashboard templates or external adapters.
