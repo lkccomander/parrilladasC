@@ -1,16 +1,11 @@
 from datetime import datetime
-from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from parrilladas.db.base import Base, Record
-
-
-class Role(StrEnum):
-    ADMIN = "admin"
-    SALES = "sales"
+from parrilladas.modules.accounts.contracts import Role
 
 
 class Account(Record, Base):

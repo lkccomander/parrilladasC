@@ -13,4 +13,4 @@ RUN pip install --no-deps --no-build-isolation /app/backend \
 USER appuser
 WORKDIR /app/backend
 EXPOSE 8000
-CMD ["sh", "-c", "exec uvicorn parrilladas.main:create_app --factory --host 0.0.0.0 --port \"${PORT:-8000}\""]
+CMD ["sh", "-c", "exec uvicorn \"${APP_MODULE:-parrilladas.main:create_app}\" --factory --host 0.0.0.0 --port \"${PORT:-8000}\""]

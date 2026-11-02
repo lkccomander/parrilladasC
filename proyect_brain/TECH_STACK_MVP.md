@@ -20,7 +20,7 @@ Este documento registra las decisiones confirmadas por el usuario y prevalece so
 | Acceso a datos y migraciones | SQLAlchemy + Alembic |
 | Dashboard privado | Jinja2 + HTMX |
 
-El backend sirve el dashboard y recibe los webhooks de WhatsApp en una misma aplicación. No se requiere una aplicación frontend separada para este MVP. Hosting seleccionado: Railway, con servicios web y PostgreSQL privados entre sí. La librería de PDF y la implementación de trabajos persistentes quedan por seleccionar.
+Admin y API se despliegan en servicios separados, por indicación posterior del usuario. Admin conserva Jinja2/HTMX y llama al API por HTTP con JWT Bearer; solo el API accede a PostgreSQL y firma tokens. Hosting: Railway, con Admin público, API y PostgreSQL en red privada. Los webhooks de WhatsApp se implementarán en el API y requerirán exponer una entrada validada cuando corresponda. La librería de PDF y la implementación de trabajos persistentes quedan por seleccionar.
 
 ## Operación confirmada
 

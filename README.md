@@ -8,6 +8,8 @@ Plataforma comercial de Parrillas en su Casa: WhatsApp guiado, atención humana 
 
 Funcionan FastAPI, PostgreSQL, health checks, login/logout, permisos Admin/Sales y gestión de cuentas desde el dashboard. Las cuentas se desactivan para conservar el historial. Conversaciones reales, cotizaciones, PDF y recordatorios operativos son los próximos módulos. No conectar aún el webhook de producción.
 
+Admin y API viven en servicios independientes: navegador → Admin → API con Bearer JWT → PostgreSQL. Admin no tiene acceso directo a la base ni a la clave de firma.
+
 Stack confirmado: Python 3.12, FastAPI, PostgreSQL, SQLAlchemy, Alembic, Jinja2 y HTMX. HTMX se incorporará cuando aporte interacción útil; las pantallas actuales funcionan sin JavaScript.
 
 Panel privado: `/dashboard`. Crear el primer Admin con `parrilladas-admin bootstrap-admin` desde una terminal privada con el entorno y la base correctos. No hay contraseña predeterminada. Consultar [acceso y cuentas](docs/accounts.md).
@@ -22,7 +24,7 @@ Desde la raíz, copiar `.env.example` a `.env` y ejecutar:
 docker compose up --build
 ```
 
-Compose inicia PostgreSQL, ejecuta las migraciones una vez y arranca la aplicación en http://localhost:8000. `/health/live` comprueba el proceso y `/health/ready` comprueba conectividad con PostgreSQL. Documentación API en `/docs` únicamente en desarrollo y pruebas. Para detener: `docker compose down`; los datos permanecen en el volumen.
+Compose inicia PostgreSQL, ejecuta las migraciones una vez y arranca Admin en http://localhost:8000 y API en http://localhost:8001. Cada proceso tiene `/health/live`; `/health/ready` comprueba PostgreSQL en el API y disponibilidad del API en Admin. Documentación en http://localhost:8001/docs únicamente en desarrollo y pruebas. Para bootstrap local: `docker compose exec api parrilladas-admin bootstrap-admin`. Para detener: `docker compose down`; los datos permanecen en el volumen.
 
 Los valores de `.env.example` son exclusivamente locales. Elegir contraseñas propias; si contienen caracteres reservados, codificarlos al construir una URL de conexión. El compose local presupone credenciales sencillas sin caracteres reservados para su URL interna.
 
@@ -42,12 +44,14 @@ python -m pip install --no-deps --no-build-isolation -e backend
 docker compose up -d db
 ```
 
-Exportar `DATABASE_URL` desde el entorno, o copiar `.env.example` a `backend/.env` para los comandos ejecutados dentro de `backend`:
+Exportar `DATABASE_URL`, `JWT_SECRET` (mínimo 32 caracteres) y `API_BASE_URL` desde el entorno, o copiar `.env.example` a `backend/.env` para los comandos ejecutados dentro de `backend`:
 
 ```sh
 cd backend
 alembic upgrade head
-uvicorn parrilladas.main:create_app --factory --reload
+uvicorn parrilladas.main:create_app --factory --reload --port 8001
+# En otra terminal, desde backend (Admin no necesita DATABASE_URL ni JWT_SECRET):
+uvicorn parrilladas.admin:create_app --factory --reload --port 8000
 ```
 
 `.env` no se carga implícitamente desde carpetas superiores: la configuración lee el archivo del directorio actual. No ejecutar migraciones automáticamente dentro de los procesos web; producción necesita una fase de migración separada.

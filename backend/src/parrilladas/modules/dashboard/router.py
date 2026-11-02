@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
@@ -8,14 +7,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
-from parrilladas.modules.accounts.dependencies import (
-    Admin,
-    Authenticated,
-    CheckedForm,
-    Context,
-    Service,
-    cookie_name,
-)
 from parrilladas.modules.accounts.errors import (
     AccessDenied,
     AccountConflict,
@@ -23,7 +14,15 @@ from parrilladas.modules.accounts.errors import (
     InvalidCredentials,
     LoginThrottled,
 )
-from parrilladas.modules.accounts.schemas import AccountCreate, AccountUpdate, SessionCreated
+from parrilladas.modules.accounts.schemas import AccountCreate, AccountUpdate
+from parrilladas.modules.dashboard.cookies import clear_cookies, set_session_cookie
+from parrilladas.modules.dashboard.dependencies import (
+    Admin,
+    Authenticated,
+    CheckedForm,
+    Context,
+    Service,
+)
 
 router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates")))
@@ -32,18 +31,6 @@ templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates"))
 def page(request: Request, name: str, status_code: int = 200, **context) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request, name=name, context=context, status_code=status_code
-    )
-
-
-def set_session_cookie(request: Request, response: Response, created: SessionCreated) -> None:
-    response.set_cookie(
-        cookie_name(request),
-        created.token,
-        max_age=max(0, int((created.context.expires_at - datetime.now(UTC)).total_seconds())),
-        httponly=True,
-        secure=request.app.state.secure_cookies,
-        samesite="lax",
-        path="/",
     )
 
 
@@ -116,7 +103,7 @@ def login(request: Request, service: Service, context: Context, form: CheckedFor
             request, "login.html", 422, context=context, error="Revise correo y contraseña."
         )
     try:
-        created = service.login(email, password, request.cookies.get(cookie_name(request), ""))
+        created = service.login(email, password)
     except InvalidCredentials as error:
         return page(request, "login.html", 401, context=context, error=str(error))
     except LoginThrottled as error:
@@ -132,15 +119,9 @@ def login(request: Request, service: Service, context: Context, form: CheckedFor
 def logout(
     request: Request, service: Service, context: Authenticated, form: CheckedForm
 ) -> Response:
-    service.logout(context.id)
+    service.logout()
     response = RedirectResponse("/login", status_code=303)
-    response.delete_cookie(
-        cookie_name(request),
-        path="/",
-        secure=request.app.state.secure_cookies,
-        httponly=True,
-        samesite="lax",
-    )
+    clear_cookies(request, response)
     return response
 
 
@@ -152,7 +133,7 @@ def dashboard(request: Request, context: Authenticated) -> HTMLResponse:
 @router.get("/dashboard/accounts", response_class=HTMLResponse)
 def accounts(request: Request, service: Service, context: Admin) -> HTMLResponse:
     try:
-        accounts = service.list_accounts(context.account.id)
+        accounts = service.list_accounts()
     except AccessDenied as error:
         raise HTTPException(403, str(error)) from None
     return page(
@@ -179,7 +160,7 @@ def create_account(
 ) -> Response:
     try:
         data = account_form_data(form, creating=True)
-        service.create_account(context.account.id, data)
+        service.create_account(data)
     except (ValidationError, AccountConflict) as error:
         message = (
             "Revise el correo, nombre, rol y contraseña (15–128 caracteres)."
@@ -205,7 +186,7 @@ def edit_account(
     request: Request, account_id: UUID, service: Service, context: Admin
 ) -> HTMLResponse:
     try:
-        account = service.get_account(context.account.id, account_id)
+        account = service.get_account(account_id)
     except AccountNotFound as error:
         raise HTTPException(404, str(error)) from None
     except AccessDenied as error:
@@ -228,9 +209,9 @@ def update_account(
     form: CheckedForm,
 ) -> Response:
     try:
-        account = service.get_account(context.account.id, account_id)
+        account = service.get_account(account_id)
         data = account_form_data(form, creating=False)
-        service.update_account(context.account.id, account_id, data)
+        service.update_account(account_id, data)
     except (ValidationError, AccountConflict) as error:
         message = (
             "Revise el correo, nombre, rol y contraseña (15–128 caracteres)."

@@ -2,12 +2,19 @@
 
 ## Decisión
 
-Un monolito modular: una aplicación y una base PostgreSQL, con módulos de negocio separados. Mantener despliegue y operación simples para un desarrollador, un plazo de dos semanas y un presupuesto de hosting de USD 35 mensuales.
+Dos servicios desplegables independientes en el mismo repositorio, con una sola base PostgreSQL. El API conserva un backend modular; Admin renderiza Jinja2/HTMX y consume el API por HTTP. Esta decisión sustituye el despliegue combinado inicial por indicación del usuario.
+
+```text
+Navegador → Admin (web, HTTPS) → API (red privada, Bearer JWT) → PostgreSQL
+```
+
+Solo el API recibe `DATABASE_URL` y `JWT_SECRET`. Admin recibe `API_BASE_URL`; no abre conexiones SQL ni firma tokens. Ambos usan la misma imagen con distintos `APP_MODULE`. Presupuesto objetivo: USD 35 mensuales, sujeto al consumo de tres servicios.
 
 ```text
 backend/
   src/parrilladas/
-    main.py                 # composición y ciclo de vida
+    main.py                 # composición y ciclo de vida del API
+    admin.py                # composición del servicio Admin
     core/                   # configuración transversal
     db/                     # Base, sesiones y registro de modelos
     modules/
@@ -33,7 +40,7 @@ backend/
 - `policies.py`: reglas puras cuando aportan claridad; no consulta DB ni llama proveedores.
 - `main.py` compone routers e infraestructura; no acumula lógica de negocio.
 - Un módulo accede a otro por servicios o contratos públicos. No importar routers o repositorios internos de otro módulo. `db/models.py` es la excepción explícita para registrar metadata de migraciones.
-- `dashboard` compone datos de servicios y los presenta; no duplica reglas comerciales.
+- `dashboard` llama al API mediante `AdminApiClient` y presenta contratos; no importa servicios, repositorios ni modelos ORM de negocio. No duplica reglas comerciales.
 - `integrations` traduce protocolos externos, sin decidir precios, permisos o estados de venta.
 - Evitar repositorios base, capas genéricas y herencias de servicios hasta que exista repetición real que lo justifique.
 
@@ -52,13 +59,13 @@ Se crean archivos conforme existe comportamiento que implementar; las carpetas n
 
 ## Seguridad y operación
 
-El módulo accounts implementa sesiones persistentes opacas, Argon2id, CSRF para formularios y futuros clientes HTMX, roles comprobados en servidor, límites de intentos y bootstrap de administrador sin contraseña por defecto. Detalles y operación: [acceso y cuentas](accounts.md).
+El módulo accounts implementa JWT de acceso de 15 minutos, refresh tokens opacos rotativos con sesión persistente, Argon2id, CSRF para formularios y futuros clientes HTMX, roles comprobados en servidor, límites de intentos y bootstrap de administrador sin contraseña por defecto. Detalles y operación: [acceso y cuentas](accounts.md).
 
 Antes de conectar Meta: validación de firma sobre el body original, verificación de webhook, persistencia idempotente antes de confirmar recepción, separación entre bot y atención humana, y reintentos persistentes. No usar tareas en memoria para envíos críticos. No registrar tokens ni contenido sensible por defecto.
 
 El envío de cotización y la creación de recordatorio requieren una estrategia transaccional/outbox para recuperarse de fallos entre DB y Meta. La aprobación por sí sola no crea un envío. Un recordatorio interno nunca dispara un WhatsApp al cliente.
 
-Uploads y PDFs permanecerán privados con acceso autorizado. Railway aloja la aplicación y PostgreSQL; almacenamiento de PDFs y verificación de backups siguen pendientes. Docker ejecuta la app como usuario sin privilegios; la configuración y los datos se mantienen fuera de la imagen.
+Uploads y PDFs permanecerán privados con acceso autorizado. Railway aloja Admin, API y PostgreSQL; almacenamiento de PDFs y verificación de backups siguen pendientes. Docker ejecuta la app como usuario sin privilegios; la configuración y los datos se mantienen fuera de la imagen.
 
 ## Referencias
 

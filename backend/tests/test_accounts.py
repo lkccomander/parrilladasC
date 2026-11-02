@@ -12,9 +12,11 @@ from pydantic import ValidationError
 from sqlalchemy import create_engine, delete, inspect, select, text
 from sqlalchemy.orm import Session
 
-from parrilladas.core.config import Settings
+from parrilladas.admin import create_app as create_admin
+from parrilladas.core.config import AdminSettings, ApiSettings
 from parrilladas.main import create_app
 from parrilladas.modules.accounts.errors import AccessDenied, AccountConflict
+from parrilladas.modules.accounts.jwt_tokens import verify_access
 from parrilladas.modules.accounts.models import Account, AuthSession, LoginAttempt, Role
 from parrilladas.modules.accounts.schemas import AccountCreate, AccountUpdate, PasswordReset
 from parrilladas.modules.accounts.security import token_digest, verify_password
@@ -22,6 +24,7 @@ from parrilladas.modules.accounts.service import AccountService
 
 pytestmark = pytest.mark.postgres
 PASSWORD = "testing a long passphrase 123"
+JWT_SECRET = "test-only-signing-key-at-least-32-characters"
 
 
 @pytest.fixture(scope="module")
@@ -59,9 +62,15 @@ def account_client(account_database):
                 password=PASSWORD,
             )
         )
-    with TestClient(
-        create_app(Settings(app_env="test", database_url=url, _env_file=None))
-    ) as client:
+    settings = ApiSettings(app_env="test", database_url=url, jwt_secret=JWT_SECRET, _env_file=None)
+    with (
+        TestClient(create_app(settings)) as api,
+        TestClient(
+            create_admin(AdminSettings(app_env="test", _env_file=None), api_http=api)
+        ) as client,
+    ):
+        client.api = api
+        client.api_settings = settings
         yield client, engine, admin
 
 
@@ -110,12 +119,16 @@ def test_login_rotates_session_and_logout_revokes_it(account_client):
     with Session(engine) as session:
         assert (
             session.scalar(
-                select(AuthSession).where(AuthSession.token_hash == token_digest(anonymous))
+                select(AuthSession).where(
+                    AuthSession.id == verify_access(anonymous, client.api_settings)["sid"]
+                )
             )
             is None
         )
         persisted = session.scalar(
-            select(AuthSession).where(AuthSession.token_hash == token_digest(authenticated))
+            select(AuthSession).where(
+                AuthSession.token_hash == token_digest(client.cookies.get("parrilladas_refresh"))
+            )
         )
         assert persisted.token_hash != authenticated
     response = client.post("/logout", data={"csrf_token": csrf(dashboard)}, follow_redirects=False)
@@ -308,7 +321,7 @@ def test_failed_login_is_generic_and_throttle_survives_new_session(account_clien
 def test_expired_sessions_rejected_and_role_changes_revoke_sessions(account_client):
     client, engine, admin = account_client
     login(client)
-    token = client.cookies.get("parrilladas_session")
+    token = client.cookies.get("parrilladas_refresh")
     with Session(engine) as session, session.begin():
         record = session.scalar(
             select(AuthSession).where(AuthSession.token_hash == token_digest(token))
@@ -441,3 +454,141 @@ def test_bootstrap_serializes_concurrent_first_admins(account_client):
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         assert sorted(pool.map(bootstrap, range(2))) == ["blocked", "created"]
+
+
+def api_login(client, email="admin@example.com"):
+    api = client.api
+    anonymous = api.post("/auth/sessions").json()
+    response = api.post(
+        "/auth/login",
+        headers={
+            "Authorization": f"Bearer {anonymous['token']}",
+            "X-CSRF-Token": anonymous["context"]["csrf_token"],
+        },
+        json={"email": email, "password": PASSWORD},
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_api_rejects_invalid_jwts_and_cookie_auth(account_client):
+    import jwt
+
+    client, _, _ = account_client
+    credentials = api_login(client)
+    token = credentials["token"]
+    claims = verify_access(token, client.api_settings)
+    assert client.api.get("/accounts").status_code == 401
+    client.api.cookies.set("parrilladas_session", token)
+    assert client.api.get("/accounts").status_code == 401
+    client.api.cookies.clear()
+    variants = [
+        "malformed",
+        jwt.encode(claims, "another-key-at-least-thirty-two-characters", algorithm="HS256"),
+    ]
+    for field, value in [("aud", "other"), ("iss", "other"), ("exp", 1), ("sid", "invalid")]:
+        variants.append(jwt.encode({**claims, field: value}, JWT_SECRET, algorithm="HS256"))
+    variants.append(jwt.encode(claims, "", algorithm="none"))
+    for invalid in variants:
+        response = client.api.get("/accounts", headers={"Authorization": f"Bearer {invalid}"})
+        assert response.status_code == 401
+        assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert (
+        client.api.get("/accounts", headers={"Authorization": f"Bearer {token}"}).status_code == 200
+    )
+    for path in ["/", "/login", "/dashboard", "/static/app.css"]:
+        assert client.api.get(path).status_code == 404
+    assert client.get("/accounts").status_code == 404
+
+
+def test_api_csrf_refresh_rotation_and_revocation(account_client):
+    client, _, _ = account_client
+    credentials = api_login(client)
+    headers = {"Authorization": f"Bearer {credentials['token']}"}
+    assert client.api.post("/auth/logout", headers=headers).status_code == 403
+    original_refresh = credentials["refresh_token"]
+    renewed = client.api.post("/auth/refresh", json={"refresh_token": original_refresh})
+    assert renewed.status_code == 200
+    current = renewed.json()
+    assert current["refresh_token"] != original_refresh
+    assert datetime.fromisoformat(current["context"]["expires_at"]) == datetime.fromisoformat(
+        credentials["context"]["expires_at"]
+    )
+    assert (
+        client.api.post("/auth/refresh", json={"refresh_token": original_refresh}).status_code
+        == 401
+    )
+    headers["X-CSRF-Token"] = credentials["context"]["csrf_token"]
+    assert client.api.post("/auth/logout", headers=headers).status_code == 204
+    assert client.api.get("/auth/me", headers=headers).status_code == 401
+    assert (
+        client.api.post(
+            "/auth/refresh", json={"refresh_token": current["refresh_token"]}
+        ).status_code
+        == 401
+    )
+
+
+def test_api_enforces_sales_permissions_without_dashboard(account_client):
+    client, engine, admin = account_client
+    with Session(engine) as session:
+        AccountService(session).create_account(
+            admin.id,
+            AccountCreate(
+                email="sales@example.com", display_name="Sales", role=Role.SALES, password=PASSWORD
+            ),
+        )
+    anonymous = client.api.post("/auth/sessions").json()
+    assert (
+        client.api.get(
+            "/accounts", headers={"Authorization": f"Bearer {anonymous['token']}"}
+        ).status_code
+        == 401
+    )
+    credentials = api_login(client, "sales@example.com")
+    headers = {
+        "Authorization": f"Bearer {credentials['token']}",
+        "X-CSRF-Token": credentials["context"]["csrf_token"],
+    }
+    assert client.api.get("/accounts", headers=headers).status_code == 403
+    assert (
+        client.api.post(
+            "/accounts",
+            headers=headers,
+            json={
+                "email": "other@example.com",
+                "display_name": "Other",
+                "role": "admin",
+                "password": PASSWORD,
+            },
+        ).status_code
+        == 403
+    )
+
+
+def test_admin_renews_expired_access_without_extending_session(account_client):
+    client, _, _ = account_client
+    assert login(client).status_code == 303
+    original = client.cookies.get("parrilladas_refresh")
+    client.cookies.delete("parrilladas_session")
+    assert client.get("/dashboard").status_code == 200
+    assert client.cookies.get("parrilladas_session")
+    assert client.cookies.get("parrilladas_refresh") != original
+    assert client.api.post("/auth/refresh", json={"refresh_token": original}).status_code == 401
+
+
+def test_api_validation_does_not_echo_passwords(account_client):
+    client, _, _ = account_client
+    anonymous = client.api.post("/auth/sessions").json()
+    secret = "sensitive-password-value-" * 10
+    response = client.api.post(
+        "/auth/login",
+        headers={
+            "Authorization": f"Bearer {anonymous['token']}",
+            "X-CSRF-Token": anonymous["context"]["csrf_token"],
+        },
+        json={"email": "admin@example.com", "password": secret},
+    )
+    assert response.status_code == 422
+    assert secret not in response.text
+    assert "input" not in response.text

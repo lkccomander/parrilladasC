@@ -10,17 +10,19 @@
 - [x] Docker Compose y workflow CI con PostgreSQL efímero.
 - [x] Pruebas de aprobación de cotización, aplicación y migraciones.
 
-GitHub Actions ejecuta los checks en cada push. Railway despliega `main` con migración previa y health check.
+GitHub Actions ejecuta los checks en cada push. Los despliegues desde `main` usan servicios Admin y API separados. Solo el API ejecuta migraciones previas; ambos tienen health checks. La activación de autodeploy sigue pendiente de la conexión GitHub del propietario.
 
 ## Acceso y cuentas
 
 - [x] Bootstrap seguro del primer Admin mediante comando privado, sin contraseña por defecto.
-- [x] Login/logout con sesiones persistentes y protección CSRF.
+- [x] Login/logout con JWT, refresh tokens rotativos, sesiones revocables y protección CSRF.
 - [x] CRUD de cuentas para Admin; desactivación/reactivación conserva historial.
 - [x] Permisos Admin/Sales, comprobados en backend.
 - [x] Pruebas de autorización, contraseñas, throttling, concurrencia y desactivación.
 
 Antes del primer ingreso en producción, el operador debe crear el Admin en una terminal privada. Instrucciones: [acceso y cuentas](accounts.md).
+
+- [x] Separar Admin y API mediante HTTP privado; Admin sin credenciales de base ni clave JWT.
 
 ## Conversaciones y leads
 

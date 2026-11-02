@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, field_validator
 
-from parrilladas.modules.accounts.models import Role
+from parrilladas.modules.accounts.contracts import Role
 
 
 class AccountDetails(BaseModel):
@@ -66,5 +66,7 @@ class SessionContext(BaseModel):
 class SessionCreated(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    token: str
+    token: str = Field(repr=False)
     context: SessionContext
+    refresh_token: str | None = Field(default=None, repr=False)
+    access_expires_at: datetime | None = None

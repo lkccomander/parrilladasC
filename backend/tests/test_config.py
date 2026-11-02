@@ -26,3 +26,28 @@ def test_provider_urls_select_psycopg_and_preserve_credentials(scheme):
 def test_unsupported_database_drivers_are_rejected(scheme):
     with pytest.raises(ValidationError, match="PostgreSQL URL using psycopg"):
         Settings(database_url=SecretStr(f"{scheme}://host/database"), _env_file=None)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://public.example.com",
+        "https://user:password@example.com",
+        "https://api.example.com/path",
+    ],
+)
+def test_admin_rejects_unsafe_production_api_origins(url):
+    from parrilladas.core.config import AdminSettings
+
+    with pytest.raises(ValidationError):
+        AdminSettings(app_env="production", api_base_url=url, _env_file=None)
+
+
+def test_admin_needs_neither_database_nor_signing_secret():
+    from parrilladas.core.config import AdminSettings
+
+    settings = AdminSettings(
+        app_env="production", api_base_url="http://api.railway.internal:8080", _env_file=None
+    )
+    assert "database_url" not in type(settings).model_fields
+    assert "jwt_secret" not in type(settings).model_fields

@@ -145,11 +145,9 @@ class AccountService:
             self.repo.prune(now, now - LOGIN_WINDOW)
             return self._new_session(None, now)
 
-    def session_context(self, token: str | None) -> SessionContext | None:
-        if token is None or len(token) != 43:
-            return None
+    def context_by_id(self, session_id: UUID) -> SessionContext | None:
         with self.session.begin():
-            record = self.repo.session_by_token(token_digest(token), datetime.now(UTC))
+            record = self.repo.session_by_id(session_id, datetime.now(UTC))
             if record is None:
                 return None
             account = self.repo.by_id(record.account_id) if record.account_id else None
@@ -162,7 +160,29 @@ class AccountService:
                 account=self._view(account) if account else None,
             )
 
-    def login(self, email: str, password: str, anonymous_token: str) -> SessionCreated:
+    def rotate_refresh(self, token: str) -> SessionCreated:
+        now = datetime.now(UTC)
+        with self.session.begin():
+            self.repo.lock_accounts()
+            record = self.repo.session_by_token(token_digest(token), now)
+            if record is None or record.account_id is None:
+                raise InvalidCredentials("Sesión vencida. Ingrese nuevamente.")
+            account = self.repo.by_id(record.account_id)
+            if account is None or not account.is_active:
+                raise InvalidCredentials("Sesión vencida. Ingrese nuevamente.")
+            rotated = new_token()
+            record.token_hash = token_digest(rotated)
+            return SessionCreated(
+                token=rotated,
+                context=SessionContext(
+                    id=record.id,
+                    csrf_token=record.csrf_token,
+                    expires_at=record.expires_at,
+                    account=self._view(account),
+                ),
+            )
+
+    def login(self, email: str, password: str, anonymous_id: UUID) -> SessionCreated:
         email = email.strip().lower()
         key = token_digest(email)
         now = datetime.now(UTC)
@@ -178,7 +198,7 @@ class AccountService:
             if attempt.failures >= 5:
                 raise LoginThrottled("Demasiados intentos. Intente en 15 minutos.")
             self.repo.lock_accounts()
-            anonymous = self.repo.session_by_token(token_digest(anonymous_token), now)
+            anonymous = self.repo.session_by_id(anonymous_id, now)
             if anonymous is None or anonymous.account_id is not None:
                 raise InvalidCredentials("La sesión de acceso venció. Recargue la página.")
             account = self.repo.by_email(email)

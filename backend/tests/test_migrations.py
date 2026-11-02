@@ -9,7 +9,7 @@ from alembic.migration import MigrationContext
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect, text
 
-from parrilladas.core.config import Settings
+from parrilladas.core.config import ApiSettings
 from parrilladas.db import models  # noqa: F401
 from parrilladas.db.base import Base
 from parrilladas.main import create_app
@@ -31,7 +31,9 @@ def test_migration_round_trip_and_model_consistency(monkeypatch):
         with engine.connect() as connection:
             context = MigrationContext.configure(connection, opts={"compare_type": True})
             assert compare_metadata(context, Base.metadata) == []
-        with TestClient(create_app(Settings())) as client:
+        with TestClient(
+            create_app(ApiSettings(jwt_secret="test-only-signing-key-at-least-32-characters"))
+        ) as client:
             assert client.get("/health/ready").status_code == 200
         command.downgrade(config, "base")
         assert set(inspect(engine).get_table_names()) <= {"alembic_version"}

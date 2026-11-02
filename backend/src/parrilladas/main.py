@@ -1,23 +1,53 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
 
 from parrilladas import __version__
-from parrilladas.core.config import Settings
+from parrilladas.core.config import ApiSettings
 from parrilladas.core.security_headers import SecurityHeadersMiddleware
 from parrilladas.db.session import create_database_engine
-from parrilladas.modules.dashboard.router import router as dashboard_router
+from parrilladas.modules.accounts.errors import (
+    AccessDenied,
+    AccountConflict,
+    AccountError,
+    AccountNotFound,
+    InvalidCredentials,
+    LoginThrottled,
+)
+from parrilladas.modules.accounts.router import router as accounts_router
 from parrilladas.modules.health.router import router as health_router
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
-    """Compose modules and resources; importing this module performs no database I/O."""
-    settings = settings if settings is not None else Settings()
+async def account_error(request: Request, error: AccountError) -> JSONResponse:
+    status = {
+        AccessDenied: 403,
+        AccountConflict: 409,
+        AccountNotFound: 404,
+        InvalidCredentials: 401,
+        LoginThrottled: 429,
+    }.get(type(error), 400)
+    headers = {"WWW-Authenticate": "Bearer"} if status == 401 else {}
+    if status == 429:
+        headers["Retry-After"] = "900"
+    return JSONResponse(status_code=status, content={"detail": str(error)}, headers=headers)
+
+
+async def invalid_request(request: Request, error: RequestValidationError) -> JSONResponse:
+    # Pydantic's default JSON errors include raw inputs, including passwords.
+    details = [
+        {"loc": item["loc"], "type": item["type"], "msg": item["msg"]} for item in error.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": details})
+
+
+def create_app(settings: ApiSettings | None = None) -> FastAPI:
+    """API service only: owns database resources and JSON business endpoints."""
+    settings = settings if settings is not None else ApiSettings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -29,22 +59,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             engine.dispose()
 
-    development_docs = settings.app_env in {"development", "test"}
+    docs = settings.app_env in {"development", "test"}
     app = FastAPI(
-        title="Parrilladas",
+        title="Parrilladas API",
         version=__version__,
         lifespan=lifespan,
-        docs_url="/docs" if development_docs else None,
+        docs_url="/docs" if docs else None,
         redoc_url=None,
-        openapi_url="/openapi.json" if development_docs else None,
+        openapi_url="/openapi.json" if docs else None,
     )
-    app.state.secure_cookies = settings.app_env in {"staging", "production"}
+    app.state.settings = settings
     app.add_middleware(SecurityHeadersMiddleware)
-    app.mount(
-        "/static",
-        StaticFiles(directory=Path(__file__).parent / "modules" / "dashboard" / "static"),
-        name="static",
-    )
+    app.add_exception_handler(AccountError, account_error)
+    app.add_exception_handler(RequestValidationError, invalid_request)
     app.include_router(health_router)
-    app.include_router(dashboard_router)
+    app.include_router(accounts_router)
     return app

@@ -42,6 +42,11 @@ class AccountRepository:
             )
         )
 
+    def session_by_id(self, session_id: UUID, now: datetime) -> AuthSession | None:
+        return self.session.scalar(
+            select(AuthSession).where(AuthSession.id == session_id, AuthSession.expires_at > now)
+        )
+
     def revoke_session(self, session_id: UUID) -> None:
         self.session.execute(delete(AuthSession).where(AuthSession.id == session_id))
 

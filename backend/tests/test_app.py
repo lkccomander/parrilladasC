@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy.exc import OperationalError
 
-from parrilladas.core.config import Settings
+from parrilladas.core.config import ApiSettings
 from parrilladas.db.session import get_session
 from parrilladas.main import create_app
 
@@ -19,15 +19,25 @@ def test_readiness_hides_connection_details(client):
         def execute(self, statement):
             raise OperationalError("SELECT 1", {}, Exception("private-database-password"))
 
-    client.app.dependency_overrides[get_session] = lambda: BrokenSession()
-    response = client.get("/health/ready")
-    assert response.status_code == 503
-    assert response.json() == {"status": "unavailable"}
-    assert "private-database-password" not in response.text
+    settings = ApiSettings(
+        app_env="test",
+        database_url="postgresql+psycopg://test:test@localhost:1/test",
+        jwt_secret="test-only-signing-key-at-least-32-characters",
+        _env_file=None,
+    )
+    with TestClient(create_app(settings)) as api:
+        api.app.dependency_overrides[get_session] = lambda: BrokenSession()
+        response = api.get("/health/ready")
+        assert response.status_code == 503
+        assert response.json() == {"status": "unavailable"}
+        assert "private-database-password" not in response.text
+    assert client.get("/health/ready").status_code == 503
+    assert client.get("/login").status_code == 503
 
 
 def test_production_disables_api_documentation():
-    settings = Settings(
+    settings = ApiSettings(
+        jwt_secret="test-only-signing-key-at-least-32-characters",
         app_env="production",
         database_url=SecretStr("postgresql+psycopg://test:test@localhost:1/test"),
         _env_file=None,

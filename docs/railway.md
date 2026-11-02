@@ -18,11 +18,13 @@ npm run --prefix .railway apply
 
 Revisar el plan antes de aplicar: para cambios de despliegue no se esperan eliminaciones de servicios, variables o volúmenes. Las variables son `unmanaged`: IaC no lee ni escribe sus valores, que permanecen en Railway. Importar con `--variables=unmanaged`; no usar `--include-variables`.
 
-El flujo objetivo es push a `main` → GitHub Actions → despliegue automático de `web`. La fuente GitHub está conectada, pero Railway todavía rechaza crear el trigger automático porque no reconoce a un miembro del proyecto con acceso al repositorio. El propietario debe conectar GitHub en Railway y conceder acceso a `lkccomander/parrilladasC`; después habilitar autodeploy para `main`, con Wait for CI.
+El flujo objetivo es push a `main` → GitHub Actions → despliegue automático de `api` y `web`. La fuente GitHub está conectada, pero Railway todavía rechaza crear el trigger automático porque no reconoce a un miembro del proyecto con acceso al repositorio. El propietario debe conectar GitHub en Railway y conceder acceso a `lkccomander/parrilladasC`; después habilitar autodeploy para `main`, con Wait for CI.
 
 Mientras se completa esa conexión, desplegar explícitamente desde el último commit de GitHub (no sube archivos locales):
 
 ```sh
+node .railway/cli.cjs redeploy --service api --from-source --yes
+# Esperar que API esté listo antes de actualizar Admin:
 node .railway/cli.cjs redeploy --service web --from-source --yes
 ```
 
@@ -30,20 +32,35 @@ Los cambios en `.railway/` requieren plan y aplicación explícita; Railway no e
 
 ## Servicios
 
-- `web`: aplicación FastAPI y páginas Jinja2; una sola instancia inicial, con límite de 1 CPU y 512 MiB de memoria.
-- `Postgres`: PostgreSQL con volumen persistente y conexión privada desde `web`.
+- `web`: Admin público, factory `parrilladas.admin:create_app`, sin acceso a PostgreSQL. Conserva el dominio inicial y serverless.
+- `api`: JSON API privado, factory `parrilladas.main:create_app`, una instancia inicial, 1 CPU y 512 MiB. Permanece activo para llamadas por red privada.
+- `Postgres`: base con volumen persistente; solo API tiene la referencia de conexión. Se conserva región US East y configuración existente de la base.
 
-Variables de `web`:
+Variables de `web` (Admin):
 
 | Variable | Valor |
 |---|---|
 | `APP_ENV` | `production` |
+| `APP_MODULE` | `parrilladas.admin:create_app` |
+| `API_BASE_URL` | `http://api.railway.internal:8080` |
+| `PORT` | `8080` |
+
+Variables de `api`:
+
+| Variable | Valor |
+|---|---|
+| `APP_ENV` | `production` |
+| `APP_MODULE` | `parrilladas.main:create_app` |
+| `PORT` | `8080` |
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
 | `DATABASE_POOL_SIZE` | `3` |
+| `JWT_SECRET` | Secreto aleatorio independiente, mínimo 32 caracteres |
 
-La configuración acepta URLs `postgres://`, `postgresql://` y `postgresql+psycopg://`, seleccionando siempre el driver psycopg instalado. No copiar credenciales al código o a este documento. Railway aporta `PORT`; el comando Docker lo utiliza y conserva 8000 como valor local.
+`JWT_SECRET` solo pertenece al API. No publicar ni reutilizar el ejemplo local. La API valida HS256, issuer `parrilladas-auth` y audience `parrilladas-api`. Cambiar la clave invalida JWT existentes; para revocar también renovaciones, revocar sesiones por operación de cuentas.
 
-Antes de cada despliegue, Railway ejecuta `alembic upgrade head`. Si falla la migración o el health check, el nuevo despliegue no se considera listo. Las migraciones deben ser compatibles con la versión anterior cuando el sistema tenga tráfico.
+El API no tiene dominio público inicial. Admin hace llamadas desde el servidor por red privada; no se necesita CORS. Antes de conectar Meta se debe añadir una entrada pública al API con verificación de firma.
+
+Solo el API ejecuta `alembic upgrade head` antes del despliegue; Admin no ejecuta migraciones. Si falla la migración o readiness, la versión nueva no se considera lista. El Dockerfile selecciona la factory mediante `APP_MODULE`, conserva `PORT` y ejecuta como usuario sin privilegios.
 
 ## Comprobación
 
@@ -51,14 +68,14 @@ Antes de cada despliegue, Railway ejecuta `alembic upgrade head`. Si falla la mi
 - `/login`: formulario de acceso, sin registro público.
 - `/dashboard`: panel privado; `/dashboard/accounts` requiere Admin.
 - `/health/live`: proceso disponible.
-- `/health/ready`: conectividad a PostgreSQL.
+- `/health/ready`: Admin comprueba API; API comprueba PostgreSQL.
 - `/docs` y `/openapi.json`: deshabilitados en producción.
 
 El panel incluye login, permisos y gestión de cuentas. Antes de ingresar, crear el primer Admin mediante el comando privado documentado en [acceso y cuentas](accounts.md). Envío de mensajes, cotizaciones, PDF y tareas se implementan posteriormente. Todavía no corresponde conectar el webhook real de WhatsApp.
 
 ## Costos y datos
 
-Presupuesto objetivo del proyecto: USD 35 mensuales. Los cobros dependen del consumo; disponer de dos servicios no garantiza una cifra fija. Revisar consumo del proyecto y evitar réplicas o servicios adicionales innecesarios. No aplicar un límite global de workspace para este proyecto: el workspace puede alojar otras aplicaciones.
+Presupuesto objetivo del proyecto: USD 35 mensuales. Los cobros dependen del consumo; disponer de tres servicios no garantiza una cifra fija. Revisar consumo del proyecto y evitar réplicas o servicios adicionales innecesarios. No aplicar un límite global de workspace para este proyecto: el workspace puede alojar otras aplicaciones.
 
 Un volumen persistente no sustituye backups. La configuración y restauración de backups deben verificarse antes de usar datos de clientes.
 

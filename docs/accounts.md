@@ -12,12 +12,12 @@ parrilladas-admin bootstrap-admin
 
 El comando solicita correo, nombre y contraseña con confirmación. La contraseña no se muestra ni se pasa por argumentos o variables de entorno. No hay registro público ni contraseña inicial. El bootstrap solo funciona cuando no existen cuentas y usa un bloqueo transaccional de PostgreSQL para impedir dos primeros administradores concurrentes.
 
-En Railway abrir una sesión SSH interactiva del servicio `web` y ejecutar el mismo comando dentro del contenedor. La sesión necesita una llave SSH registrada en la cuenta Railway. No ejecutar el bootstrap contra la base de pruebas ni guardar las credenciales en Git, comentarios o capturas.
+En Railway abrir una sesión SSH interactiva del servicio `api` y ejecutar el mismo comando dentro del contenedor. La sesión necesita una llave SSH registrada en la cuenta Railway. No ejecutar el bootstrap contra la base de pruebas ni guardar las credenciales en Git, comentarios o capturas.
 
 En PowerShell, desde la raíz del repositorio con el CLI local instalado y la llave registrada durante la configuración de Railway:
 
 ```powershell
-node .railway/cli.cjs ssh --service web --identity-file "$env:USERPROFILE\.ssh\id_ed25519_github" -- parrilladas-admin bootstrap-admin
+node .railway/cli.cjs ssh --service api --identity-file "$env:USERPROFILE\.ssh\id_ed25519_github" -- parrilladas-admin bootstrap-admin
 ```
 
 Si la llave está en otra ubicación, ajustar `--identity-file`. El comando solicita los datos dentro de la terminal; no introducir contraseñas en el chat.
@@ -42,11 +42,15 @@ Solicita correo y nueva contraseña; revoca las sesiones existentes. No hay recu
 
 Contraseñas de 15–128 caracteres, almacenadas con Argon2id (19 MiB, dos iteraciones, paralelismo uno). Se permiten frases con espacios. Nunca se devuelve ni registra una contraseña desde los formularios.
 
-Sesiones opacas aleatorias de 256 bits. PostgreSQL guarda únicamente el SHA-256 del identificador. La sesión autenticada vence a las ocho horas, sin renovación automática; la sesión del formulario de login vence a los 15 minutos. El login rota el identificador y el token CSRF. Logout, desactivación y edición revocan el acceso en servidor. Los registros vencidos se limpian al crear una sesión anónima.
+El API emite JWT HS256 de acceso con duración máxima de 15 minutos. Verifica firma, algoritmo fijo, issuer, audience, expiración y claims requeridos; consulta además la sesión y la cuenta actual en PostgreSQL en cada solicitud. El rol no se confía a claims del cliente. Solo el API conoce `JWT_SECRET`, generado aleatoriamente y de al menos 32 caracteres.
 
-En producción/staging, la cookie `__Host-parrilladas` tiene `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/` y ningún Domain. En desarrollo se utiliza una cookie sin Secure para localhost HTTP. APP_ENV debe permanecer `production` en Railway.
+El refresh token opaco contiene 256 bits aleatorios; PostgreSQL guarda únicamente su SHA-256. Cada renovación rota ese token sin ampliar la duración absoluta de ocho horas de la sesión. La sesión anónima del login vence a los 15 minutos y no tiene refresh. Login rota sesión y CSRF. Logout, desactivación y edición revocan acceso y renovación en servidor. Los registros vencidos se limpian al crear una sesión anónima. No hay cambio de schema respecto de `0002`.
 
-Todos los formularios POST, incluido login y logout, validan un token CSRF ligado a la sesión. También se acepta el header `X-CSRF-Token` para futuros clientes HTMX. Las solicitudes declaradas cross-site se rechazan. Los cuerpos de formularios se limitan a 16 KiB y se rechazan campos duplicados.
+Admin conserva JWT y refresh en cookies HttpOnly; no usa localStorage ni entrega tokens a JavaScript. Su cliente HTTP añade `Authorization: Bearer <JWT>` a las llamadas privadas al API. El API no autentica cookies del navegador. Admin no necesita la clave JWT ni credenciales PostgreSQL. Al migrar desde el servicio combinado, las cookies antiguas dejan de autenticar: volver a iniciar sesión.
+
+En producción/staging, las cookies `__Host-parrilladas` y `__Host-parrilladas-refresh` tienen `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/` y ningún Domain. En desarrollo se utiliza una cookie sin Secure para localhost HTTP. APP_ENV debe permanecer `production` en Railway.
+
+Todos los formularios POST, incluido login y logout, validan un token CSRF ligado a la sesión. También se acepta el header `X-CSRF-Token` para futuros clientes HTMX. Admin valida los formularios y reenvía `X-CSRF-Token`; el API vuelve a validarlo para login, logout y mutaciones. Las solicitudes declaradas cross-site se rechazan. Los cuerpos de formularios se limitan a 16 KiB y se rechazan campos duplicados.
 
 Cinco fallos por correo normalizado bloquean nuevos intentos durante el resto de una ventana de 15 minutos. Los contadores persisten en PostgreSQL, sobreviven al reinicio y usan un hash del correo como clave. Los errores de cuenta inexistente, contraseña incorrecta y cuenta inactiva son iguales. Esta protección no sustituye los controles de tráfico de infraestructura ante ataques de volumen.
 
