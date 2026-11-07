@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Integraciones{% endblock %}
+{% block content %}
+  <p class="eyebrow">CONFIGURACIÓN · INTEGRACIONES</p>
+  <div class="page-heading">
+    <div>
+      <h1>Meta y WhatsApp</h1>
+      <p>Compruebe el acceso a su cuenta y número de WhatsApp.</p>
+    </div>
+    <form method="post" action="/dashboard/integrations/whatsapp/check">
+      <input type="hidden" name="csrf_token" value="{{ context.csrf_token }}">
+      <button type="submit">Comprobar conexión</button>
+    </form>
+  </div>
+  {% if report.check %}
+    <section class="card integration-results" aria-labelledby="connection-heading" role="status">
+      <h2 id="connection-heading">Resultado de la comprobación</h2>
+      <p class="help">{{ checked_at.strftime('%d/%m/%Y · %H:%M:%S') }} · Costa Rica</p>
+      <div class="grid">
+        {% for title, result in [('Meta Graph API', report.check.meta), ('Número de WhatsApp', report.check.whatsapp)] %}
+          <div>
+            <h3>{{ title }}</h3>
+            <span class="badge {{ 'problem' if result.status == 'error' else ('muted' if result.status != 'ok' else '') }}">
+              {{ {'ok': 'Conectado', 'error': 'Revisar', 'unknown': 'Sin confirmar', 'not_configured': 'Sin configurar'}[result.status] }}
+            </span>
+            <p>{{ result.message }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% else %}
+    <p class="notice">Conexión sin comprobar. Pulse «Comprobar conexión» para consultar Meta.</p>
+  {% endif %}
+  <div class="grid">
+    <section class="card" aria-labelledby="configuration-heading">
+      <h2 id="configuration-heading">Configuración de WhatsApp</h2>
+      <dl class="integration-details">
+        <dt>Token de acceso</dt>
+        <dd>{{ 'Configurado' if report.access_token_configured else 'Pendiente' }}</dd>
+        <dt>Versión de Graph API</dt>
+        <dd>{{ report.graph_api_version or 'Pendiente' }}</dd>
+        <dt>ID de cuenta Business</dt>
+        <dd>{{ report.business_account_id or 'Pendiente' }}</dd>
+        <dt>ID del número</dt>
+        <dd>{{ report.phone_number_id or 'Pendiente' }}</dd>
+      </dl>
+      <p class="help">El token y los secretos se administran en el servicio API y permanecen ocultos.</p>
+    </section>
+    <section class="card" aria-labelledby="webhook-heading">
+      <h2 id="webhook-heading">Webhook de WhatsApp</h2>
+      <span class="badge {{ '' if report.webhook_enabled else 'muted' }}">
+        {{ 'Recepción habilitada' if report.webhook_enabled else 'Recepción deshabilitada' }}
+      </span>
+      {% if report.webhook_url %}
+        <label class="webhook-address" for="webhook-url">URL de devolución de llamada
+          <input id="webhook-url" type="text" readonly value="{{ report.webhook_url }}" spellcheck="false">
+        </label>
+        <p class="help">Seleccione y copie esta dirección en la configuración de webhooks de Meta.</p>
+      {% else %}
+        <p class="notice">Falta configurar la dirección pública del API para mostrar la URL completa.</p>
+      {% endif %}
+      <p>Ruta: <code>{{ report.webhook_path }}</code></p>
+      <p class="help">GET verifica la suscripción; POST recibe los eventos firmados de Meta.</p>
+      <p class="help">La comprobación de conexión consulta Meta. La verificación de la suscripción y la recepción pública del webhook se confirman desde Meta.</p>
+    </section>
+  </div>
+{% endblock %}

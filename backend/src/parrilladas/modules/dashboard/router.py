@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -23,6 +24,7 @@ from parrilladas.modules.dashboard.dependencies import (
     Context,
     Service,
 )
+from parrilladas.modules.integrations.schemas import WhatsAppIntegrationStatus
 
 router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates")))
@@ -128,6 +130,33 @@ def logout(
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, context: Authenticated) -> HTMLResponse:
     return page(request, "dashboard.html", context=context)
+
+
+def integration_page(request: Request, context, report: WhatsAppIntegrationStatus) -> HTMLResponse:
+    checked_at = (
+        report.check.checked_at.astimezone(ZoneInfo("America/Costa_Rica")) if report.check else None
+    )
+    return page(request, "integrations.html", context=context, report=report, checked_at=checked_at)
+
+
+@router.get("/dashboard/integrations", response_class=HTMLResponse)
+def integrations(request: Request, service: Service, context: Admin) -> HTMLResponse:
+    try:
+        report = service.whatsapp_status()
+    except AccessDenied as error:
+        raise HTTPException(403, str(error)) from None
+    return integration_page(request, context, report)
+
+
+@router.post("/dashboard/integrations/whatsapp/check", response_class=HTMLResponse)
+def check_whatsapp(
+    request: Request, service: Service, context: Admin, form: CheckedForm
+) -> HTMLResponse:
+    try:
+        report = service.check_whatsapp()
+    except AccessDenied as error:
+        raise HTTPException(403, str(error)) from None
+    return integration_page(request, context, report)
 
 
 @router.get("/dashboard/accounts", response_class=HTMLResponse)

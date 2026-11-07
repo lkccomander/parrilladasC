@@ -18,6 +18,7 @@ from parrilladas.modules.accounts.schemas import (
     SessionCreated,
 )
 from parrilladas.modules.dashboard.cookies import cookie_name, refresh_cookie_name
+from parrilladas.modules.integrations.schemas import WhatsAppIntegrationStatus
 
 
 class ApiUnavailable(Exception):
@@ -95,6 +96,14 @@ class AdminApiClient:
 
     def list_accounts(self) -> list[AccountView]:
         return [AccountView.model_validate(item) for item in self._call("GET", "/accounts")]
+
+    def whatsapp_status(self) -> WhatsAppIntegrationStatus:
+        return WhatsAppIntegrationStatus.model_validate(self._call("GET", "/integrations/whatsapp"))
+
+    def check_whatsapp(self) -> WhatsAppIntegrationStatus:
+        return WhatsAppIntegrationStatus.model_validate(
+            self._call("POST", "/integrations/whatsapp/check")
+        )
 
     def get_account(self, account_id: UUID) -> AccountView:
         return AccountView.model_validate(self._call("GET", f"/accounts/{account_id}"))

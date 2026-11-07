@@ -84,6 +84,10 @@ Consultar [arquitectura](docs/architecture.md), [plan de implementación](docs/i
 
 Configuración de despliegue e infraestructura: [Railway](docs/railway.md).
 
+Recepción de eventos de WhatsApp: [webhook e inbox persistente](docs/whatsapp.md).
+El panel Admin incluye `/dashboard/integrations` para consultar el webhook y
+comprobar la conexión con Meta y el número de WhatsApp.
+
 ## Git y GitHub
 
 Repositorio: [lkccomander/parrilladasC](https://github.com/lkccomander/parrilladasC), rama `main`. Se conserva el commit inicial y la licencia MIT del repositorio. Revisar los archivos elegidos y ejecutar los checks antes de cada commit. Los archivos locales con credenciales, `.env`, `.gitnexus`, previews, uploads y documentos comerciales originales DOCX/PDF están excluidos.

@@ -27,9 +27,58 @@ class Settings(BaseSettings):
 
 
 class ApiSettings(Settings):
+    model_config = SettingsConfigDict(hide_input_in_errors=True)
+
     jwt_secret: SecretStr = Field(min_length=32)
     jwt_issuer: str = "parrilladas-auth"
     jwt_audience: str = "parrilladas-api"
+    whatsapp_app_secret: SecretStr | None = Field(default=None, min_length=1)
+    whatsapp_verify_token: SecretStr | None = Field(default=None, min_length=1)
+    whatsapp_business_account_id: str | None = Field(default=None, pattern=r"^[0-9]+$")
+    whatsapp_phone_number_id: str | None = Field(default=None, pattern=r"^[0-9]+$")
+    whatsapp_access_token: SecretStr | None = Field(default=None, min_length=1)
+    whatsapp_graph_api_version: str | None = Field(
+        default=None, pattern=r"^v[0-9]{1,3}\.[0-9]{1,2}$"
+    )
+    api_public_base_url: str | None = None
+
+    @field_validator("api_public_base_url")
+    @classmethod
+    def require_public_api_origin(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        url = urlsplit(value)
+        if (
+            url.scheme not in {"http", "https"}
+            or not url.hostname
+            or url.username
+            or url.password
+            or url.query
+            or url.fragment
+            or url.path not in {"", "/"}
+        ):
+            raise ValueError("API_PUBLIC_BASE_URL must be an HTTP origin without credentials")
+        return value.rstrip("/")
+
+    @model_validator(mode="after")
+    def require_complete_whatsapp_configuration(self):
+        if (
+            self.api_public_base_url
+            and self.app_env in {"production", "staging"}
+            and urlsplit(self.api_public_base_url).scheme != "https"
+        ):
+            raise ValueError("Public production webhook requires HTTPS")
+        values = (
+            self.whatsapp_app_secret,
+            self.whatsapp_verify_token,
+            self.whatsapp_business_account_id,
+            self.whatsapp_phone_number_id,
+        )
+        if any(value is not None for value in values) and not all(
+            value is not None for value in values
+        ):
+            raise ValueError("WhatsApp intake requires all four WHATSAPP_* settings")
+        return self
 
 
 class AdminSettings(BaseSettings):

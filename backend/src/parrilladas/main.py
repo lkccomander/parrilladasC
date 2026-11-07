@@ -2,6 +2,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -11,6 +12,7 @@ from parrilladas import __version__
 from parrilladas.core.config import ApiSettings
 from parrilladas.core.security_headers import SecurityHeadersMiddleware
 from parrilladas.db.session import create_database_engine
+from parrilladas.integrations.whatsapp.router import router as whatsapp_router
 from parrilladas.modules.accounts.errors import (
     AccessDenied,
     AccountConflict,
@@ -21,6 +23,7 @@ from parrilladas.modules.accounts.errors import (
 )
 from parrilladas.modules.accounts.router import router as accounts_router
 from parrilladas.modules.health.router import router as health_router
+from parrilladas.modules.integrations.router import router as integrations_router
 
 
 async def account_error(request: Request, error: AccountError) -> JSONResponse:
@@ -45,7 +48,9 @@ async def invalid_request(request: Request, error: RequestValidationError) -> JS
     return JSONResponse(status_code=422, content={"detail": details})
 
 
-def create_app(settings: ApiSettings | None = None) -> FastAPI:
+def create_app(
+    settings: ApiSettings | None = None, *, meta_http: httpx.Client | None = None
+) -> FastAPI:
     """API service only: owns database resources and JSON business endpoints."""
     settings = settings if settings is not None else ApiSettings()
 
@@ -54,9 +59,12 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         logging.basicConfig(level=logging.INFO)
         engine = create_database_engine(settings)
         app.state.session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        app.state.meta_http = meta_http if meta_http is not None else httpx.Client()
         try:
             yield
         finally:
+            if meta_http is None:
+                app.state.meta_http.close()
             engine.dispose()
 
     docs = settings.app_env in {"development", "test"}
@@ -74,4 +82,6 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
     app.add_exception_handler(RequestValidationError, invalid_request)
     app.include_router(health_router)
     app.include_router(accounts_router)
+    app.include_router(whatsapp_router)
+    app.include_router(integrations_router)
     return app

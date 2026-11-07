@@ -31,6 +31,13 @@ services:
       <<: *app_environment
       APP_MODULE: parrilladas.main:create_app
       JWT_SECRET: ${JWT_SECRET:?Set a JWT_SECRET of at least 32 characters}
+      WHATSAPP_APP_SECRET:
+      WHATSAPP_VERIFY_TOKEN:
+      WHATSAPP_BUSINESS_ACCOUNT_ID:
+      WHATSAPP_PHONE_NUMBER_ID:
+      WHATSAPP_ACCESS_TOKEN:
+      WHATSAPP_GRAPH_API_VERSION:
+      API_PUBLIC_BASE_URL:
     ports:
       - "127.0.0.1:${API_PORT:-8001}:8000"
     depends_on:

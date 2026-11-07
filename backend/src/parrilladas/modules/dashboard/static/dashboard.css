@@ -354,6 +354,36 @@ button:hover,
   border-color: var(--line);
 }
 
+.badge.problem {
+  color: #ffb49e;
+  border-color: var(--accent);
+  background: var(--raised);
+}
+
+.integration-results {
+  margin-bottom: 24px;
+}
+
+.integration-details {
+  display: grid;
+  gap: 8px;
+}
+
+.integration-details dt {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.integration-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.webhook-address {
+  margin-top: 24px;
+}
+
 .page-heading {
   display: flex;
   justify-content: space-between;

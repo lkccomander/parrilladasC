@@ -40,6 +40,10 @@
                {% if request.url.path.startswith('/dashboard/accounts') %}aria-current="page"{% endif %}>
               Cuentas
             </a>
+            <a href="/dashboard/integrations"
+               {% if request.url.path.startswith('/dashboard/integrations') %}aria-current="page"{% endif %}>
+              Integraciones
+            </a>
           {% endif %}
         </nav>
       {% endif %}

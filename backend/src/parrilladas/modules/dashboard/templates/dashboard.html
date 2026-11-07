@@ -6,6 +6,14 @@
   <p class="lead">Su espacio para organizar la atención de Parrillas en su Casa.</p>
   <div class="grid">
     {% if context.account.role == "admin" %}<section class="card"><span class="badge">Disponible</span><h2>Cuentas de acceso</h2><p>Administre el equipo, sus permisos y el acceso al panel.</p><a class="button" href="/dashboard/accounts">Administrar cuentas</a></section>{% endif %}
+    {% if context.account.role == "admin" %}
+      <section class="card">
+        <span class="badge">Disponible</span>
+        <h2>Meta y WhatsApp</h2>
+        <p>Revise la conexión de WhatsApp y consulte la dirección del webhook.</p>
+        <a class="button" href="/dashboard/integrations">Ver integraciones</a>
+      </section>
+    {% endif %}
     <section class="card">
       <span class="badge muted">Próximamente</span>
       <h2>Atención y ventas</h2>

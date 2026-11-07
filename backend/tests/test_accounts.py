@@ -592,3 +592,33 @@ def test_api_validation_does_not_echo_passwords(account_client):
     assert response.status_code == 422
     assert secret not in response.text
     assert "input" not in response.text
+
+
+def test_integration_diagnostics_enforce_api_admin_role_and_csrf(account_client):
+    client, engine, admin = account_client
+    credentials = api_login(client)
+    headers = {"Authorization": f"Bearer {credentials['token']}"}
+    path = "/integrations/whatsapp"
+    assert client.api.get(path, headers=headers).status_code == 200
+    assert client.api.post(f"{path}/check", headers=headers).status_code == 403
+    headers["X-CSRF-Token"] = credentials["context"]["csrf_token"]
+    response = client.api.post(f"{path}/check", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["check"]["meta"]["status"] == "not_configured"
+    with Session(engine) as session:
+        AccountService(session).create_account(
+            admin.id,
+            AccountCreate(
+                email="diagnostics-sales@example.com",
+                display_name="Sales",
+                role=Role.SALES,
+                password=PASSWORD,
+            ),
+        )
+    sales = api_login(client, "diagnostics-sales@example.com")
+    headers = {
+        "Authorization": f"Bearer {sales['token']}",
+        "X-CSRF-Token": sales["context"]["csrf_token"],
+    }
+    assert client.api.get(path, headers=headers).status_code == 403
+    assert client.api.post(f"{path}/check", headers=headers).status_code == 403

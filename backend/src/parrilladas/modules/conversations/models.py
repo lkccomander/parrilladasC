@@ -1,6 +1,8 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from parrilladas.db.base import Base, Record
@@ -23,3 +25,14 @@ class Message(Record, Base):
     direction: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
     delivery_status: Mapped[str] = mapped_column(String(32), default="pending")
+
+
+class WhatsAppInboxEvent(Record, Base):
+    """Verified provider events awaiting durable conversation processing."""
+
+    __tablename__ = "whatsapp_inbox_events"
+
+    event_key: Mapped[str] = mapped_column(String(64), unique=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    payload: Mapped[dict] = mapped_column(JSONB)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
