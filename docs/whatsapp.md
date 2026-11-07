@@ -12,7 +12,10 @@ variables siguientes, exclusivamente en el servicio API:
 | `WHATSAPP_BUSINESS_ACCOUNT_ID` | ID de la cuenta de WhatsApp Business permitida |
 | `WHATSAPP_PHONE_NUMBER_ID` | ID del número de Meta permitido, no el número telefónico |
 
-Configurar solo parte de las variables impide iniciar el API. No se necesita un
+El token `WHATSAPP_VERIFY_TOKEN` puede configurarse por sí solo para verificar la
+suscripción GET en Meta; la recepción POST sigue deshabilitada hasta completar
+las cuatro variables. Una configuración parcial de App Secret e IDs impide
+iniciar el API. No se necesita un
 token de envío para recibir eventos. `.env.example` incluye valores sintéticos
 comentados; Compose pasa las variables opcionales únicamente al API.
 

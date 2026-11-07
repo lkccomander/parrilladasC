@@ -160,6 +160,25 @@ def test_webhook_is_only_exposed_by_api(client):
     assert client.post(PATH, content=b"{}").status_code == 404
 
 
+def test_verify_token_alone_enables_handshake_but_keeps_intake_disabled():
+    verification_only = settings(
+        whatsapp_app_secret=None,
+        whatsapp_business_account_id=None,
+        whatsapp_phone_number_id=None,
+    )
+    with TestClient(create_app(verification_only)) as client:
+        params = {
+            "hub.mode": "subscribe",
+            "hub.verify_token": VERIFY_TOKEN,
+            "hub.challenge": "meta-subscription-test",
+        }
+        response = client.get(PATH, params=params)
+        assert response.status_code == 200
+        assert response.text == "meta-subscription-test"
+        assert client.get(PATH, params=params | {"hub.verify_token": "wrong"}).status_code == 403
+        assert signed(client, encode(payload("test"))).status_code == 503
+
+
 @pytest.mark.parametrize("signature", [None, "", "sha1=abc", "sha256=abc", "sha256=" + "0" * 64])
 def test_missing_or_forged_signature_is_rejected_before_database_access(api, signature):
     headers = {} if signature is None else {"X-Hub-Signature-256": signature}

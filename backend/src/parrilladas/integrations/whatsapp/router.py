@@ -28,7 +28,9 @@ def webhook_settings(request: Request) -> ApiSettings:
         _ = request.query_params
         request.scope["query_string"] = b""
     settings: ApiSettings = request.app.state.settings
-    if settings.whatsapp_app_secret is None:
+    if request.method == "GET" and settings.whatsapp_verify_token is None:
+        raise HTTPException(status_code=503, detail="WhatsApp verification is disabled")
+    if request.method != "GET" and settings.whatsapp_app_secret is None:
         raise HTTPException(status_code=503, detail="WhatsApp intake is disabled")
     return settings
 

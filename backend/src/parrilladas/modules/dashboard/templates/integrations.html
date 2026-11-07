@@ -48,6 +48,9 @@
     </section>
     <section class="card" aria-labelledby="webhook-heading">
       <h2 id="webhook-heading">Webhook de WhatsApp</h2>
+      <span class="badge {{ '' if report.webhook_verification_enabled else 'muted' }}">
+        {{ 'Verificación disponible' if report.webhook_verification_enabled else 'Verificación pendiente' }}
+      </span>
       <span class="badge {{ '' if report.webhook_enabled else 'muted' }}">
         {{ 'Recepción habilitada' if report.webhook_enabled else 'Recepción deshabilitada' }}
       </span>

@@ -19,6 +19,7 @@ class WhatsAppIntegrationStatus(BaseModel):
     webhook_path: Literal["/webhooks/whatsapp"] = "/webhooks/whatsapp"
     webhook_url: str | None
     webhook_enabled: bool
+    webhook_verification_enabled: bool = False
     access_token_configured: bool
     graph_api_version: str | None
     business_account_id: str | None

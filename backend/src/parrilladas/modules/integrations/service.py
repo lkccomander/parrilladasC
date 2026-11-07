@@ -23,6 +23,7 @@ class IntegrationService:
                 else None
             ),
             webhook_enabled=settings.whatsapp_app_secret is not None,
+            webhook_verification_enabled=settings.whatsapp_verify_token is not None,
             access_token_configured=settings.whatsapp_access_token is not None,
             graph_api_version=settings.whatsapp_graph_api_version,
             business_account_id=settings.whatsapp_business_account_id,

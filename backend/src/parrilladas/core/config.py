@@ -70,12 +70,13 @@ class ApiSettings(Settings):
             raise ValueError("Public production webhook requires HTTPS")
         values = (
             self.whatsapp_app_secret,
-            self.whatsapp_verify_token,
             self.whatsapp_business_account_id,
             self.whatsapp_phone_number_id,
         )
-        if any(value is not None for value in values) and not all(
-            value is not None for value in values
+        # Meta verifies the subscription before message intake is configured.
+        # A verify token alone enables only the GET challenge handshake.
+        if any(value is not None for value in values) and (
+            self.whatsapp_verify_token is None or not all(value is not None for value in values)
         ):
             raise ValueError("WhatsApp intake requires all four WHATSAPP_* settings")
         return self
