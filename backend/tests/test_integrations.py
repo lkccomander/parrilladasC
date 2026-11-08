@@ -64,11 +64,11 @@ def test_connection_check_uses_read_only_meta_request_and_bearer_header():
         calls.append(request)
         assert request.method == "GET"
         assert request.url.host == "graph.facebook.com"
-        assert request.url.path == f"/v24.0/{WABA}/phone_numbers"
+        assert request.url.path == f"/v24.0/{PHONE_ID}"
         assert request.headers["Authorization"] == f"Bearer {TOKEN}"
         assert TOKEN not in str(request.url)
-        assert request.url.params["fields"] == "id"
-        return httpx.Response(200, json={"data": [{"id": PHONE_ID}]})
+        assert request.url.params["fields"] == "id,display_phone_number"
+        return httpx.Response(200, json={"id": PHONE_ID, "display_phone_number": "+506 6364 7552"})
 
     with httpx.Client(transport=httpx.MockTransport(meta)) as http:
         report = IntegrationService(settings(), MetaClient(http)).check()
@@ -84,12 +84,12 @@ def test_connection_check_uses_read_only_meta_request_and_bearer_header():
 @pytest.mark.parametrize(
     ("body", "expected"),
     [
-        ({"data": []}, "error"),
-        ({"data": [{"id": "different-number"}]}, "error"),
-        ({"data": [], "paging": {"next": "https://untrusted.example/"}}, "unknown"),
+        ({"id": "different-number", "display_phone_number": "+506 6000 0000"}, "error"),
+        ({"id": PHONE_ID}, "ok"),
+        ({"data": [{"id": PHONE_ID}]}, "unknown"),
     ],
 )
-def test_phone_missing_and_partial_list_do_not_report_connected(body, expected):
+def test_phone_lookup_requires_direct_phone_object(body, expected):
     calls = []
 
     def meta(request):
@@ -98,8 +98,8 @@ def test_phone_missing_and_partial_list_do_not_report_connected(body, expected):
 
     with httpx.Client(transport=httpx.MockTransport(meta)) as http:
         report = IntegrationService(settings(), MetaClient(http)).check()
-    assert report.check.meta.status == "ok"
     assert report.check.whatsapp.status == expected
+    assert report.check.meta.status == ("ok" if expected != "unknown" else "error")
     assert len(calls) == 1
 
 
@@ -208,7 +208,7 @@ def dashboard(request):
         elif request.url.path == "/integrations/whatsapp/check":
             with httpx.Client(
                 transport=httpx.MockTransport(
-                    lambda request: httpx.Response(200, json={"data": [{"id": PHONE_ID}]})
+                    lambda request: httpx.Response(200, json={"id": PHONE_ID})
                 )
             ) as meta:
                 report = IntegrationService(settings(), MetaClient(meta)).check()

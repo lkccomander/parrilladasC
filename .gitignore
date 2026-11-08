@@ -57,3 +57,4 @@ storage/
 .local/
 node_modules/
 .railway-config-*/
+logs/

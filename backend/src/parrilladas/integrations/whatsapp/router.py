@@ -1,4 +1,5 @@
 import hmac
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -19,6 +20,7 @@ from parrilladas.modules.conversations.service import InboxService
 
 router = APIRouter(prefix="/webhooks/whatsapp", tags=["whatsapp"])
 MAX_BODY_BYTES = 1024 * 1024
+logger = logging.getLogger(__name__)
 
 
 def webhook_settings(request: Request) -> ApiSettings:
@@ -77,7 +79,13 @@ async def receive_webhook(
         events = parse_events(
             raw, settings.whatsapp_business_account_id, settings.whatsapp_phone_number_id
         )
-    except UnexpectedWebhookAccount:
+    except UnexpectedWebhookAccount as error:
+        logger.warning(
+            "Rejected WhatsApp webhook account mismatch: kind=%s received=%s expected=%s",
+            error.kind,
+            error.received,
+            error.expected,
+        )
         raise HTTPException(status_code=403, detail="Unexpected WhatsApp account") from None
     except InvalidWebhook:
         raise HTTPException(status_code=400, detail="Invalid WhatsApp payload") from None

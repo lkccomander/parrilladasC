@@ -19,7 +19,11 @@ class InvalidWebhook(ValueError):
 
 
 class UnexpectedWebhookAccount(ValueError):
-    pass
+    def __init__(self, kind: str, received: str, expected: str):
+        self.kind = kind
+        self.received = received
+        self.expected = expected
+        super().__init__(kind, received, expected)
 
 
 def valid_signature(body: bytes, signature: str, secret: str) -> bool:
@@ -84,7 +88,7 @@ def parse_events(body: bytes, business_account_id: str, phone_number_id: str) ->
         events = []
         for entry in envelope.entry:
             if entry.id != business_account_id:
-                raise UnexpectedWebhookAccount
+                raise UnexpectedWebhookAccount("business_account_id", entry.id, business_account_id)
             for change in entry.changes:
                 if change.field != "messages":
                     continue
@@ -100,7 +104,9 @@ def parse_events(body: bytes, business_account_id: str, phone_number_id: str) ->
 def message_events(value: dict, business_account_id: str, phone_number_id: str) -> list[InboxEvent]:
     parsed = MessageValue.model_validate(value)
     if parsed.metadata.phone_number_id != phone_number_id:
-        raise UnexpectedWebhookAccount
+        raise UnexpectedWebhookAccount(
+            "phone_number_id", parsed.metadata.phone_number_id, phone_number_id
+        )
     scope = [business_account_id, phone_number_id]
     common = {key: data for key, data in value.items() if key not in {"messages", "statuses"}}
     events = []

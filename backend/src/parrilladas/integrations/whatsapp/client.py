@@ -16,11 +16,13 @@ class MetaClient:
     def __init__(self, http: httpx.Client):
         self.http = http
 
-    def lookup_phone(self, version: str, account_id: str, phone_id: str, token: str) -> PhoneLookup:
+    def lookup_phone(
+        self, version: str, _account_id: str, phone_id: str, token: str
+    ) -> PhoneLookup:
         try:
             response = self.http.get(
-                f"https://graph.facebook.com/{version}/{account_id}/phone_numbers",
-                params={"fields": "id", "limit": "100"},
+                f"https://graph.facebook.com/{version}/{phone_id}",
+                params={"fields": "id,display_phone_number"},
                 headers={"Authorization": f"Bearer {token}"},
                 follow_redirects=False,
                 timeout=httpx.Timeout(3.0, connect=1.0),
@@ -48,18 +50,8 @@ class MetaClient:
             return PhoneLookup("invalid_response")
         if response.status_code != 200:
             return PhoneLookup("invalid_response")
-        if not isinstance(data, dict) or not isinstance(data.get("data"), list):
+        if not isinstance(data, dict) or not isinstance(data.get("id"), str):
             return PhoneLookup("invalid_response")
-        phones = data["data"]
-        if not all(
-            isinstance(phone, dict) and isinstance(phone.get("id"), str) for phone in phones
-        ):
-            return PhoneLookup("invalid_response")
-        if any(phone["id"] == phone_id for phone in phones):
+        if data["id"] == phone_id:
             return PhoneLookup("ok", True)
-        paging = data.get("paging", {})
-        if not isinstance(paging, dict):
-            return PhoneLookup("invalid_response")
-        # A partial listing cannot prove absence. Never follow provider next URLs
-        # that could redirect credentials to an untrusted destination.
-        return PhoneLookup("ok", None if paging.get("next") else False)
+        return PhoneLookup("ok", False)
