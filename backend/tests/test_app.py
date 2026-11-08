@@ -15,10 +15,17 @@ def test_liveness_and_public_page_do_not_require_a_database(client):
 
 
 def test_greeting_asset_is_publicly_available(client):
-    response = client.get("/assets/greeting-grill.png")
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "image/png"
-    assert response.content.startswith(b"\x89PNG")
+    settings = ApiSettings(
+        app_env="test",
+        database_url="postgresql+psycopg://test:test@localhost:1/test",
+        jwt_secret="test-only-signing-key-at-least-32-characters",
+        _env_file=None,
+    )
+    with TestClient(create_app(settings)) as api:
+        response = api.get("/assets/greeting-grill.png")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        assert response.content.startswith(b"\x89PNG")
 
 
 def test_readiness_hides_connection_details(client):

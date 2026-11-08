@@ -44,6 +44,8 @@ class ConversationService:
         self.sender = sender
 
     def receive(self, events: list[InboxEvent]) -> None:
+        if not any(event.kind == "message" for event in events):
+            return
         for event in sorted(events, key=lambda item: item.event_key):
             prepared = self._prepare(event)
             if prepared is not None and self.sender is not None:

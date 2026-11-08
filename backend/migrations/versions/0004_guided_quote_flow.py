@@ -16,8 +16,12 @@ depends_on = None
 
 def upgrade() -> None:
     op.add_column("conversations", sa.Column("flow_data", postgresql.JSONB()))
-    op.create_unique_constraint(
-        "uq_conversations_whatsapp_number", "conversations", ["whatsapp_number"]
+    op.drop_index("ix_conversations_whatsapp_number", table_name="conversations")
+    op.create_index(
+        "ix_conversations_whatsapp_number",
+        "conversations",
+        ["whatsapp_number"],
+        unique=True,
     )
     op.add_column("messages", sa.Column("event_key", sa.String(64)))
     op.create_unique_constraint("uq_messages_event_key", "messages", ["event_key"])
@@ -26,5 +30,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_constraint("uq_messages_event_key", "messages", type_="unique")
     op.drop_column("messages", "event_key")
-    op.drop_constraint("uq_conversations_whatsapp_number", "conversations", type_="unique")
+    op.drop_index("ix_conversations_whatsapp_number", table_name="conversations")
+    op.create_index("ix_conversations_whatsapp_number", "conversations", ["whatsapp_number"])
     op.drop_column("conversations", "flow_data")

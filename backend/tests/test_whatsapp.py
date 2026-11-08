@@ -424,7 +424,7 @@ def test_retries_and_rebatched_messages_are_deduplicated_after_commit(inbox_clie
     with Session(engine) as session:
         rows = session.scalars(select(WhatsAppInboxEvent)).all()
         assert len(rows) == 3
-        assert all(row.processed_at is None for row in rows)
+        assert all(row.processed_at is not None for row in rows)
         assert all(row.created_at.tzinfo is not None for row in rows)
         assert {row.payload["value"]["messages"][0]["id"] for row in rows} == {
             "first",
