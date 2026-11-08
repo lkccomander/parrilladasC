@@ -10,7 +10,7 @@
 - [x] Docker Compose y workflow CI con PostgreSQL efímero.
 - [x] Pruebas de aprobación de cotización, aplicación y migraciones.
 
-GitHub Actions ejecuta los checks en cada push. Los despliegues desde `main` usan servicios Admin y API separados. Solo el API ejecuta migraciones previas; ambos tienen health checks. La activación de autodeploy sigue pendiente de la conexión GitHub del propietario.
+GitHub Actions ejecuta los checks en cada push. Los despliegues desde `main` usan servicios Admin y API separados. Solo el API ejecuta migraciones previas; ambos tienen health checks. Autodeploy de `main` está habilitado en Admin y API con Wait for CI; los watch paths limitan los despliegues a cambios de la aplicación.
 
 ## Acceso y cuentas
 
@@ -26,7 +26,9 @@ Antes del primer ingreso en producción, el operador debe crear el Admin en una 
 
 ## Conversaciones y leads
 
-- [ ] Adaptador Meta con firma, webhook e idempotencia.
+- [x] Recepción Meta con verificación de suscripción, firma e inbox persistente idempotente.
+- [x] Panel Admin de integraciones: configuración, webhook y diagnóstico de conectividad con Meta/WhatsApp.
+- [ ] Procesador persistente del inbox hacia conversaciones/leads y adaptador de envío Meta.
 - [ ] Preguntas guiadas: fecha, invitados y ubicación; completar datos relevantes del demo.
 - [ ] Captura de leads y confirmación de datos.
 - [ ] Inbox privado, mensajes y pausa/reanudación explícita del bot.

@@ -2,15 +2,17 @@
 
 ## Documento de referencia del proyecto
 
-**Versión:** 1.0
+**Versión:** 1.2
 
 **Fecha:** 20 de octubre de 2026
 
-**Estado:** Definición inicial del producto
+**Última actualización:** 7 de noviembre de 2026 (America/Costa_Rica)
+
+**Estado:** Base técnica, cuentas, recepción idempotente y panel de integraciones desplegados; verificación de callback Meta resuelta; prueba con número de WhatsApp y flujo comercial pendientes
 
 **Carpeta de trabajo:** `proyect_brain`
 
-**Decisiones actualizadas (1 de noviembre de 2026):** consultar [TECH_STACK_MVP.md](TECH_STACK_MVP.md). Registra el stack confirmado (Python, FastAPI, PostgreSQL, SQLAlchemy, Alembic, Jinja2 y HTMX), dashboard privado con CRUD de cuentas, atención humana desde el dashboard y cotizaciones PDF con precios manuales, aprobación y envío separados. Estas decisiones prevalecen sobre las propuestas iniciales de este documento, incluida la separación del frontend y el alcance de propuestas PDF.
+**Decisiones actualizadas (1 de noviembre de 2026):** consultar [TECH_STACK_MVP.md](TECH_STACK_MVP.md). Stack confirmado: Python, FastAPI, PostgreSQL, SQLAlchemy, Alembic y Admin con Jinja2; HTMX se incorporará cuando aporte interacción útil. Admin y API viven en servicios Railway separados; Admin llama al API por HTTP privado con JWT y solo el API accede a PostgreSQL. El MVP incluye CRUD de cuentas, atención humana desde el dashboard y cotizaciones PDF con precios manuales, aprobación y envío separados. Estas decisiones prevalecen sobre las propuestas iniciales de este documento.
 
 **Alcance de lanzamiento confirmado:** roles Admin y Sales; seguimiento al día siguiente mediante recordatorio interno para Daniel, sin mensaje automático al cliente. Google Calendar se pospone hasta después del lanzamiento; sus tareas y criterios de cierre descritos abajo no son requisitos de la primera entrega.
 
@@ -18,7 +20,7 @@
 
 ## 1. Resumen ejecutivo
 
-La empresa necesita una plataforma para convertir las conversaciones de WhatsApp en oportunidades comerciales organizadas. El sistema debe ayudar a captar leads, recopilar la información necesaria para preparar propuestas de catering, dar seguimiento a cada oportunidad e integrar las fechas y recordatorios con Google Calendar.
+La empresa necesita una plataforma para convertir las conversaciones de WhatsApp en oportunidades comerciales organizadas. El sistema debe ayudar a captar leads, recopilar información para propuestas de catering y registrar seguimientos internos para Daniel. Google Calendar se integrará después del lanzamiento.
 
 La primera etapa se implementará **sin inteligencia artificial**. El bot utilizará flujos guiados, menús, botones y preguntas predefinidas. Esta decisión permite validar el proceso comercial, reducir el costo inicial y recopilar conversaciones reales antes de incorporar un modelo de lenguaje.
 
@@ -43,7 +45,7 @@ Panel comercial
         ↓
 Propuesta y seguimiento
         ↓
-Google Calendar y notificaciones
+Recordatorio interno para Daniel
 ```
 
 ---
@@ -127,7 +129,7 @@ El sistema debe guardar como mínimo:
 - Notas internas.
 - Tareas y próximos seguimientos.
 
-#### Google Calendar
+#### Google Calendar (posterior al lanzamiento)
 
 - Creación de recordatorios internos.
 - Registro de fechas de eventos.
@@ -253,21 +255,23 @@ La palabra o acción `ASESOR` debe activar la derivación a una persona.
 ```text
 Meta WhatsApp Business Platform
             ↓
-        Webhook HTTPS
+        Webhook HTTPS (verificación disponible; recepción pendiente de credenciales)
             ↓
-        Backend FastAPI
+        API FastAPI
             ├── Módulo de conversaciones
             ├── Módulo de leads
             ├── Módulo de clientes
             ├── Módulo de tareas
             ├── Módulo de propuestas
-            ├── Integración Google Calendar
+            ├── Integración Google Calendar (posterior)
             ├── Servicio de notificaciones
             └── Cola de trabajos
             ↓
-        PostgreSQL
-            ↓
-        Panel web comercial
+        PostgreSQL (privado)
+
+Navegador → Admin Jinja2 (web, HTTPS)
+                    ↓ HTTP privado + Bearer JWT
+                API FastAPI
 ```
 
 ### Backend
@@ -284,7 +288,8 @@ Meta WhatsApp Business Platform
 
 ### Frontend
 
-- Aplicación web separada del backend.
+- Servicio Admin separado del API, en el mismo repositorio e imagen Docker con factories distintas.
+- Jinja2 para las páginas; cliente HTTP hacia el API, sin SQL ni clave de firma JWT en Admin.
 - Panel de leads.
 - Vista de conversaciones.
 - Filtros y estados.
@@ -294,7 +299,7 @@ Meta WhatsApp Business Platform
 ### Infraestructura
 
 - Docker para desarrollo consistente.
-- Despliegue compatible con Railway u otro proveedor equivalente.
+- Railway: `web` (Admin público), `api` (red privada y entrada pública autenticada para webhooks) y `Postgres` (privado).
 - Base de datos PostgreSQL administrada.
 - Variables secretas separadas por entorno.
 - Backups y monitoreo básico.
@@ -379,7 +384,7 @@ Meta WhatsApp Business Platform
 
 ### WhatsApp
 
-La recomendación inicial es evaluar primero Meta WhatsApp Business Platform directamente. Proveedores como Twilio, 360dialog o Vonage pueden ser alternativas si simplifican la activación, la operación o el soporte requerido.
+Se utiliza Meta WhatsApp Business Platform directamente. El callback HTTPS y su verificación GET están desplegados; el usuario confirmó que la validación en Meta ya funciona. La recepción firmada e idempotente está implementada, pero sigue deshabilitada hasta completar App Secret, Business Account ID y Phone Number ID en el API. El siguiente paso es configurar el número de prueba de Meta y un destinatario verificado.
 
 Requisitos técnicos:
 
@@ -489,7 +494,7 @@ La primera etapa no tendrá consumo de LLM. Los costos principales serán:
 - Infraestructura del backend.
 - PostgreSQL.
 - Dominio y certificados, si aplican.
-- Google Cloud para habilitar la API de Calendar.
+- Google Cloud para Calendar se evaluará después del lanzamiento.
 - Desarrollo, pruebas, soporte y mantenimiento.
 
 ### Costos de la segunda etapa
@@ -522,7 +527,7 @@ No se recomienda entrenar un modelo propio al inicio. Primero se deben probar in
 - Crear leads y conversaciones.
 - Crear panel comercial básico.
 - Integrar notificaciones.
-- Integrar tareas y Calendar.
+- Implementar recordatorios internos para Daniel; Calendar queda para después del lanzamiento.
 - Crear pruebas.
 
 ### Fase 2 Optimización
@@ -586,39 +591,77 @@ No se recomienda entrenar un modelo propio al inicio. Primero se deben probar in
 
 ## 17. Decisiones pendientes
 
-Antes de comenzar el desarrollo se deben confirmar:
+Antes de completar el flujo comercial se deben confirmar los siguientes puntos. Stack, roles Admin/Sales, Daniel como responsable, precios manuales, aprobación y envío separados, recordatorio interno y presupuesto de hosting de USD 35/mes ya están acordados en [TECH_STACK_MVP.md](TECH_STACK_MVP.md).
 
-- Nombre comercial del sistema.
-- Proveedor de WhatsApp.
-- Número que se utilizará.
+- Datos legales completos del operador; el correo público confirmado es info@parrillasensucasa.com.
+- Acceso técnico a Meta y número que se utilizará, sin guardar credenciales en este documento.
 - Tipos de eventos que se atenderán inicialmente.
 - Catálogo de servicios y menús.
-- Campos obligatorios del lead.
+- Validación final del flujo y textos a partir de `Conversación BOT WATS.docx`; fecha, invitados y ubicación son las preguntas principales acordadas.
 - Estados comerciales definitivos.
-- Usuarios y roles del equipo.
-- Calendario o calendarios que se integrarán.
+- Cuentas concretas del equipo; los roles ya están definidos.
+- Calendario y permisos, después del lanzamiento.
 - Quién puede confirmar disponibilidad.
-- Quién puede enviar propuestas.
-- Formato de propuesta.
-- Política de seguimiento.
-- Presupuesto y cronograma del MVP.
+- Plantilla visual y contenido final de la propuesta PDF; Daniel aprueba y pulsa Enviar.
+- Hora exacta del recordatorio interno del día siguiente, política de retención y almacenamiento de PDFs.
+- Backups, restauración y consumo real de los tres servicios Railway frente al presupuesto acordado.
 
 ---
 
 ## 18. Próximo paso
 
-Realizar un taller de levantamiento de requisitos con el equipo comercial. El resultado debe ser un documento aprobado con:
+Retomar desde el estado desplegado del 7 de noviembre de 2026. Acceso, separación Admin/API, webhook seguro e Integraciones ya están implementados:
 
-1. Flujo completo de WhatsApp.
-2. Lista de preguntas y respuestas.
-3. Campos del lead.
-4. Estados y responsables.
-5. Reglas de derivación a asesor.
-6. Reglas de Calendar.
-7. Mensajes aprobados.
-8. Alcance final del MVP.
+1. Seleccionar el número de prueba de Meta y verificar el teléfono del destinatario. Completar en el API `WHATSAPP_APP_SECRET`, `WHATSAPP_BUSINESS_ACCOUNT_ID` y `WHATSAPP_PHONE_NUMBER_ID`; el verify token ya está configurado. Para el diagnóstico de conexión también faltan `WHATSAPP_ACCESS_TOKEN` y `WHATSAPP_GRAPH_API_VERSION`. No copiar secretos a este documento ni a fixtures.
+2. Probar la recepción firmada con eventos sintéticos y el número de prueba de Meta, incluida la suscripción al campo `messages`. Verificar persistencia, duplicados y errores; la validación del callback por sí sola no demuestra recepción de mensajes reales.
+3. Implementar el procesador persistente del inbox hacia conversaciones/leads, con recuperación tras fallos, y el adaptador de envío. Los eventos guardados con `processed_at = NULL` todavía no crean conversaciones ni respuestas.
+4. Implementar el flujo guiado: fecha, invitados y ubicación; preguntas complementarias según la referencia, confirmación de datos y derivación humana.
+5. Construir el inbox de Daniel en Admin mediante llamadas al API, con pausa/reanudación explícita del bot y envío manual.
+6. Continuar con borrador PDF, precios manuales, aprobación y envío separados, y recordatorio interno al día siguiente del envío confirmado.
+
+En paralelo quedan pendientes staging, backups/restauración y control de costos. Autodeploy de `main` con Wait for CI ya se comprobó de extremo a extremo en `api` y `web`. Mantener las pruebas con el número de Meta separadas del tráfico de clientes hasta completar procesamiento persistente, operación humana y validación del flujo.
 
 Este archivo debe mantenerse actualizado como la fuente de verdad del proyecto. Toda decisión importante de producto, arquitectura o integración debe agregarse aquí o registrarse en un documento de decisión relacionado.
+
+---
+
+## 19. Cierre de jornada — 1 de noviembre de 2026
+
+Registro histórico del primer despliegue. El estado vigente y la entrega del 7 de noviembre están en las secciones 18 y 22.
+
+### Objetivos completados
+
+- [x] Inicializar el repositorio modular y sincronizarlo con [lkccomander/parrilladasC](https://github.com/lkccomander/parrilladasC), rama `main`.
+- [x] Documentar arquitectura, stack, operación de cuentas y despliegue; registrar las convenciones de mantenimiento en `AGENTS.md`.
+- [x] Crear modelos iniciales y migraciones `0001`/`0002`: cuentas, sesiones, intentos de acceso, leads, conversaciones, mensajes, cotizaciones y recordatorios. Las tablas comerciales todavía no constituyen flujos operativos completos.
+- [x] Implementar login/logout, bootstrap privado del primer Admin y recuperación de contraseña mediante comando privado; sin contraseña predeterminada.
+- [x] Implementar CRUD de cuentas con roles Admin/Sales, desactivación/reactivación, validación, Argon2id, límites de intentos y revocación de sesiones.
+- [x] Aplicar el diseño acordado al login y Admin, con imágenes de marca y fuentes locales.
+- [x] Publicar privacidad y términos en español e inglés, con botón de idioma en los encabezados. Datos legales adicionales del operador siguen pendientes.
+- [x] Separar Admin y API en servicios desplegables: `parrilladas.admin:create_app` y `parrilladas.main:create_app`. Admin usa el cliente HTTP `AdminApiClient`; no accede directamente a la base.
+- [x] Implementar JWT de acceso de hasta 15 minutos, refresh tokens rotativos y sesión absoluta de ocho horas. Validar firma, issuer, audience y sesión/cuenta actual en el API; mantener cookies HttpOnly y protección CSRF en formularios y mutaciones del API.
+- [x] Desplegar en Railway `web` (Admin), `api` y `Postgres`, con red privada y health checks. Solo el API recibe `DATABASE_URL` y `JWT_SECRET` y ejecuta migraciones; se verificó su ausencia en el contenedor Admin.
+- [x] Corregir permisos de GitHub y habilitar autodeploy desde `main` en `api` y `web`, con Wait for CI activo en ambos. Verificar los triggers guardados en Railway y conservar `checkSuites: true` en `.railway/railway.ts`.
+- [x] Actualizar Docker y Compose para ejecutar ambos servicios independientemente, y validar la configuración Compose.
+- [x] Validar 43 pruebas con PostgreSQL desechable, Ruff, formato, dependencias, instalación limpia y empaquetado. GitHub Actions pasó para el commit `6848f52`.
+- [x] Verificar en navegador local dos procesos separados y comprobar en producción readiness privado, JWT, CSRF, rutas protegidas y páginas legales bilingües.
+- [x] Corregir dependencias faltantes de la `.venv` de Windows y completar la configuración local ignorada por Git; verificar imports y carga de configuración del API con `/docs` habilitado.
+- [x] Refrescar GitNexus al commit `6848f52`: 90 archivos, 640 nodos, 1.137 relaciones y 29 flujos. Confirmar que reconoce el cliente HTTP de Admin y la validación JWT del API. Esta actualización documental es posterior a ese índice.
+
+### Punto de entrega
+
+Admin: [web-production-528a1.up.railway.app](https://web-production-528a1.up.railway.app/login). API interno: `http://api.railway.internal:8080`, sin dominio público ni `/docs` en producción. Documentación local: `http://localhost:8001/docs`.
+
+Código y convenciones sincronizados hasta `6848f52`. Ese despliegue se realizó explícitamente desde GitHub. Después del cierre se corrigieron los permisos y se habilitaron los triggers automáticos de `main` con Wait for CI en ambos servicios; configuración verificada, pendiente observar el próximo push con cambios de aplicación. La infraestructura y el acceso están operativos; WhatsApp, inbox comercial, PDF y recordatorios siguen pendientes. Consultar [plan de implementación](../docs/implementation-plan.md), [arquitectura](../docs/architecture.md) y [Railway](../docs/railway.md).
+
+### CI/CD habilitado
+
+Flujo configurado: **push a `main` → GitHub Actions → Railway espera CI → despliegue automático de `api` y `web`**. Cada servicio se despliega por separado; las migraciones siguen ejecutándose únicamente en el API.
+
+Ambos servicios observan `/backend/**`, `/Dockerfile` y `/.dockerignore`. Los cambios exclusivos de documentación no redespliegan la aplicación; los cambios en `.railway/` requieren plan y aplicación explícita de infraestructura.
+
+- [x] Confirmar rama `main`, repositorio `lkccomander/parrilladasC` y `checkSuites: true` en ambos triggers mediante la API de Railway.
+- [x] Observar pushes con cambios de aplicación, CI exitoso y despliegues saludables de ambos servicios; comprobado el 7 de noviembre con `03faaba` y `7fe2b37`.
 
 ---
 
@@ -630,14 +673,14 @@ Este checklist será utilizado para controlar el avance del proyecto. Una etapa 
 
 - [ ] Confirmar el nombre final del producto.
 - [ ] Confirmar el número de WhatsApp que se utilizará.
-- [ ] Confirmar el responsable comercial del proyecto.
+- [x] Confirmar a Daniel como responsable comercial del proyecto.
 - [ ] Documentar el proceso actual desde el primer contacto hasta el cierre.
 - [ ] Definir los tipos de eventos iniciales.
 - [ ] Definir el catálogo de servicios y menús.
 - [ ] Definir opciones de BBQ gourmet, parrillada, buffet y menú personalizado.
 - [ ] Definir si se ofrecerá alquiler de equipos en el MVP.
-- [ ] Definir preguntas obligatorias para una solicitud de cotización.
-- [ ] Definir información opcional del cliente.
+- [x] Definir preguntas obligatorias para una solicitud de cotización.
+- [x] Definir información opcional del cliente.
 - [ ] Definir estados del lead.
 - [ ] Definir responsables por estado.
 - [ ] Definir reglas de derivación a un asesor.
@@ -649,41 +692,47 @@ Este checklist será utilizado para controlar el avance del proyecto. Una etapa 
 - [ ] Definir quién puede confirmar disponibilidad.
 - [ ] Definir formato de la propuesta comercial.
 - [ ] Definir métricas iniciales.
-- [ ] Aprobar alcance y presupuesto del MVP.
+- [x] Aprobar alcance y presupuesto del MVP.
 
 **Criterio de cierre:** existe un documento aprobado con el flujo de WhatsApp, campos del lead, catálogo inicial, estados, responsables, mensajes y reglas de operación.
 
 ### Fase 1 Preparación técnica
 
-- [ ] Crear repositorio del proyecto.
-- [ ] Crear estructura `backend` y `frontend`.
-- [ ] Definir ambientes local, staging y producción.
-- [ ] Configurar variables de entorno.
-- [ ] Crear proyecto de PostgreSQL.
-- [ ] Configurar SQLAlchemy.
-- [ ] Configurar Alembic.
-- [ ] Crear configuración central de FastAPI.
-- [ ] Crear endpoint de health check.
-- [ ] Configurar logging básico.
-- [ ] Configurar autenticación inicial.
-- [ ] Definir roles de usuario.
-- [ ] Preparar Docker Compose para desarrollo.
+- [x] Crear repositorio del proyecto.
+- [x] Crear módulos Python y separar servicios Admin/API en el mismo paquete; no se requiere carpeta `frontend`.
+- [x] Configurar ambientes local y producción con servicios Admin/API independientes.
+- [ ] Preparar staging con secretos y base independientes.
+- [x] Configurar variables de entorno.
+- [x] Crear proyecto de PostgreSQL.
+- [x] Configurar SQLAlchemy.
+- [x] Configurar Alembic.
+- [x] Crear configuración central de FastAPI.
+- [x] Crear endpoint de health check.
+- [x] Configurar logging básico.
+- [x] Configurar autenticación inicial.
+- [x] Definir roles de usuario.
+- [x] Preparar Docker Compose para desarrollo.
 - [ ] Definir estrategia de backups.
-- [ ] Crear pipeline básico de pruebas.
-- [ ] Documentar comandos de instalación y ejecución.
+- [x] Crear pipeline básico de pruebas.
+- [x] Habilitar despliegues automáticos de Admin y API desde `main`, esperando CI exitoso.
+- [x] Documentar comandos de instalación y ejecución.
 
-**Criterio de cierre:** el backend inicia correctamente, se conecta a PostgreSQL, ejecuta migraciones y tiene ambientes separados con configuración segura.
+**Criterio de cierre:** Admin y API arrancan por separado; solo el API conecta a PostgreSQL y ejecuta migraciones. Local y producción están configurados; staging y estrategia de backups continúan pendientes, por lo que la fase no está cerrada por completo.
 
 ### Fase 2 WhatsApp y flujo guiado
 
 - [ ] Crear o configurar la cuenta de WhatsApp Business.
-- [ ] Confirmar proveedor: Meta, Twilio, 360dialog u otro.
-- [ ] Configurar webhook HTTPS.
-- [ ] Implementar verificación del webhook.
-- [ ] Validar mensajes entrantes.
-- [ ] Guardar el identificador externo del mensaje.
-- [ ] Implementar idempotencia.
-- [ ] Implementar manejo de reintentos.
+- [x] Confirmar proveedor: Meta WhatsApp Business Platform directo.
+- [x] Configurar webhook HTTPS público en el servicio API.
+- [x] Implementar verificación GET con token independiente de la recepción; validación en Meta confirmada por el usuario.
+- [x] Implementar validación de firma HMAC SHA-256 sobre el body original, payload, cuenta y número permitidos.
+- [x] Guardar el identificador externo de mensajes y estados en el inbox persistente.
+- [x] Implementar idempotencia por evento, incluso con concurrencia y cambios de agrupación.
+- [x] Responder 200 después del commit y 503 ante fallos de persistencia para permitir reintentos de Meta.
+- [ ] Configurar App Secret e IDs del número de prueba y comprobar recepción real.
+- [ ] Configurar token de acceso y versión de Graph API; comprobar conectividad real desde Integraciones.
+- [ ] Implementar procesamiento persistente y recuperación de eventos pendientes del inbox.
+- [ ] Implementar envíos persistentes con reintentos.
 - [ ] Implementar menú inicial.
 - [ ] Implementar opción de solicitar cotización.
 - [ ] Implementar opción de ver servicios.
@@ -701,7 +750,7 @@ Este checklist será utilizado para controlar el avance del proyecto. Una etapa 
 - [ ] Implementar confirmación o corrección de datos.
 - [ ] Implementar fallback para respuestas no reconocidas.
 - [ ] Implementar derivación a asesor.
-- [ ] Probar mensajes repetidos.
+- [x] Probar eventos repetidos y lotes concurrentes con PostgreSQL desechable.
 - [ ] Probar respuestas incompletas.
 - [ ] Probar abandono y reanudación de conversación.
 
@@ -709,14 +758,15 @@ Este checklist será utilizado para controlar el avance del proyecto. Una etapa 
 
 ### Fase 3 Leads y base de datos
 
-- [ ] Crear tabla de contactos.
-- [ ] Crear tabla de leads.
-- [ ] Crear tabla de conversaciones.
-- [ ] Crear tabla de mensajes.
-- [ ] Crear tabla de tareas.
+- [x] Modelar inicialmente datos de contacto dentro de `leads`; tabla independiente pendiente si el comportamiento la requiere.
+- [x] Crear tabla de leads.
+- [x] Crear tabla de conversaciones.
+- [x] Crear tabla de mensajes.
+- [x] Crear `whatsapp_inbox_events` y migración `0003`, con clave única, payload privado y estado de procesamiento pendiente.
+- [x] Crear tabla `reminders` para recordatorios internos; programación y ejecución pendientes.
 - [ ] Crear tabla de eventos de calendario.
-- [ ] Definir relaciones y claves foráneas.
-- [ ] Definir índices para búsquedas frecuentes.
+- [x] Definir relaciones y claves foráneas.
+- [x] Crear índices iniciales de leads, conversaciones y mensajes; ajustar según las consultas comerciales futuras.
 - [ ] Implementar creación de lead.
 - [ ] Implementar actualización de lead.
 - [ ] Implementar deduplicación por teléfono.
@@ -725,15 +775,26 @@ Este checklist será utilizado para controlar el avance del proyecto. Una etapa 
 - [ ] Implementar asignación de responsable.
 - [ ] Implementar notas internas.
 - [ ] Implementar tareas de seguimiento.
-- [ ] Crear migraciones iniciales.
+- [x] Crear migraciones iniciales.
 - [ ] Crear datos de prueba.
-- [ ] Crear pruebas de servicios y repositorios.
+- [x] Probar servicios y persistencia de cuentas con PostgreSQL desechable.
+- [ ] Agregar pruebas de servicios comerciales conforme se implementen.
 
 **Criterio de cierre:** cada conversación confirmada produce un lead persistente, consultable y trazable en PostgreSQL.
 
 ### Fase 4 Panel comercial
 
-- [ ] Crear inicio de sesión.
+- [x] Crear y estilizar el panel privado y el CRUD de cuentas.
+- [x] Publicar privacidad y términos bilingües con selector de idioma.
+- [x] Consumir el API desde Admin por HTTP privado con JWT.
+- [x] Publicar la tarjeta Meta y WhatsApp y `/dashboard/integrations`, solo para Admin, con formulario CSRF.
+- [x] Mostrar URL del callback y estado de configuración/verificación; comprobar acceso a cuenta y número mediante una consulta de lectura a Meta.
+- [ ] Implementar inbox de Daniel y control explícito de pausa/reanudación del bot.
+- [ ] Crear plantilla PDF y almacenamiento privado.
+- [ ] Preparar borrador de cotización con precios introducidos manualmente por Daniel.
+- [ ] Separar edición, aprobación y envío; exigir nueva aprobación tras cada cambio.
+- [ ] Crear recordatorio interno para Daniel al día siguiente del envío confirmado, sin mensaje automático al cliente.
+- [x] Crear inicio de sesión.
 - [ ] Crear vista de leads.
 - [ ] Crear filtros por estado.
 - [ ] Crear filtros por fecha.
@@ -748,13 +809,13 @@ Este checklist será utilizado para controlar el avance del proyecto. Una etapa 
 - [ ] Permitir crear tareas.
 - [ ] Mostrar próximos seguimientos.
 - [ ] Mostrar leads vencidos.
-- [ ] Crear permisos básicos por rol.
+- [x] Crear permisos básicos por rol.
 - [ ] Probar uso en móvil y escritorio.
 - [ ] Validar usabilidad con el equipo comercial.
 
 **Criterio de cierre:** el equipo comercial puede trabajar un lead desde el panel sin necesitar acceso directo a la base de datos.
 
-### Fase 5 Google Calendar y notificaciones
+### Fase 5 Google Calendar y notificaciones (Calendar posterior al lanzamiento)
 
 - [ ] Crear proyecto de Google Cloud.
 - [ ] Habilitar Google Calendar API.
@@ -772,19 +833,21 @@ Este checklist será utilizado para controlar el avance del proyecto. Una etapa 
 - [ ] Implementar reintentos de notificaciones.
 - [ ] Registrar las referencias externas de Calendar.
 
-**Criterio de cierre:** un lead puede generar una tarea o recordatorio en Google Calendar y el equipo recibe las notificaciones esperadas.
+**Criterio de cierre posterior al lanzamiento:** un lead puede generar una tarea o recordatorio en Google Calendar y el equipo recibe las notificaciones esperadas. Para el MVP basta implementar el recordatorio interno para Daniel; no requiere Google Calendar.
 
 ### Fase 6 Pruebas y lanzamiento del MVP
 
-- [ ] Crear pruebas unitarias del backend.
-- [ ] Crear pruebas de integración del webhook.
+La base técnica ya está desplegada. Activar el MVP comercial requiere completar y probar WhatsApp, leads, cotizaciones, recordatorios y operación del equipo.
+
+- [x] Crear pruebas unitarias del backend.
+- [x] Crear pruebas de integración del webhook, transacciones, rollback e idempotencia con PostgreSQL desechable.
 - [ ] Probar flujo completo de WhatsApp.
-- [ ] Probar duplicación de mensajes.
-- [ ] Probar fallos de proveedores externos.
-- [ ] Probar permisos de usuarios.
+- [x] Probar duplicación y concurrencia de eventos con datos sintéticos.
+- [x] Probar timeouts, límites, tokens rechazados y respuestas inválidas de Meta mediante transporte simulado; prueba real pendiente.
+- [x] Probar permisos de usuarios.
 - [ ] Probar backups y restauración.
 - [ ] Revisar logs y errores.
-- [ ] Revisar seguridad de variables secretas.
+- [x] Revisar seguridad de variables secretas.
 - [ ] Probar en ambiente staging.
 - [ ] Ejecutar pruebas con usuarios internos.
 - [ ] Ejecutar piloto con un grupo pequeño de prospectos.
@@ -843,6 +906,8 @@ Este checklist será utilizado para controlar el avance del proyecto. Una etapa 
 
 ### Fase 9 Automatización avanzada
 
+Borradores con precios manuales, aprobación y recordatorios internos ya forman parte del alcance MVP de la fase 4; esta fase posterior amplía sus capacidades.
+
 - [ ] Generar borradores de propuestas.
 - [ ] Permitir revisión y aprobación interna.
 - [ ] Automatizar recordatorios de seguimiento.
@@ -881,3 +946,36 @@ proyect_brain/assets/carnes.png
 ```
 
 Antes de una entrega pública o comercial definitiva, se debe confirmar que la empresa autoriza el uso de estas imágenes y del logotipo en los documentos y materiales del nuevo sistema.
+
+---
+
+## 22. Entrega y punto de continuidad — 7 de noviembre de 2026
+
+### Implementado y desplegado
+
+- `03faaba`: recepción de webhooks y panel Admin de integraciones. Firma sobre bytes originales, límite de body de 1 MiB, validación de cuenta/número y mensajes de error sin secretos ni datos del cliente.
+- Inbox PostgreSQL `whatsapp_inbox_events`, registrado en metadata y migración `0003`. Mensajes, estados y notificaciones de error se conservan de forma privada; deduplicación por clave estable, transacciones por lote y orden de escritura consistente.
+- Panel **Meta y WhatsApp** en Inicio y navegación de Admin. Consulta de configuración y prueba manual de acceso a Meta/cuenta/número; tokens y secretos permanecen en el API. Roles Admin/Sales y CSRF comprobados en ambos servicios.
+- Dominio público del API y `API_PUBLIC_BASE_URL` configurados en Railway. El enlace de Admin al API sigue usando red privada.
+- `7fe2b37`: verificación de suscripción habilitada con solo `WHATSAPP_VERIFY_TOKEN`. Los POST siguen deshabilitados hasta completar App Secret e IDs. El mismo token se guardó en Railway; su valor no se registra aquí.
+- Prueba pública: token correcto devuelve exactamente `hub.challenge` con 200, token incorrecto devuelve 403 y recepción incompleta devuelve 503. El usuario confirmó que la verificación en Meta funciona.
+
+### Direcciones operativas
+
+| Servicio | Dirección |
+|---|---|
+| Admin | `https://web-production-528a1.up.railway.app` |
+| Integraciones | `https://web-production-528a1.up.railway.app/dashboard/integrations` |
+| API público | `https://api-production-3c20d.up.railway.app` |
+| Callback de Meta | `https://api-production-3c20d.up.railway.app/webhooks/whatsapp` |
+| API privado para Admin | `http://api.railway.internal:8080` |
+
+### Validación y alcance real
+
+- 91 pruebas pasaron con PostgreSQL vacío y desechable, incluidas migraciones, permisos, CSRF, firmas, duplicados, concurrencia y rollback. Ruff, formato y `pip check` pasaron.
+- GitHub Actions pasó para `7fe2b37`, incluida construcción del wheel. Railway terminó con API y Admin saludables tras esperar CI.
+- La recepción real y el diagnóstico autenticado de Meta siguen pendientes de las credenciales e IDs indicados en la sección 18. Aún no hay procesamiento del inbox, leads operativos, bot guiado, inbox de atención humana, PDF ni recordatorios funcionales.
+- El siguiente paso acordado es usar el número de prueba de Meta y un destinatario verificado. No se asignó un número de producción ni se enviaron mensajes a clientes desde Parrilladas.
+- Google Calendar e IA siguen fuera del lanzamiento. Precios manuales, aprobación y envío separados, nueva aprobación tras editar y seguimiento interno para Daniel mantienen su alcance original.
+
+Detalles de configuración y operación: [WhatsApp](../docs/whatsapp.md), [plan de implementación](../docs/implementation-plan.md) y [Railway](../docs/railway.md).

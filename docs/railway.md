@@ -18,9 +18,11 @@ npm run --prefix .railway apply
 
 Revisar el plan antes de aplicar: para cambios de despliegue no se esperan eliminaciones de servicios, variables o volúmenes. Las variables son `unmanaged`: IaC no lee ni escribe sus valores, que permanecen en Railway. Importar con `--variables=unmanaged`; no usar `--include-variables`.
 
-El flujo objetivo es push a `main` → GitHub Actions → despliegue automático de `api` y `web`. La fuente GitHub está conectada, pero Railway todavía rechaza crear el trigger automático porque no reconoce a un miembro del proyecto con acceso al repositorio. El propietario debe conectar GitHub en Railway y conceder acceso a `lkccomander/parrilladasC`; después habilitar autodeploy para `main`, con Wait for CI.
+Autodeploy está habilitado para `main` en `api` y `web`, con **Wait for CI** activado en ambos (`checkSuites: true`). Verificado directamente en Railway después de corregir los permisos de GitHub. El workflow `Checks` se ejecuta en cada push; Railway espera su resultado antes de desplegar. Los servicios pueden actualizarse en momentos distintos, por lo que los cambios de contratos y migraciones deben mantener compatibilidad durante el despliegue.
 
-Mientras se completa esa conexión, desplegar explícitamente desde el último commit de GitHub (no sube archivos locales):
+Los watch paths actuales son `/backend/**`, `/Dockerfile` y `/.dockerignore` en ambos servicios. Un push que solo cambie documentación o `.railway/` no provoca un despliegue de la aplicación. `APP_MODULE` sigue seleccionando qué factory ejecuta cada servicio.
+
+La fuente y `checkSuites` se conservan en `.railway/railway.ts`. No se guardan tokens personales en GitHub. Como alternativa operativa, se puede desplegar explícitamente desde el último commit de GitHub:
 
 ```sh
 node .railway/cli.cjs redeploy --service api --from-source --yes
@@ -55,10 +57,11 @@ Variables de `api`:
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
 | `DATABASE_POOL_SIZE` | `3` |
 | `JWT_SECRET` | Secreto aleatorio independiente, mínimo 32 caracteres |
+| `API_PUBLIC_BASE_URL` | `https://api-production-3c20d.up.railway.app` |
 
 `JWT_SECRET` solo pertenece al API. No publicar ni reutilizar el ejemplo local. La API valida HS256, issuer `parrilladas-auth` y audience `parrilladas-api`. Cambiar la clave invalida JWT existentes; para revocar también renovaciones, revocar sesiones por operación de cuentas.
 
-El API no tiene dominio público inicial. Admin hace llamadas desde el servidor por red privada; no se necesita CORS. Antes de conectar Meta se debe añadir una entrada pública al API con verificación de firma.
+El API tiene el dominio público `https://api-production-3c20d.up.railway.app`, dirigido al puerto 8080. La URL de callback de Meta es `https://api-production-3c20d.up.railway.app/webhooks/whatsapp`. Admin sigue llamando al API por red privada; no se necesita CORS. La recepción permanece deshabilitada hasta configurar los secretos e IDs de WhatsApp descritos en [webhook e integraciones](whatsapp.md).
 
 Solo el API ejecuta `alembic upgrade head` antes del despliegue; Admin no ejecuta migraciones. Si falla la migración o readiness, la versión nueva no se considera lista. El Dockerfile selecciona la factory mediante `APP_MODULE`, conserva `PORT` y ejecuta como usuario sin privilegios.
 
