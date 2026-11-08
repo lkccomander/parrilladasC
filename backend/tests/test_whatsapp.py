@@ -185,11 +185,13 @@ def test_outbound_errors_are_safe(response, expected):
     def meta(request):
         return response
 
-    with httpx.Client(transport=httpx.MockTransport(meta)) as http:
-        with pytest.raises(MetaSendError) as error:
-            MetaClient(http).send_text(
-                version="v27.0", phone_id=PHONE_ID, token=TOKEN, recipient=RECIPIENT, body="Hola"
-            )
+    with (
+        httpx.Client(transport=httpx.MockTransport(meta)) as http,
+        pytest.raises(MetaSendError) as error,
+    ):
+        MetaClient(http).send_text(
+            version="v27.0", phone_id=PHONE_ID, token=TOKEN, recipient=RECIPIENT, body="Hola"
+        )
     assert error.value.category == expected
     assert TOKEN not in str(error.value)
 
@@ -198,11 +200,13 @@ def test_outbound_timeout_is_safe():
     def meta(request):
         raise httpx.ReadTimeout(TOKEN, request=request)
 
-    with httpx.Client(transport=httpx.MockTransport(meta)) as http:
-        with pytest.raises(MetaSendError, match="unavailable") as error:
-            MetaClient(http).send_text(
-                version="v27.0", phone_id=PHONE_ID, token=TOKEN, recipient=RECIPIENT, body="Hola"
-            )
+    with (
+        httpx.Client(transport=httpx.MockTransport(meta)) as http,
+        pytest.raises(MetaSendError, match="unavailable") as error,
+    ):
+        MetaClient(http).send_text(
+            version="v27.0", phone_id=PHONE_ID, token=TOKEN, recipient=RECIPIENT, body="Hola"
+        )
     assert TOKEN not in str(error.value)
 
 

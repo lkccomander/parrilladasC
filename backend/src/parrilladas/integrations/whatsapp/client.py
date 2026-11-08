@@ -15,7 +15,9 @@ class PhoneLookup:
 class MetaSendError(RuntimeError):
     """Safe provider error that never includes Meta response data."""
 
-    def __init__(self, category: Literal["access_denied", "rate_limited", "unavailable", "invalid_response"]):
+    def __init__(
+        self, category: Literal["access_denied", "rate_limited", "unavailable", "invalid_response"]
+    ):
         self.category = category
         super().__init__(f"Meta message send failed: {category}")
 

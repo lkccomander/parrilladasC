@@ -12,9 +12,10 @@ class Conversation(Record, Base):
     __tablename__ = "conversations"
 
     lead_id: Mapped[UUID | None] = mapped_column(ForeignKey("leads.id"), index=True)
-    whatsapp_number: Mapped[str] = mapped_column(String(32), index=True)
+    whatsapp_number: Mapped[str] = mapped_column(String(32), index=True, unique=True)
     bot_paused: Mapped[bool] = mapped_column(default=False)
     flow_step: Mapped[str] = mapped_column(String(64), default="start")
+    flow_data: Mapped[dict | None] = mapped_column(JSONB)
 
 
 class Message(Record, Base):
@@ -25,6 +26,7 @@ class Message(Record, Base):
     direction: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
     delivery_status: Mapped[str] = mapped_column(String(32), default="pending")
+    event_key: Mapped[str | None] = mapped_column(String(64), unique=True)
 
 
 class WhatsAppInboxEvent(Record, Base):

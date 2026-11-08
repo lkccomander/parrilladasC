@@ -10,13 +10,19 @@ from starlette.concurrency import run_in_threadpool
 
 from parrilladas.core.config import ApiSettings
 from parrilladas.db.session import get_session
+from parrilladas.integrations.whatsapp.client import MetaClient
 from parrilladas.integrations.whatsapp.webhook import (
     InvalidWebhook,
     UnexpectedWebhookAccount,
     parse_events,
     valid_signature,
 )
-from parrilladas.modules.conversations.service import InboxService
+from parrilladas.modules.conversations.flow import MENU_BUTTONS
+from parrilladas.modules.conversations.service import (
+    ConversationService,
+    InboxService,
+    OutboundAction,
+)
 
 router = APIRouter(prefix="/webhooks/whatsapp", tags=["whatsapp"])
 MAX_BODY_BYTES = 1024 * 1024
@@ -92,7 +98,64 @@ async def receive_webhook(
     if events:
         try:
             await run_in_threadpool(InboxService(session).receive, events)
+            sender = _outbound_sender(request, settings)
+            await run_in_threadpool(ConversationService(session, sender).receive, events)
         except SQLAlchemyError:
             # Meta must retry failures, never receive a success before commit.
             raise HTTPException(status_code=503, detail="Webhook storage unavailable") from None
     return {"status": "ok"}
+
+
+def _outbound_sender(request: Request, settings: ApiSettings):
+    client = MetaClient(request.app.state.meta_http)
+    token = settings.whatsapp_access_token
+    version = settings.whatsapp_graph_api_version
+    phone_id = settings.whatsapp_phone_number_id
+    base_url = settings.api_public_base_url
+
+    def send(action: OutboundAction) -> str:
+        if token is None or version is None or phone_id is None:
+            raise RuntimeError("WhatsApp outbound messaging is not configured")
+        access_token = token.get_secret_value()
+        if action.buttons == MENU_BUTTONS:
+            image_sent = False
+            if base_url:
+                image_url = f"{base_url}/assets/greeting-grill.png"
+                try:
+                    client.send_image(
+                        version=version,
+                        phone_id=phone_id,
+                        token=access_token,
+                        recipient=action.recipient,
+                        image_url=image_url,
+                        caption=action.text,
+                    )
+                    image_sent = True
+                except Exception:
+                    pass
+            if not image_sent:
+                client.send_text(
+                    version=version,
+                    phone_id=phone_id,
+                    token=access_token,
+                    recipient=action.recipient,
+                    body=action.text,
+                )
+        if action.buttons:
+            return client.send_buttons(
+                version=version,
+                phone_id=phone_id,
+                token=access_token,
+                recipient=action.recipient,
+                body=action.text,
+                buttons=list(action.buttons),
+            )
+        return client.send_text(
+            version=version,
+            phone_id=phone_id,
+            token=access_token,
+            recipient=action.recipient,
+            body=action.text,
+        )
+
+    return send
