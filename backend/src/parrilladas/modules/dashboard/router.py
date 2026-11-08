@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
+from parrilladas import __release_name__, __version__
 from parrilladas.modules.accounts.errors import (
     AccessDenied,
     AccountConflict,
@@ -31,6 +32,8 @@ templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates"))
 
 
 def page(request: Request, name: str, status_code: int = 200, **context) -> HTMLResponse:
+    context.setdefault("software_release", __release_name__)
+    context.setdefault("software_version", __version__)
     return templates.TemplateResponse(
         request=request, name=name, context=context, status_code=status_code
     )

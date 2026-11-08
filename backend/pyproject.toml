@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "parrilladas"
-version = "0.1.0"
+version = "1.0.0-beta.1"
 description = "WhatsApp catering sales platform and private dashboard"
 requires-python = ">=3.12"
 dependencies = [

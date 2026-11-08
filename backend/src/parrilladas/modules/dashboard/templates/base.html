@@ -56,8 +56,8 @@
     </main>
     <footer class="site-footer">
       <span>
-        Parrillas en su Casa
-        <span class="footer-detail">· {{ 'Sales management' if page_language == 'en' else 'Gestión comercial' }}</span>
+        © 2026 Parrilladas en su Casa. {{ 'All rights reserved.' if page_language == 'en' else 'Todos los derechos reservados.' }}
+        <span class="footer-detail">· {{ software_release }} · v{{ software_version }}</span>
       </span>
       <nav aria-label="{{ 'Legal information' if page_language == 'en' else 'Información legal' }}">
         <a href="/terms-of-service{{ '?lang=en' if page_language == 'en' else '' }}">
