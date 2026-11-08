@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import sessionmaker
 
+import parrilladas.db.models  # noqa: F401  # Register all ORM models with Base.metadata.
 from parrilladas import __version__
 from parrilladas.core.config import ApiSettings
 from parrilladas.core.security_headers import SecurityHeadersMiddleware
