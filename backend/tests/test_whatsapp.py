@@ -6,6 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -16,6 +17,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from parrilladas.core.config import ApiSettings
+from parrilladas.integrations.whatsapp.client import MetaClient, MetaSendError
 from parrilladas.integrations.whatsapp.router import MAX_BODY_BYTES
 from parrilladas.integrations.whatsapp.webhook import parse_events
 from parrilladas.main import create_app
@@ -28,6 +30,8 @@ SECRET = "synthetic-meta-app-secret"
 VERIFY_TOKEN = "synthetic-subscription-token"
 WABA = "100000001"
 PHONE_ID = "200000001"
+RECIPIENT = "15550000002"
+TOKEN = "synthetic-meta-access-token"
 PATH = "/webhooks/whatsapp"
 
 
@@ -86,6 +90,120 @@ def signed(client, body, secret=SECRET):
         content=body,
         headers={"X-Hub-Signature-256": f"sha256={signature}", "Content-Type": "application/json"},
     )
+
+
+def test_send_text_uses_messages_endpoint_and_returns_meta_id():
+    calls = []
+
+    def meta(request):
+        calls.append(request)
+        assert request.method == "POST"
+        assert request.url.path == f"/v27.0/{PHONE_ID}/messages"
+        assert request.headers["Authorization"] == f"Bearer {TOKEN}"
+        assert json.loads(request.content) == {
+            "messaging_product": "whatsapp",
+            "to": RECIPIENT,
+            "type": "text",
+            "text": {"body": "Hola"},
+        }
+        return httpx.Response(200, json={"messages": [{"id": "wamid.text"}]})
+
+    with httpx.Client(transport=httpx.MockTransport(meta)) as http:
+        message_id = MetaClient(http).send_text(
+            version="v27.0", phone_id=PHONE_ID, token=TOKEN, recipient=RECIPIENT, body="Hola"
+        )
+    assert message_id == "wamid.text"
+    assert len(calls) == 1
+
+
+def test_send_image_uses_public_link_and_caption():
+    def meta(request):
+        assert request.method == "POST"
+        assert json.loads(request.content) == {
+            "messaging_product": "whatsapp",
+            "to": RECIPIENT,
+            "type": "image",
+            "image": {"link": "https://example.com/greeting.png", "caption": "Bienvenido"},
+        }
+        return httpx.Response(200, json={"messages": [{"id": "wamid.image"}]})
+
+    with httpx.Client(transport=httpx.MockTransport(meta)) as http:
+        message_id = MetaClient(http).send_image(
+            version="v27.0",
+            phone_id=PHONE_ID,
+            token=TOKEN,
+            recipient=RECIPIENT,
+            image_url="https://example.com/greeting.png",
+            caption="Bienvenido",
+        )
+    assert message_id == "wamid.image"
+
+
+def test_send_buttons_uses_interactive_reply_buttons():
+    def meta(request):
+        assert request.method == "POST"
+        assert json.loads(request.content) == {
+            "messaging_product": "whatsapp",
+            "to": RECIPIENT,
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {"text": "¿Qué necesitas?"},
+                "action": {
+                    "buttons": [
+                        {"type": "reply", "reply": {"id": "quote", "title": "Cotización"}},
+                        {"type": "reply", "reply": {"id": "advisor", "title": "Asesor"}},
+                    ]
+                },
+            },
+        }
+        return httpx.Response(200, json={"messages": [{"id": "wamid.buttons"}]})
+
+    with httpx.Client(transport=httpx.MockTransport(meta)) as http:
+        message_id = MetaClient(http).send_buttons(
+            version="v27.0",
+            phone_id=PHONE_ID,
+            token=TOKEN,
+            recipient=RECIPIENT,
+            body="¿Qué necesitas?",
+            buttons=[("quote", "Cotización"), ("advisor", "Asesor")],
+        )
+    assert message_id == "wamid.buttons"
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        (httpx.Response(401, json={"error": {"message": TOKEN}}), "access_denied"),
+        (httpx.Response(429, json={"error": {"message": TOKEN}}), "rate_limited"),
+        (httpx.Response(503, json={"error": {"message": TOKEN}}), "unavailable"),
+        (httpx.Response(200, text=TOKEN), "invalid_response"),
+        (httpx.Response(200, json={"messages": []}), "invalid_response"),
+    ],
+)
+def test_outbound_errors_are_safe(response, expected):
+    def meta(request):
+        return response
+
+    with httpx.Client(transport=httpx.MockTransport(meta)) as http:
+        with pytest.raises(MetaSendError) as error:
+            MetaClient(http).send_text(
+                version="v27.0", phone_id=PHONE_ID, token=TOKEN, recipient=RECIPIENT, body="Hola"
+            )
+    assert error.value.category == expected
+    assert TOKEN not in str(error.value)
+
+
+def test_outbound_timeout_is_safe():
+    def meta(request):
+        raise httpx.ReadTimeout(TOKEN, request=request)
+
+    with httpx.Client(transport=httpx.MockTransport(meta)) as http:
+        with pytest.raises(MetaSendError, match="unavailable") as error:
+            MetaClient(http).send_text(
+                version="v27.0", phone_id=PHONE_ID, token=TOKEN, recipient=RECIPIENT, body="Hola"
+            )
+    assert TOKEN not in str(error.value)
 
 
 @pytest.fixture
