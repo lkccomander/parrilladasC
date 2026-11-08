@@ -1,11 +1,13 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import sessionmaker
 
 from parrilladas import __version__
@@ -24,6 +26,8 @@ from parrilladas.modules.accounts.errors import (
 from parrilladas.modules.accounts.router import router as accounts_router
 from parrilladas.modules.health.router import router as health_router
 from parrilladas.modules.integrations.router import router as integrations_router
+
+ASSETS_DIR = Path(__file__).resolve().parents[3] / "assets"
 
 
 async def account_error(request: Request, error: AccountError) -> JSONResponse:
@@ -80,6 +84,7 @@ def create_app(
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_exception_handler(AccountError, account_error)
     app.add_exception_handler(RequestValidationError, invalid_request)
+    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
     app.include_router(health_router)
     app.include_router(accounts_router)
     app.include_router(whatsapp_router)

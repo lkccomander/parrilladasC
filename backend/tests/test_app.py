@@ -14,6 +14,13 @@ def test_liveness_and_public_page_do_not_require_a_database(client):
     assert "Parrillas en su Casa" in response.text
 
 
+def test_greeting_asset_is_publicly_available(client):
+    response = client.get("/assets/greeting-grill.png")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content.startswith(b"\x89PNG")
+
+
 def test_readiness_hides_connection_details(client):
     class BrokenSession:
         def execute(self, statement):

@@ -8,6 +8,7 @@ WORKDIR /app
 COPY backend/requirements.lock /app/requirements.lock
 RUN pip install -r requirements.lock
 COPY backend /app/backend
+COPY assets /app/assets
 RUN pip install --no-deps --no-build-isolation /app/backend \
     && useradd --create-home --uid 10001 appuser
 USER appuser
