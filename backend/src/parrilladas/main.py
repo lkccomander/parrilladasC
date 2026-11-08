@@ -27,7 +27,11 @@ from parrilladas.modules.accounts.router import router as accounts_router
 from parrilladas.modules.health.router import router as health_router
 from parrilladas.modules.integrations.router import router as integrations_router
 
-ASSETS_DIR = Path(__file__).resolve().parents[3] / "assets"
+_SOURCE_ASSETS_DIR = Path(__file__).resolve().parents[3] / "assets"
+ASSETS_DIR = next(
+    (directory for directory in (_SOURCE_ASSETS_DIR, Path("/app/assets")) if directory.is_dir()),
+    _SOURCE_ASSETS_DIR,
+)
 
 
 async def account_error(request: Request, error: AccountError) -> JSONResponse:
