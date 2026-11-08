@@ -215,7 +215,7 @@ git commit -m "Add guided quote conversation state machine"
 - Modify: `backend/src/parrilladas/modules/conversations/models.py`
 - Modify: `backend/src/parrilladas/modules/conversations/repository.py`
 - Modify: `backend/src/parrilladas/modules/conversations/service.py`
-- Create if required: `backend/migrations/versions/0004_guided_quote_flow.py`
+- Create after the model review only when needed: `backend/migrations/versions/0004_guided_quote_flow.py`
 - Test: `backend/tests/test_whatsapp.py`
 
 - [ ] **Step 1: Write failing database-backed tests**
