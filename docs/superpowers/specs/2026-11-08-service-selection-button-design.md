@@ -32,6 +32,12 @@ escriba el nombre del servicio correctamente.
 
 - Un botón desconocido o una respuesta de texto vacía no avanzará el flujo.
 - La pregunta se repetirá sin sobrescribir `service_type`.
+- Cada respuesta inválida consecutiva incrementará un contador de fallback de
+  la conversación.
+- Al llegar a tres respuestas inválidas consecutivas, el bot reconocerá que no
+  pudo interpretar la opción, reiniciará el flujo desde el saludo inicial y
+  restablecerá el contador.
+- Una respuesta válida restablecerá el contador de respuestas inválidas.
 - No se registrarán tokens, secretos ni contenido sensible adicional.
 
 ## Pruebas y aceptación
@@ -42,6 +48,10 @@ escriba el nombre del servicio correctamente.
   servicio a `parrilla`.
 - Un texto libre en `service_type` mantendrá el paso y volverá a mostrar el
   botón.
+- Tres respuestas inválidas consecutivas reiniciarán el flujo y mostrarán el
+  saludo inicial.
+- Una respuesta válida después de un intento inválido permitirá continuar sin
+  reiniciar la conversación.
 - Los identificadores y títulos de botones conservarán el formato que ya usa
   el envío de WhatsApp.
 - Las pruebas existentes del flujo inicial y de persistencia seguirán pasando.
