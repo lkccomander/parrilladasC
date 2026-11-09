@@ -8,9 +8,9 @@ def test_first_message_opens_the_quote_menu():
     assert decision.step == "menu"
     assert decision.text == "¡Hola! Gracias por contactar a Parrilladas en su Casa 🔥"
     assert decision.buttons == (
-        ("quote", "Solicitar cotización"),
-        ("services", "Ver servicios"),
-        ("advisor", "Hablar con un asesor"),
+        ("request_quote", "Solicitar cotización"),
+        ("view_services", "Ver servicios"),
+        ("talk_to_agent", "Hablar con un asesor"),
     )
 
 

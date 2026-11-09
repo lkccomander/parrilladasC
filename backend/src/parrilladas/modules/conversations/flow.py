@@ -5,7 +5,12 @@ from types import MappingProxyType
 
 from .contracts import ButtonReply, FlowDecision, IncomingText
 
-GREETING = "¡Hola! Gracias por contactar a Parrilladas en su Casa 🔥"
+GREETING = (
+    "¡Hola! Gracias por contactar a *Parrilladas en su Casa* 🔥\n\n"
+    "Soy Daniel Navarrete y junto a mi equipo estamos listos para llevar una excelente "
+    "experiencia de parrilla a tu casa o evento.\n\n"
+    "¿Qué te gustaría hacer hoy?"
+)
 SERVICES_PLACEHOLDER = "Esta opción estará disponible próximamente."
 ADVISOR_PLACEHOLDER = "Un asesor podrá ayudarte próximamente. Escribe ASESOR si necesitas atención."
 SUBMITTED = (
@@ -14,9 +19,9 @@ SUBMITTED = (
 )
 
 MENU_BUTTONS = (
-    ("quote", "Solicitar cotización"),
-    ("services", "Ver servicios"),
-    ("advisor", "Hablar con un asesor"),
+    ("request_quote", "Solicitar cotización"),
+    ("view_services", "Ver servicios"),
+    ("talk_to_agent", "Hablar con un asesor"),
 )
 SERVICE_BUTTONS = (("service_parrilla", "Parrilla"),)
 INVALID_ATTEMPTS_KEY = "_invalid_attempts"
@@ -93,18 +98,18 @@ def decide(
 
     if step == "menu" and isinstance(incoming, ButtonReply):
         button_id = incoming.id.strip().casefold()
-        if button_id == "quote":
+        if button_id in {"request_quote", "quote"}:
             return _decision(
                 "event_type", _PROMPTS["event_type"], updates={INVALID_ATTEMPTS_KEY: 0}
             )
-        if button_id == "services":
+        if button_id in {"view_services", "services"}:
             return _decision(
                 "menu",
                 SERVICES_PLACEHOLDER,
                 buttons=MENU_BUTTONS,
                 updates={INVALID_ATTEMPTS_KEY: 0},
             )
-        if button_id == "advisor":
+        if button_id in {"talk_to_agent", "advisor"}:
             return _decision(
                 "menu", ADVISOR_PLACEHOLDER, handoff=True, updates={INVALID_ATTEMPTS_KEY: 0}
             )
