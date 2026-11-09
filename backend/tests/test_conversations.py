@@ -68,10 +68,12 @@ def test_summary_confirmation_submits_the_quote_request():
     decision = decide("summary", ButtonReply("confirm"))
 
     assert decision.step == "submitted"
-    assert decision.text == (
-        "Gracias. Recibimos tu solicitud. Nuestro equipo revisará la información "
-        "y se comunicará contigo por este mismo número."
-    )
+    assert "Te enviaremos la información de tu cotización en un PDF." in decision.text
+    assert "Quedamos súper atentos a cualquier duda o consulta." in decision.text
+    assert "https://www.instagram.com/parrillasensucasa/" in decision.text
+    assert "50% para garantizar la actividad" in decision.text
+    assert "50% restante el día del evento" in decision.text
+    assert "¡Hasta pronto!" in decision.text
 
 
 def test_advisor_text_is_a_handoff_signal():
