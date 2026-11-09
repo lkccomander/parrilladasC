@@ -80,12 +80,15 @@ class ConversationService:
                 self.inbox.mark_processed(inbox_event)
                 return None
 
-            decision = decide(conversation.flow_step, incoming)
+            decision = decide(conversation.flow_step, incoming, flow_data=conversation.flow_data)
             conversation.flow_step = decision.step
-            conversation.flow_data = {
-                **(conversation.flow_data or {}),
-                **dict(decision.updates),
-            }
+            if decision.reset:
+                conversation.flow_data = {}
+            else:
+                conversation.flow_data = {
+                    **(conversation.flow_data or {}),
+                    **dict(decision.updates),
+                }
             action = OutboundAction(
                 event_key=event.event_key,
                 recipient=recipient,
