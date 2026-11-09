@@ -6,7 +6,7 @@ def test_first_message_opens_the_quote_menu():
     decision = decide("start", IncomingText("hola"))
 
     assert decision.step == "menu"
-    assert decision.text == "¡Hola! Gracias por contactar a Parrilladas en su Casa 🔥"
+    assert decision.text == GREETING
     assert decision.buttons == (
         ("request_quote", "Solicitar cotización"),
         ("view_services", "Ver servicios"),
