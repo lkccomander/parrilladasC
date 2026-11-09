@@ -24,6 +24,10 @@ MENU_BUTTONS = (
     ("talk_to_agent", "Hablar con un asesor"),
 )
 SERVICE_BUTTONS = (("service_parrilla", "Parrilla"),)
+SUMMARY_BUTTONS = (
+    ("confirm", "Confirmar solicitud"),
+    ("advisor", "Hablar con asesor"),
+)
 INVALID_ATTEMPTS_KEY = "_invalid_attempts"
 
 _PROMPTS = {
@@ -40,7 +44,24 @@ _INVALID_PROMPTS = {
     "location": "Indícanos el lugar del evento, por favor.",
     "guest_count": "Indícanos la cantidad aproximada de personas, por favor.",
     "service_type": "Indícanos qué servicio te interesa, por favor.",
+    "summary": "Elige una opción para confirmar la solicitud o hablar con un asesor.",
 }
+
+
+def _summary_text(flow_data: Mapping[str, object]) -> str:
+    def value(key: str) -> str:
+        text = " ".join(str(flow_data.get(key, "")).split())
+        return text[:120] if text else "Pendiente"
+
+    return (
+        "¡Listo! Así queda tu solicitud:\n\n"
+        f"Tipo de evento: {value('event_type')}\n"
+        f"Fecha: {value('event_date')}\n"
+        f"Ubicación: {value('location')}\n"
+        f"Personas: {value('guest_count')}\n"
+        "Servicio: Parrilla\n\n"
+        "¿Confirmas que estos datos están correctos?"
+    )
 
 
 def _decision(
@@ -79,7 +100,13 @@ def decide(
         return _decision(
             step,
             text,
-            buttons=SERVICE_BUTTONS if step == "service_type" else (),
+            buttons=(
+                SERVICE_BUTTONS
+                if step == "service_type"
+                else SUMMARY_BUTTONS
+                if step == "summary"
+                else ()
+            ),
             updates={INVALID_ATTEMPTS_KEY: attempts},
         )
 
@@ -142,7 +169,8 @@ def decide(
         if incoming.id.strip().casefold() == "service_parrilla":
             return _decision(
                 "summary",
-                _PROMPTS.get("summary", ""),
+                _summary_text({**flow_data, "service_type": "parrilla"}),
+                buttons=SUMMARY_BUTTONS,
                 updates={"service_type": "parrilla", INVALID_ATTEMPTS_KEY: 0},
             )
         return invalid()

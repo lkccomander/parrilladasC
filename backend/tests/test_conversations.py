@@ -30,7 +30,16 @@ def test_quote_questions_advance_in_order_and_capture_answers():
         decide("event_date", IncomingText("15 de diciembre")),
         decide("location", IncomingText("Zona 10")),
         decide("guest_count", IncomingText("80")),
-        decide("service_type", ButtonReply("service_parrilla")),
+        decide(
+            "service_type",
+            ButtonReply("service_parrilla"),
+            flow_data={
+                "event_type": "corporativo",
+                "event_date": "15 de diciembre",
+                "location": "Zona 10",
+                "guest_count": "80",
+            },
+        ),
     ]
 
     assert [decision.step for decision in decisions] == [
@@ -47,6 +56,12 @@ def test_quote_questions_advance_in_order_and_capture_answers():
         {"guest_count": "80", "_invalid_attempts": 0},
         {"service_type": "parrilla", "_invalid_attempts": 0},
     ]
+    assert "Servicio: Parrilla" in decisions[-1].text
+    assert "Personas: 80" in decisions[-1].text
+    assert decisions[-1].buttons == (
+        ("confirm", "Confirmar solicitud"),
+        ("advisor", "Hablar con asesor"),
+    )
 
 
 def test_summary_confirmation_submits_the_quote_request():
@@ -82,10 +97,17 @@ def test_service_step_shows_only_the_parrilla_button():
 
 
 def test_parrilla_button_captures_service_and_advances_to_summary():
-    decision = decide("service_type", ButtonReply("service_parrilla"))
+    decision = decide(
+        "service_type",
+        ButtonReply("service_parrilla"),
+        flow_data={"event_type": "cumpleaños", "event_date": "sábado", "guest_count": "25"},
+    )
 
     assert decision.step == "summary"
     assert decision.updates["service_type"] == "parrilla"
+    assert decision.text.strip()
+    assert "Evento" not in decision.text
+    assert decision.buttons[0][0] == "confirm"
 
 
 def test_invalid_service_text_repeats_question_and_increments_counter():
