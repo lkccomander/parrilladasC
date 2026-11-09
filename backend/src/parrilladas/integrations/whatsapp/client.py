@@ -112,7 +112,23 @@ class MetaClient:
         recipient: str,
         body: str,
         buttons: list[tuple[str, str]],
+        header_image_url: str | None = None,
     ) -> str:
+        interactive: dict[str, Any] = {
+            "type": "button",
+            "body": {"text": body},
+            "action": {
+                "buttons": [
+                    {"type": "reply", "reply": {"id": button_id, "title": title}}
+                    for button_id, title in buttons
+                ]
+            },
+        }
+        if header_image_url:
+            interactive["header"] = {
+                "type": "image",
+                "image": {"link": header_image_url},
+            }
         return self._send(
             version=version,
             phone_id=phone_id,
@@ -121,16 +137,7 @@ class MetaClient:
                 "messaging_product": "whatsapp",
                 "to": recipient,
                 "type": "interactive",
-                "interactive": {
-                    "type": "button",
-                    "body": {"text": body},
-                    "action": {
-                        "buttons": [
-                            {"type": "reply", "reply": {"id": button_id, "title": title}}
-                            for button_id, title in buttons
-                        ]
-                    },
-                },
+                "interactive": interactive,
             },
         )
 

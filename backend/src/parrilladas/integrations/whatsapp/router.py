@@ -119,29 +119,17 @@ def _outbound_sender(request: Request, settings: ApiSettings):
             raise RuntimeError("WhatsApp outbound messaging is not configured")
         access_token = token.get_secret_value()
         if action.buttons == MENU_BUTTONS:
-            image_sent = False
-            if base_url:
-                image_url = f"{base_url}/assets/greeting-grill.png"
-                try:
-                    client.send_image(
-                        version=version,
-                        phone_id=phone_id,
-                        token=access_token,
-                        recipient=action.recipient,
-                        image_url=image_url,
-                        caption=action.text,
-                    )
-                    image_sent = True
-                except Exception:
-                    pass
-            if not image_sent:
-                client.send_text(
-                    version=version,
-                    phone_id=phone_id,
-                    token=access_token,
-                    recipient=action.recipient,
-                    body=action.text,
-                )
+            return client.send_buttons(
+                version=version,
+                phone_id=phone_id,
+                token=access_token,
+                recipient=action.recipient,
+                body=action.text,
+                buttons=list(action.buttons),
+                header_image_url=(
+                    f"{base_url}/assets/greeting-grill.png" if base_url else None
+                ),
+            )
         if action.buttons:
             return client.send_buttons(
                 version=version,
