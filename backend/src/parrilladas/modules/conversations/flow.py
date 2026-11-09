@@ -85,6 +85,7 @@ def _decision(
     *,
     buttons: tuple[tuple[str, str], ...] = (),
     handoff: bool = False,
+    should_respond: bool = True,
     updates: dict[str, object] | None = None,
     reset: bool = False,
 ) -> FlowDecision:
@@ -93,6 +94,7 @@ def _decision(
         text=text,
         buttons=buttons,
         handoff=handoff,
+        should_respond=should_respond,
         updates=MappingProxyType(dict(updates or {})),
         reset=reset,
     )
@@ -139,7 +141,9 @@ def decide(
         return _decision("menu", GREETING, buttons=MENU_BUTTONS, updates={INVALID_ATTEMPTS_KEY: 0})
 
     if step == "submitted":
-        return _decision("menu", GREETING, buttons=MENU_BUTTONS, reset=True)
+        # The confirmation message already closed the interaction. Stay terminal
+        # until an operator explicitly restarts the conversation.
+        return _decision("submitted", "", should_respond=False)
 
     if step == "menu" and isinstance(incoming, ButtonReply):
         button_id = incoming.id.strip().casefold()

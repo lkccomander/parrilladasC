@@ -82,7 +82,12 @@ class ConversationService:
                 return None
 
             decision = decide(conversation.flow_step, incoming, flow_data=conversation.flow_data)
+            if not decision.should_respond:
+                self.inbox.mark_processed(inbox_event)
+                return None
             conversation.flow_step = decision.step
+            if decision.handoff:
+                conversation.bot_paused = True
             if decision.reset:
                 conversation.flow_data = {}
             else:

@@ -28,5 +28,6 @@ class FlowDecision:
     text: str
     buttons: tuple[tuple[str, str], ...] = ()
     handoff: bool = False
+    should_respond: bool = True
     updates: Mapping[str, object] = MappingProxyType({})
     reset: bool = False
