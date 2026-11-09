@@ -1,4 +1,5 @@
 import json
+import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from uuid import UUID
@@ -85,9 +86,16 @@ class ConversationService:
             if decision.reset:
                 conversation.flow_data = {}
             else:
+                updates = dict(decision.updates)
+                if (
+                    conversation.flow_step == "event_type"
+                    and isinstance(incoming, ButtonReply)
+                    and incoming.id.strip().casefold() in {"request_quote", "quote"}
+                ):
+                    updates["request_reference"] = f"PEC-{secrets.token_hex(5).upper()}"
                 conversation.flow_data = {
                     **(conversation.flow_data or {}),
-                    **dict(decision.updates),
+                    **updates,
                 }
             action = OutboundAction(
                 event_key=event.event_key,

@@ -13,10 +13,7 @@ GREETING = (
 )
 SERVICES_PLACEHOLDER = "Esta opción estará disponible próximamente."
 ADVISOR_PLACEHOLDER = "Un asesor podrá ayudarte próximamente. Escribe ASESOR si necesitas atención."
-SUBMITTED = (
-    "Gracias. Recibimos tu solicitud. Nuestro equipo revisará la información "
-    "y se comunicará contigo por este mismo número."
-)
+INSTAGRAM_URL = "https://www.instagram.com/parrillasensucasa/"
 
 MENU_BUTTONS = (
     ("request_quote", "Solicitar cotización"),
@@ -61,6 +58,24 @@ def _summary_text(flow_data: Mapping[str, object]) -> str:
         f"Personas: {value('guest_count')}\n"
         "Servicio: Parrilla\n\n"
         "¿Confirmas que estos datos están correctos?"
+    )
+
+
+def _submitted_text(flow_data: Mapping[str, object]) -> str:
+    reference = str(flow_data.get("request_reference", "")).strip()
+    reference_line = f"Código de solicitud: {reference}\n\n" if reference else ""
+    return (
+        "¡Gracias por compartirnos los detalles!\n\n"
+        f"{reference_line}"
+        "Te enviaremos la información de tu cotización en un PDF.\n\n"
+        "Quedamos súper atentos a cualquier duda o consulta.\n\n"
+        "También te compartimos el enlace de nuestro Instagram para que puedas "
+        "ver lo que hacemos:\n"
+        f"{INSTAGRAM_URL}\n\n"
+        "Si te interesa reservar, un asesor continuará contigo por llamada y te "
+        "explicará que se requiere el 50% para garantizar la actividad y el "
+        "50% restante el día del evento.\n\n"
+        "¡Muchas gracias por contactarnos. Será un gusto atenderte! ¡Hasta pronto!"
     )
 
 
@@ -123,6 +138,9 @@ def decide(
     if step == "start" and isinstance(incoming, IncomingText):
         return _decision("menu", GREETING, buttons=MENU_BUTTONS, updates={INVALID_ATTEMPTS_KEY: 0})
 
+    if step == "submitted":
+        return _decision("menu", GREETING, buttons=MENU_BUTTONS, reset=True)
+
     if step == "menu" and isinstance(incoming, ButtonReply):
         button_id = incoming.id.strip().casefold()
         if button_id in {"request_quote", "quote"}:
@@ -178,7 +196,11 @@ def decide(
     if step == "summary" and isinstance(incoming, ButtonReply):
         button_id = incoming.id.strip().casefold()
         if button_id == "confirm":
-            return _decision("submitted", SUBMITTED, updates={INVALID_ATTEMPTS_KEY: 0})
+            return _decision(
+                "submitted",
+                _submitted_text(flow_data),
+                updates={INVALID_ATTEMPTS_KEY: 0},
+            )
         if button_id == "advisor":
             return _decision(
                 "summary", ADVISOR_PLACEHOLDER, handoff=True, updates={INVALID_ATTEMPTS_KEY: 0}
