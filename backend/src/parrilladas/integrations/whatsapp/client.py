@@ -66,6 +66,38 @@ class MetaClient:
             return PhoneLookup("ok", True)
         return PhoneLookup("ok", False)
 
+    def send_template(
+        self,
+        *,
+        version: str,
+        phone_id: str,
+        token: str,
+        recipient: str,
+        name: str,
+        language: str,
+        parameters: tuple[str, ...],
+    ) -> str:
+        return self._send(
+            version=version,
+            phone_id=phone_id,
+            token=token,
+            payload={
+                "messaging_product": "whatsapp",
+                "to": recipient,
+                "type": "template",
+                "template": {
+                    "name": name,
+                    "language": {"code": language},
+                    "components": [
+                        {
+                            "type": "body",
+                            "parameters": [{"type": "text", "text": value} for value in parameters],
+                        }
+                    ],
+                },
+            },
+        )
+
     def send_text(
         self, *, version: str, phone_id: str, token: str, recipient: str, body: str
     ) -> str:

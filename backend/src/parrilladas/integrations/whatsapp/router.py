@@ -123,6 +123,16 @@ def create_outbound_sender(http, settings: ApiSettings):
         if token is None or version is None or phone_id is None:
             raise RuntimeError("WhatsApp outbound messaging is not configured")
         access_token = token.get_secret_value()
+        if action.template_name:
+            return client.send_template(
+                version=version,
+                phone_id=phone_id,
+                token=access_token,
+                recipient=action.recipient,
+                name=action.template_name,
+                language=action.template_language,
+                parameters=action.template_parameters,
+            )
         if action.buttons == MENU_BUTTONS:
             return client.send_buttons(
                 version=version,

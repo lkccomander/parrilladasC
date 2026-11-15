@@ -17,7 +17,7 @@ from parrilladas.modules.accounts.errors import (
     LoginThrottled,
 )
 from parrilladas.modules.accounts.schemas import AccountCreate, AccountUpdate
-from parrilladas.modules.assistant.schemas import AssistantPreferencesUpdate
+from parrilladas.modules.assistant.schemas import AdvisorSettings, AssistantPreferencesUpdate
 from parrilladas.modules.dashboard.client import ApiUnavailable
 from parrilladas.modules.dashboard.cookies import clear_cookies, set_session_cookie
 from parrilladas.modules.dashboard.dependencies import (
@@ -186,13 +186,56 @@ def accounts(request: Request, service: Service, context: Admin) -> HTMLResponse
     )
 
 
+def assistant_page(request, service, context, preferences, *, saved=False, advisor_saved=False):
+    try:
+        advisor_info = service.advisor_settings()
+    except (AccountNotFound, ApiUnavailable):
+        # An older API may still serve requests during the separate rollout.
+        advisor_info = None
+    return page(
+        request,
+        "assistant.html",
+        context=context,
+        preferences=preferences,
+        advisor_info=advisor_info,
+        saved=saved,
+        advisor_saved=advisor_saved,
+    )
+
+
+@router.post("/dashboard/assistant/advisor", response_class=HTMLResponse)
+def update_advisor_settings(request: Request, service: Service, context: Admin, form: CheckedForm):
+    if set(form) - {"csrf_token", "enabled", "name", "phone", "template", "language"} or form.get(
+        "enabled", "off"
+    ) not in {"on", "off"}:
+        raise HTTPException(422, "Revise los datos del asesor.")
+    try:
+        data = AdvisorSettings(
+            enabled=form.get("enabled") == "on",
+            **{
+                key: str(form.get(key, "")).strip() or None
+                for key in ("name", "phone", "template", "language")
+            },
+        )
+    except ValidationError:
+        raise HTTPException(
+            422, "Complete los datos del asesor y use un número internacional como +50612345678."
+        ) from None
+    try:
+        service.update_advisor_settings(data)
+        preferences = service.assistant_preferences()
+    except AccessDenied as error:
+        raise HTTPException(403, str(error)) from None
+    return assistant_page(request, service, context, preferences, advisor_saved=True)
+
+
 @router.get("/dashboard/assistant", response_class=HTMLResponse)
 def assistant_preferences(request: Request, service: Service, context: Admin) -> HTMLResponse:
     try:
         preferences = service.assistant_preferences()
     except AccessDenied as error:
         raise HTTPException(403, str(error)) from None
-    return page(request, "assistant.html", context=context, preferences=preferences)
+    return assistant_page(request, service, context, preferences)
 
 
 @router.post("/dashboard/assistant", response_class=HTMLResponse)
@@ -210,7 +253,7 @@ def update_assistant_preferences(
         preferences = service.update_assistant_preferences(data)
     except AccessDenied as error:
         raise HTTPException(403, str(error)) from None
-    return page(request, "assistant.html", context=context, preferences=preferences, saved=True)
+    return assistant_page(request, service, context, preferences, saved=True)
 
 
 @router.get("/dashboard/accounts/new", response_class=HTMLResponse)

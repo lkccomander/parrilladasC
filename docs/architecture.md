@@ -74,3 +74,14 @@ Uploads y PDFs permanecerán privados con acceso autorizado. Railway aloja Admin
 - [FastAPI: aplicaciones divididas en módulos](https://fastapi.tiangolo.com/tutorial/bigger-applications/)
 - [FastAPI: ciclo de vida de recursos](https://fastapi.tiangolo.com/advanced/events/)
 - [Alembic: entorno de migraciones](https://alembic.sqlalchemy.org/en/latest/tutorial.html)
+
+## Interacciones y derivación
+
+`conversations` conserva la identidad del contacto y el estado de atención actual.
+`conversation_interactions` separa cada consulta, con código único, snapshot y
+estado; un índice parcial permite una sola interacción activa por conversación.
+Los mensajes nuevos se vinculan a su interacción, y el outbox de `messages` admite
+un destinatario de asesor, propósito y dependencias de entrega. El servicio de
+conversaciones decide derivación y reinicio; el adaptador Meta solo traduce mensajes
+y plantillas. El worker existente entrega los trabajos persistidos y conserva
+idempotencia. No se agrega otro servicio desplegable ni una cola en memoria.

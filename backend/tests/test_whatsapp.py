@@ -32,7 +32,12 @@ from parrilladas.modules.assistant.config import AssistantSettings
 from parrilladas.modules.assistant.preferences import AssistantPreferenceService
 from parrilladas.modules.assistant.schemas import AssistantPreferencesUpdate
 from parrilladas.modules.conversations.flow import GREETING, MENU_BUTTONS
-from parrilladas.modules.conversations.models import Conversation, Message, WhatsAppInboxEvent
+from parrilladas.modules.conversations.models import (
+    Conversation,
+    Interaction,
+    Message,
+    WhatsAppInboxEvent,
+)
 from parrilladas.modules.conversations.repository import InboxRepository
 from parrilladas.modules.conversations.service import ConversationService, InboxService
 from parrilladas.modules.conversations.worker import ConversationWorker
@@ -517,6 +522,7 @@ def natural_worker(inbox_database, monkeypatch, request):
     engine, url = inbox_database
     with Session(engine) as session, session.begin():
         session.execute(delete(Message))
+        session.execute(delete(Interaction))
         session.execute(delete(Conversation))
         session.execute(delete(WhatsAppInboxEvent))
         # Most cases exercise intake after the shared welcome; first-contact
@@ -758,16 +764,32 @@ def test_old_messages_and_crashed_sending_attempts_are_not_replayed(natural_work
 
 
 @pytest.mark.postgres
-def test_handoff_notice_is_sent_once_and_next_customer_message_stays_paused(natural_worker):
+def test_unconfigured_handoff_preserves_case_and_immediately_queues_new_welcome(natural_worker):
     state = natural_worker
-    assert signed(state.client, encode(natural_payload(body="ASESOR"))).status_code == 200
+    data = natural_payload(body="ASESOR")
+    assert signed(state.client, encode(data)).status_code == 200
     state.worker.tick()
     assert len(state.outbound) == 1
+    assert "no pudimos confirmar" in state.outbound[0]["text"]["body"]
+    state.worker.tick()
+    assert len(state.outbound) == 2
+    assert state.outbound[1]["interactive"]["body"]["text"].startswith(GREETING)
     state.model.extract.assert_not_called()
+    assert signed(state.client, encode(data)).status_code == 200
+    assert not state.worker.tick()
+    assert len(state.outbound) == 2
+    with Session(state.engine) as session:
+        cases = session.scalars(select(Interaction).order_by(Interaction.created_at)).all()
+        assert len(cases) == 2
+        assert cases[0].status == "referred" and cases[1].status == "active"
+        assert cases[0].reference != cases[1].reference
+        assert not session.scalar(select(Conversation)).bot_paused
+        notice = session.scalar(select(Message).where(Message.purpose == "advisor_notification"))
+        assert notice.delivery_status == "failed"
     assert signed(state.client, encode(natural_payload("after-handoff"))).status_code == 200
     state.worker.tick()
-    assert len(state.outbound) == 1
-    state.model.extract.assert_not_called()
+    assert state.model.extract.call_count == 1
+    assert len(state.outbound) == 3
 
 
 @pytest.mark.postgres
@@ -876,10 +898,18 @@ def test_side_questions_keep_live_draft_active_and_advisor_requires_explicit_sel
         state.worker.tick()
         with Session(state.engine) as session:
             saved = session.scalar(select(Conversation))
-            assert saved.bot_paused == (button == "nl_advisor")
-            assert saved.flow_data["_nl_draft"] == original["_nl_draft"]
+            assert not saved.bot_paused
+            if button == "nl_advisor":
+                previous = session.scalar(
+                    select(Interaction).where(Interaction.status == "referred")
+                )
+                assert previous.snapshot["_nl_draft"] == original["_nl_draft"]
+                assert "_nl_draft" not in saved.flow_data
+            else:
+                assert saved.flow_data["_nl_draft"] == original["_nl_draft"]
     assert state.model.extract.call_count == calls_before
-    assert len(state.outbound) == 5
+    state.worker.tick()
+    assert len(state.outbound) == 6
 
 
 @pytest.mark.postgres
@@ -895,7 +925,7 @@ def test_natural_language_sends_shared_branded_welcome_then_accepts_intake(
     state.model.extract.assert_not_called()
     assert len(state.outbound) == 1
     first = state.outbound[0]["interactive"]
-    assert first["body"]["text"] == GREETING
+    assert first["body"]["text"].startswith(GREETING + "\n\nCódigo de interacción: PEC-")
     assert first["header"] == {
         "type": "image",
         "image": {"link": "https://example.com/assets/welcome_header.jpg"},
@@ -922,3 +952,240 @@ def test_natural_language_sends_shared_branded_welcome_then_accepts_intake(
         assert conversation.flow_step == "nl_review"
         assert conversation.flow_data["_nl_draft"]["guest_count"] == 20
         assert not conversation.bot_paused
+
+
+def configure_advisor(state):
+    from parrilladas.modules.assistant.schemas import AdvisorSettings
+
+    with Session(state.engine) as session:
+        AssistantPreferenceService(session).update_advisor(
+            state.actor,
+            AdvisorSettings(
+                enabled=True,
+                name="Synthetic Advisor",
+                phone="+15550000009",
+                template="consulta_para_asesor",
+                language="es",
+            ),
+        )
+
+
+def drain_worker(state):
+    for _ in range(8):
+        if not state.worker.tick():
+            return
+    raise AssertionError("Outbox did not drain")
+
+
+@pytest.mark.postgres
+def test_advisor_template_then_ack_then_new_welcome_preserve_case_and_reject_stale_buttons(
+    natural_worker,
+):
+    state = natural_worker
+    configure_advisor(state)
+    assert signed(state.client, encode(natural_payload())).status_code == 200
+    state.worker.tick()
+    with Session(state.engine) as session:
+        old = session.scalar(select(Interaction))
+        old_id, old_ref = old.id, old.reference
+        origin = session.scalar(select(Message).where(Message.direction == "outbound"))
+        origin_id = origin.external_message_id
+    data = natural_payload("advisor-selected")
+    message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+    message.pop("text")
+    message.update(
+        type="interactive",
+        context={"id": origin_id},
+        interactive={"button_reply": {"id": "nl_advisor"}},
+    )
+    assert signed(state.client, encode(data)).status_code == 200
+    state.worker.tick()
+    template = state.outbound[1]
+    assert template["type"] == "template" and template["to"] == "15550000009"
+    assert template["template"]["name"] == "consulta_para_asesor"
+    parameters = template["template"]["components"][0]["parameters"]
+    assert parameters[0]["text"] == old_ref
+    assert parameters[1]["text"] == "+15550000001"
+    assert "Personas: 20" in parameters[2]["text"]
+    state.worker.tick()
+    assert old_ref in state.outbound[2]["text"]["body"]
+    assert "Enviamos tu consulta" in state.outbound[2]["text"]["body"]
+    state.worker.tick()
+    assert state.outbound[3]["interactive"]["body"]["text"].startswith(GREETING)
+    with Session(state.engine) as session:
+        archived = session.get(Interaction, old_id)
+        following = session.scalar(select(Interaction).where(Interaction.status == "active"))
+        assert archived.status == "referred"
+        assert archived.snapshot["_nl_draft"]["guest_count"] == 20
+        assert following.reference != old_ref
+        assert following.reference in state.outbound[3]["interactive"]["body"]["text"]
+        assert following.snapshot == {"request_reference": following.reference}
+        conversation = session.scalar(select(Conversation))
+        assert conversation.flow_step == "menu" and not conversation.bot_paused
+        notices = session.scalars(
+            select(Message).where(Message.purpose == "advisor_notification")
+        ).all()
+        assert len(notices) == 1 and notices[0].interaction_id == old_id
+    assert signed(state.client, encode(data)).status_code == 200
+    assert not state.worker.tick()
+    # A new provider delivery of an old interaction's button cannot notify again.
+    message["id"] = "stale-advisor-button"
+    assert signed(state.client, encode(data)).status_code == 200
+    drain_worker(state)
+    assert len(state.outbound) == 4
+    assert state.model.extract.call_count == 1
+
+
+@pytest.mark.postgres
+@pytest.mark.parametrize(
+    "category,expected", [("access_denied", "failed"), ("unavailable", "uncertain")]
+)
+def test_advisor_send_failure_is_visible_and_does_not_block_new_interaction(
+    natural_worker, category, expected
+):
+    state = natural_worker
+    configure_advisor(state)
+    original_sender = state.worker.sender
+    attempts = []
+
+    def send(action):
+        if action.purpose == "advisor_notification":
+            attempts.append(action)
+            raise MetaSendError(category)
+        return original_sender(action)
+
+    state.worker.sender = send
+    assert (
+        signed(state.client, encode(natural_payload("failed-notice", body="ASESOR"))).status_code
+        == 200
+    )
+    drain_worker(state)
+    assert len(attempts) == 1
+    assert len(state.outbound) == 2
+    assert "no pudimos confirmar" in state.outbound[0]["text"]["body"]
+    assert "Enviamos tu consulta" not in state.outbound[0]["text"]["body"]
+    with Session(state.engine) as session:
+        row = session.scalar(select(Message).where(Message.purpose == "advisor_notification"))
+        assert row.delivery_status == expected
+        assert not session.scalar(select(Conversation)).bot_paused
+    assert signed(state.client, encode(natural_payload("new-after-failure"))).status_code == 200
+    drain_worker(state)
+    assert len(attempts) == 1
+    assert state.model.extract.call_count == 1
+    with Session(state.engine) as session:
+        report = AssistantPreferenceService(session).get_advisor(state.actor)
+        assert report.notifications[0].status == expected
+
+
+@pytest.mark.postgres
+def test_interrupted_advisor_send_recovers_with_honest_ack_without_resending(natural_worker):
+    state = natural_worker
+    configure_advisor(state)
+    assert (
+        signed(state.client, encode(natural_payload("crash-advisor", body="ASESOR"))).status_code
+        == 200
+    )
+    with Session(state.engine) as session:
+        service = ConversationService(
+            session, state.worker.sender, assistant=state.worker.assistant
+        )
+        assert service.process_next(
+            not_before=state.settings.conversation_processing_start_at,
+            business_account_id=WABA,
+            phone_number_id=PHONE_ID,
+        )
+    with Session(state.engine) as session, session.begin():
+        row = session.scalar(select(Message).where(Message.purpose == "advisor_notification"))
+        row.delivery_status = "sending"
+        row.attempted_at = datetime.now(UTC) - timedelta(seconds=61)
+    drain_worker(state)
+    assert len(state.outbound) == 2
+    assert all(payload["type"] != "template" for payload in state.outbound)
+    assert "no pudimos confirmar" in state.outbound[0]["text"]["body"]
+
+
+@pytest.mark.postgres
+def test_advisor_delivery_webhooks_update_status_without_regression(natural_worker):
+    state = natural_worker
+    configure_advisor(state)
+    assert (
+        signed(state.client, encode(natural_payload("status-advisor", body="ASESOR"))).status_code
+        == 200
+    )
+    drain_worker(state)
+    with Session(state.engine) as session:
+        notification = session.scalar(
+            select(Message).where(Message.purpose == "advisor_notification")
+        )
+        external = notification.external_message_id
+    for status in ["delivered", "sent", "read", "failed"]:
+        data = natural_payload("status-event")
+        value = data["entry"][0]["changes"][0]["value"]
+        value.pop("messages")
+        value["statuses"] = [
+            {"id": external, "status": status, "timestamp": str(int(datetime.now(UTC).timestamp()))}
+        ]
+        assert signed(state.client, encode(data)).status_code == 200
+        drain_worker(state)
+    with Session(state.engine) as session:
+        report = AssistantPreferenceService(session).get_advisor(state.actor)
+        assert report.notifications[0].status == "read"
+    assert len(state.outbound) == 3
+
+
+@pytest.mark.postgres
+def test_reply_to_internal_advisor_notice_never_creates_a_customer_request(natural_worker):
+    state = natural_worker
+    configure_advisor(state)
+    assert (
+        signed(
+            state.client, encode(natural_payload("notify-before-reply", body="ASESOR"))
+        ).status_code
+        == 200
+    )
+    drain_worker(state)
+    with Session(state.engine) as session:
+        notification = session.scalar(
+            select(Message).where(Message.purpose == "advisor_notification")
+        )
+        context_id = notification.external_message_id
+    data = natural_payload("advisor-reply", body="recibido")
+    message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+    message["from"] = "15550000009"
+    message["context"] = {"id": context_id}
+    assert signed(state.client, encode(data)).status_code == 200
+    drain_worker(state)
+    assert len(state.outbound) == 3
+    state.model.extract.assert_not_called()
+
+
+def test_template_adapter_sends_only_the_configured_body_parameters():
+    def meta(request):
+        data = json.loads(request.content)
+        assert data["type"] == "template" and data["to"] == "15550000009"
+        assert data["template"] == {
+            "name": "consulta_para_asesor",
+            "language": {"code": "es"},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": value}
+                        for value in ("PEC-SYNTHETIC", "+15550000001", "Personas: 20")
+                    ],
+                }
+            ],
+        }
+        return httpx.Response(200, json={"messages": [{"id": "wamid.synthetic-template"}]})
+
+    with httpx.Client(transport=httpx.MockTransport(meta)) as http:
+        result = MetaClient(http).send_template(
+            version="v27.0",
+            phone_id=PHONE_ID,
+            token=TOKEN,
+            recipient="15550000009",
+            name="consulta_para_asesor",
+            language="es",
+            parameters=("PEC-SYNTHETIC", "+15550000001", "Personas: 20"),
+        )
+    assert result == "wamid.synthetic-template"

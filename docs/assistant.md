@@ -62,7 +62,7 @@ Las nuevas usan el modo efectivo guardado en Admin. Apagar la preferencia no
 impide confirmar un borrador NL existente mediante botones; si necesita más
 interpretación, ofrece preguntas literales sin IA o atención humana. Errores del
 modelo y consultas sin conocimiento aprobado no pausan automáticamente el bot.
-La pausa requiere petición explícita de una persona o selección de «Hablar con asesor».
+La derivación requiere petición explícita de una persona o selección de «Hablar con asesor».
 Las pausas humanas previas y las solicitudes finalizadas conservan su estado.
 
 ## Admin
@@ -115,7 +115,7 @@ mapeo y aislamiento multi-tenant completos.
 - Preparación: cocinar en el lugar solo si lo indica el catálogo.
 - Precios y disponibilidad: explicar revisión humana, sin cifras ni reservas.
 - Alergias, pagos, cancelaciones y detalles no documentados: reconocer el límite y
-  ofrecer un asesor. La oferta no pausa; el cliente debe seleccionarla.
+  ofrecer un asesor. La oferta no deriva; el cliente debe seleccionarla.
 - «Quiero más información»: ofrecer menú, cobertura o solicitud.
 - Fuera de tema: recordar el alcance y ofrecer continuar, sin borrar el borrador.
 - Fallo/JSON inválido: conservar datos y ofrecer «Continuar sin IA». El modo literal
@@ -124,7 +124,7 @@ mapeo y aislamiento multi-tenant completos.
 Las preguntas laterales conservan estado, borrador, referencia y correcciones
 pendientes; «Continuar solicitud» vuelve al resumen o al dato faltante. Las
 correcciones continúan requiriendo aceptación y confirmación final independientes.
-Un mensaje del modelo que indique `human_handoff` no autoriza la pausa si el texto
+Un mensaje del modelo que indique `human_handoff` no autoriza la derivación si el texto
 del cliente no contiene una petición explícita. «Sí» aislado no autoriza atención
 humana; la aceptación se realiza mediante el botón. No se habilitan Search/Maps.
 Los documentos son hechos aprobados, no instrucciones para cambiar estas reglas.
@@ -134,3 +134,42 @@ Las pruebas usan datos y proveedores sintéticos; las de PostgreSQL solo una bas
 vacía y desechable mediante `TEST_DATABASE_URL`. Cubren recuperación, duplicados,
 confirmación, pausas, cierre, canal verificado y resultados inciertos, sin enviar
 mensajes reales ni guardar credenciales de producción.
+
+## Derivación al WhatsApp del asesor (Beta 1.05)
+
+En Admin → Asistente se configura el nombre, teléfono internacional, nombre de
+plantilla aprobada e idioma. El aviso está apagado por defecto. La configuración
+usa `GET/PATCH /assistant/preferences/advisor` con Admin, Bearer JWT y CSRF en la
+mutación; no modifica el contrato ni el valor del interruptor de lenguaje natural.
+La plantilla debe tener tres parámetros de cuerpo posicionales: código de consulta,
+teléfono del cliente y resumen. El asesor debe haber aceptado recibir estos avisos.
+No se asume una ventana WhatsApp abierta: el API envía siempre la plantilla configurada.
+Ejemplo de cuerpo a aprobar en Meta:
+
+> Nueva consulta {{1}}. Cliente: {{2}}. Resumen: {{3}}. Contacta al cliente desde tu WhatsApp.
+
+El asesor responde directamente desde su propio WhatsApp; sus mensajes al cliente
+no se sincronizan con Admin. No se ha implementado una bandeja de atención humana.
+
+Una conversación por número contiene varias `conversation_interactions`, cada una
+con código único y mensajes asociados. Se conserva un snapshot al derivar. La
+migración `0006` es aditiva: los mensajes históricos conservan interacción nullable;
+no reabre solicitudes confirmadas ni reanuda pausas previas.
+
+Al solicitar asesor, una transacción cierra la interacción como `referred`, guarda
+el aviso con destino y plantilla congelados, prepara la confirmación y abre otra
+interacción. El nuevo estado queda en menú, con borrador vacío y código diferente.
+El worker entrega, en orden: aviso al asesor, confirmación al cliente y bienvenida
+original con imagen, botones y nuevo código. Los tres trabajos se guardan antes de
+confirmar el webhook. Los botones que referencian mensajes de una interacción
+anterior no vuelven a derivarla. Los reintentos del mismo evento son idempotentes.
+
+Si falta configuración o Meta rechaza el aviso, el cliente recibe un texto honesto
+que indica que su consulta se registró pero el aviso no pudo confirmarse, seguido
+de la nueva bienvenida. Admin muestra pendientes, aceptados, entregados, leídos,
+fallidos y resultados inciertos. HTTP 200 de Meta significa aceptación, no entrega.
+Los callbacks de estado verificados actualizan los avisos sin retroceder de leído.
+Un envío de asesor incierto no se repite automáticamente ni bloquea la nueva
+interacción; un intento interrumpido pasa a incierto tras 60 segundos. Los envíos
+inciertos al cliente siguen requiriendo revisión operativa y pausan ese chat.
+No se promete un tiempo fijo de respuesta ni se intenta reenviar cotizaciones.

@@ -18,6 +18,8 @@ from parrilladas.modules.accounts.schemas import (
     SessionCreated,
 )
 from parrilladas.modules.assistant.schemas import (
+    AdvisorPreferencesView,
+    AdvisorSettings,
     AssistantPreferencesUpdate,
     AssistantPreferencesView,
 )
@@ -111,6 +113,16 @@ class AdminApiClient:
 
     def assistant_preferences(self) -> AssistantPreferencesView:
         return AssistantPreferencesView.model_validate(self._call("GET", "/assistant/preferences"))
+
+    def advisor_settings(self) -> AdvisorPreferencesView:
+        return AdvisorPreferencesView.model_validate(
+            self._call("GET", "/assistant/preferences/advisor")
+        )
+
+    def update_advisor_settings(self, data: AdvisorSettings) -> AdvisorPreferencesView:
+        return AdvisorPreferencesView.model_validate(
+            self._call("PATCH", "/assistant/preferences/advisor", data=data.model_dump(mode="json"))
+        )
 
     def update_assistant_preferences(
         self, data: AssistantPreferencesUpdate

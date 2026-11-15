@@ -4,7 +4,7 @@ from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 KnowledgeTopic = Literal[
     "menu", "coverage", "preparation", "pricing", "availability", "allergens", "policies", "general"
@@ -96,6 +96,38 @@ class ExtractionOutcome(BaseModel):
     ambiguities: tuple[EventField, ...] = ()
 
 
+class AdvisorSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    enabled: bool = Field(default=False, strict=True)
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    phone: str | None = Field(default=None, pattern=r"^\+[1-9][0-9]{7,14}$", repr=False)
+    template: str | None = Field(default=None, pattern=r"^[a-z0-9_]{1,100}$")
+    language: str | None = Field(default=None, pattern=r"^[a-z]{2,3}(?:_[A-Z]{2})?$")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value):
+        if value is not None and not value.strip():
+            raise ValueError("Nombre del asesor vacío")
+        return value.strip() if value is not None else None
+
+    @model_validator(mode="after")
+    def require_enabled_configuration(self):
+        if self.enabled and not all((self.name, self.phone, self.template, self.language)):
+            raise ValueError(
+                "Complete nombre, WhatsApp, plantilla e idioma antes de habilitar al asesor."
+            )
+        return self
+
+
+class AdvisorNotificationView(BaseModel):
+    reference: str
+    status: str
+    reason: str | None = None
+    created_at: datetime
+
+
 class AssistantPreferencesUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -110,3 +142,8 @@ class AssistantPreferencesView(BaseModel):
     active_mode: Literal["guided", "natural_language"] = "guided"
     updated_at: datetime | None = None
     updated_by: UUID | None = None
+
+
+class AdvisorPreferencesView(BaseModel):
+    settings: AdvisorSettings = Field(default_factory=AdvisorSettings)
+    notifications: list[AdvisorNotificationView] = Field(default_factory=list)

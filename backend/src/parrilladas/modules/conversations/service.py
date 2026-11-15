@@ -1,16 +1,20 @@
 import json
-import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from parrilladas.modules.assistant.preferences import ACTIVE_TENANT_ID, AssistantPreferenceService
 from parrilladas.modules.assistant.service import AssistantService
-from parrilladas.modules.conversations.contracts import ButtonReply, InboxEvent, IncomingText
-from parrilladas.modules.conversations.flow import decide
+from parrilladas.modules.conversations.contracts import (
+    ButtonReply,
+    InboxEvent,
+    IncomingText,
+    child_event_key,
+)
+from parrilladas.modules.conversations.flow import GREETING, MENU_BUTTONS, decide
 from parrilladas.modules.conversations.natural_language import NL_STEPS, natural_language_decision
 from parrilladas.modules.conversations.repository import ConversationRepository, InboxRepository
 
@@ -21,6 +25,10 @@ class OutboundAction:
     recipient: str
     text: str
     buttons: tuple[tuple[str, str], ...]
+    purpose: str = "customer"
+    template_name: str | None = None
+    template_language: str | None = None
+    template_parameters: tuple[str, ...] = ()
 
 
 OutboundSender = Callable[[OutboundAction], str]
@@ -62,6 +70,13 @@ class ConversationService:
             prepared = self._prepare(event)
             if prepared is not None and self.sender is not None:
                 self._deliver(*prepared)
+            elif self.sender is not None:
+                # Legacy inline mode drains only this event's newly queued handoff.
+                for _ in range(3):
+                    if not self.deliver_next(
+                        not_before=datetime.min.replace(tzinfo=UTC), event_prefix=event.event_key
+                    ):
+                        break
 
     def _prepare(self, event: InboxEvent) -> tuple[UUID, OutboundAction] | None:
         with self.session.begin():
@@ -72,6 +87,9 @@ class ConversationService:
         if inbox_event.processed_at is not None:
             return None
         if event.kind != "message":
+            if event.kind == "status":
+                for status in event.payload.get("value", {}).get("statuses", []):
+                    self.repository.update_advisor_status(status["id"], status["status"])
             self.inbox.mark_processed(inbox_event)
             return None
 
@@ -81,17 +99,37 @@ class ConversationService:
         incoming = self._incoming(message)
         content = self._content(message, incoming)
         conversation = self.repository.get_or_create(recipient)
-        if (
-            self.repository.add_inbound(
-                conversation_id=conversation.id,
-                external_message_id=external_id,
-                content=content,
-            )
-            is None
-        ):
+        inbound = self.repository.add_inbound(
+            conversation_id=conversation.id,
+            external_message_id=external_id,
+            content=content,
+        )
+        if inbound is None:
             self.inbox.mark_processed(inbox_event)
             return None
         if conversation.bot_paused or conversation.flow_step == "submitted":
+            self.inbox.mark_processed(inbox_event)
+            return None
+        advisor = AssistantPreferenceService(self.session).advisor_for_tenant(ACTIVE_TENANT_ID)
+        context = message.get("context")
+        context_id = context.get("id") if isinstance(context, dict) else None
+        origin = self.repository.outbound_context(context_id) if context_id else None
+        if origin and origin.purpose == "advisor_notification" and origin.recipient == recipient:
+            # Replies to internal notices never become new customer requests.
+            self.inbox.mark_processed(inbox_event)
+            return None
+        interaction = self.repository.active_interaction(conversation)
+        inbound.interaction_id = interaction.id
+        if (
+            isinstance(incoming, ButtonReply)
+            and origin
+            and (
+                origin.conversation_id != conversation.id
+                or (origin.interaction_id and origin.interaction_id != interaction.id)
+            )
+        ):
+            if origin.conversation_id == conversation.id:
+                inbound.interaction_id = origin.interaction_id
             self.inbox.mark_processed(inbox_event)
             return None
 
@@ -112,34 +150,32 @@ class ConversationService:
         if not decision.should_respond:
             self.inbox.mark_processed(inbox_event)
             return None
-        conversation.flow_step = decision.step
         if decision.handoff:
-            conversation.bot_paused = True
+            self._handoff(event.event_key, conversation, interaction, advisor)
+            self.inbox.mark_processed(inbox_event)
+            return None
+        conversation.flow_step = decision.step
         if decision.reset:
-            conversation.flow_data = {}
+            conversation.flow_data = {"request_reference": interaction.reference}
         else:
-            updates = dict(decision.updates)
-            if decision.step in NL_STEPS and not conversation.flow_data.get("request_reference"):
-                updates["request_reference"] = f"PEC-{secrets.token_hex(5).upper()}"
-            if (
-                conversation.flow_step == "event_type"
-                and isinstance(incoming, ButtonReply)
-                and incoming.id.strip().casefold() in {"request_quote", "quote"}
-            ):
-                updates["request_reference"] = f"PEC-{secrets.token_hex(5).upper()}"
-            conversation.flow_data = {
-                **(conversation.flow_data or {}),
-                **updates,
-            }
+            conversation.flow_data = {**(conversation.flow_data or {}), **dict(decision.updates)}
+        interaction.snapshot = dict(conversation.flow_data)
+        if decision.step == "submitted":
+            interaction.status = "submitted"
+            interaction.closed_at = datetime.now(UTC)
+        text = decision.text
+        if text == GREETING and decision.buttons == MENU_BUTTONS:
+            text += f"\n\nCódigo de interacción: {interaction.reference}"
         action = OutboundAction(
             event_key=event.event_key,
             recipient=recipient,
-            text=decision.text,
+            text=text,
             buttons=decision.buttons,
         )
         outbound = self.repository.add_outbound(
             conversation_id=conversation.id,
             event_key=event.event_key,
+            interaction_id=interaction.id,
             content=json.dumps(
                 {
                     "text": action.text,
@@ -152,6 +188,101 @@ class ConversationService:
         )
         self.inbox.mark_processed(inbox_event)
         return outbound.id, action
+
+    def _handoff(self, event_key, conversation, interaction, advisor) -> None:
+        self.repository.cancel_pending(interaction.id)
+        interaction.snapshot = dict(conversation.flow_data or {})
+        interaction.status = "referred"
+        interaction.closed_at = datetime.now(UTC)
+        self.session.flush()
+        details = interaction.snapshot.get("_nl_draft") or interaction.snapshot
+        summary = "; ".join(
+            f"{label}: {details.get(key) or 'Pendiente'}"
+            for key, label in [
+                ("event_date", "Fecha"),
+                ("guest_count", "Personas"),
+                ("location", "Lugar"),
+                ("service_type", "Servicio"),
+            ]
+        )[:800]
+        messages = [
+            " ".join(value.split())[:200]
+            for value in self.repository.recent_customer_texts(interaction.id)
+            if value.strip().casefold() != "asesor" and not value.startswith('{"id":')
+        ]
+        if messages:
+            summary = (
+                summary[:350] + "; Mensajes recientes: " + " / ".join(reversed(messages[:2]))
+            )[:800]
+        reason = None
+        if not advisor.enabled:
+            reason = "not_configured"
+        elif advisor.phone.lstrip("+") == conversation.whatsapp_number:
+            reason = "same_recipient"
+        notification = self.repository.add_outbound(
+            conversation_id=conversation.id,
+            interaction_id=interaction.id,
+            event_key=child_event_key(event_key, "advisor"),
+            purpose="advisor_notification",
+            recipient=advisor.phone.lstrip("+") if advisor.phone else None,
+            delivery_status="failed" if reason else "pending",
+            content=json.dumps(
+                {
+                    "text": "",
+                    "buttons": [],
+                    "failure_reason": reason,
+                    "template_name": advisor.template,
+                    "template_language": advisor.language,
+                    "template_parameters": [
+                        interaction.reference,
+                        "+" + conversation.whatsapp_number,
+                        summary,
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+        )
+        acknowledgement = self.repository.add_outbound(
+            conversation_id=conversation.id,
+            interaction_id=interaction.id,
+            event_key=child_event_key(event_key, "ack"),
+            depends_on_id=notification.id,
+            content=json.dumps(
+                {
+                    "text": (
+                        "Enviamos tu consulta al asesor. Te responderá desde su propio WhatsApp "
+                        "tan pronto esté disponible.\n"
+                        f"Código de consulta: {interaction.reference}"
+                    ),
+                    "buttons": [],
+                    "advisor_ack": True,
+                    "fallback_text": (
+                        f"Tu consulta quedó registrada con el código {interaction.reference}, "
+                        "pero no pudimos confirmar el aviso al asesor en este momento. "
+                        "Conservamos los datos para su revisión."
+                    ),
+                },
+                ensure_ascii=False,
+            ),
+        )
+        conversation.flow_data = {}
+        conversation.flow_step = "menu"
+        conversation.bot_paused = False
+        following = self.repository.active_interaction(conversation)
+        following.snapshot = dict(conversation.flow_data)
+        self.repository.add_outbound(
+            conversation_id=conversation.id,
+            interaction_id=following.id,
+            event_key=child_event_key(event_key, "welcome"),
+            depends_on_id=acknowledgement.id,
+            content=json.dumps(
+                {
+                    "text": GREETING + f"\n\nCódigo de interacción: {following.reference}",
+                    "buttons": MENU_BUTTONS,
+                },
+                ensure_ascii=False,
+            ),
+        )
 
     def process_next(
         self, *, not_before: datetime, business_account_id: str, phone_number_id: str
@@ -173,15 +304,18 @@ class ConversationService:
                     self.inbox.mark_processed(row)
                 else:
                     self._prepare_locked(InboxEvent(row.event_key, row.kind, row.payload))
+            elif verified and row.kind == "status":
+                self._prepare_locked(InboxEvent(row.event_key, row.kind, row.payload))
             else:
                 self.inbox.mark_processed(row)
             return True
 
-    def deliver_next(self, *, not_before: datetime) -> bool:
+    def deliver_next(self, *, not_before: datetime, event_prefix: str | None = None) -> bool:
         with self.session.begin():
             if not self.inbox.lock_worker():
                 return False
-            selected = self.repository.next_outbound(not_before)
+            self.repository.recover_advisor_attempts(datetime.now(UTC) - timedelta(seconds=60))
+            selected = self.repository.next_outbound(not_before, event_prefix)
             if selected is None:
                 return False
             message, conversation = selected
@@ -191,13 +325,23 @@ class ConversationService:
                 return True
             # Persist BEFORE calling Meta. Crashed/ambiguous attempts remain
             # sending/uncertain and are never automatically sent a second time.
+            if payload.get("advisor_ack"):
+                parent = self.repository.get_message(message.depends_on_id)
+                if parent.delivery_status not in {"sent", "delivered", "read"}:
+                    payload["text"] = payload["fallback_text"]
+                    message.content = json.dumps(payload, ensure_ascii=False)
             message.delivery_status = "sending"
+            message.attempted_at = datetime.now(UTC)
             message_id = message.id
             action = OutboundAction(
                 event_key=message.event_key,
-                recipient=conversation.whatsapp_number,
+                recipient=message.recipient or conversation.whatsapp_number,
                 text=payload["text"],
                 buttons=tuple(tuple(button) for button in payload["buttons"]),
+                purpose=message.purpose,
+                template_name=payload.get("template_name"),
+                template_language=payload.get("template_language"),
+                template_parameters=tuple(payload.get("template_parameters", [])),
             )
         self._deliver(message_id, action, uncertain_on_failure=True)
         return True
@@ -207,9 +351,20 @@ class ConversationService:
     ) -> None:
         try:
             external_id = self.sender(action)
-        except Exception:
+        except Exception as error:
             with self.session.begin():
-                if uncertain_on_failure:
+                if action.purpose == "advisor_notification":
+                    row = self.repository.get_message(message_id)
+                    row.delivery_status = (
+                        "failed"
+                        if getattr(error, "category", None) in {"access_denied", "rate_limited"}
+                        else "uncertain"
+                    )
+                    row.content = json.dumps(
+                        {**json.loads(row.content), "failure_reason": "send_failed"},
+                        ensure_ascii=False,
+                    )
+                elif uncertain_on_failure:
                     self.repository.mark_uncertain(message_id)
                 else:
                     self.repository.mark_failed(message_id)

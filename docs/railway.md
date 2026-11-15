@@ -188,3 +188,12 @@ el paquete instalado, además de versiones, pruebas y migraciones desechables.
 No se añaden dependencias, variables, tablas ni migraciones. Se mantienen los
 gates, la preferencia Admin y el instante de activación existente del worker.
 Las conversaciones previamente pausadas no se reanudan durante el despliegue.
+
+## Beta 1.05: asesor e interacciones
+
+`1.0.0-beta.6` añade la migración `0006` (aditiva) y configuración de asesor en
+Admin → Asistente. El asesor está deshabilitado por defecto y no necesita secretos
+nuevos en Railway: usa el transporte Meta del API y la plantilla configurada por
+Admin. Solo API ejecuta Alembic. Se preservan los gates, preferencia NL e instante
+de activación del worker. No se envían avisos a números inventados ni se intenta
+notificar a un asesor antes de guardar su configuración. Ver [asistente](assistant.md).

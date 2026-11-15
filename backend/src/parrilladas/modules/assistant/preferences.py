@@ -5,9 +5,15 @@ from sqlalchemy.orm import Session
 from parrilladas.modules.accounts.contracts import Role
 from parrilladas.modules.accounts.errors import AccessDenied
 from parrilladas.modules.accounts.schemas import AccountView
+from parrilladas.modules.conversations.handoffs import HandoffStatusService
 
 from .repository import AssistantPreferenceRepository
-from .schemas import AssistantPreferencesUpdate, AssistantPreferencesView
+from .schemas import (
+    AdvisorPreferencesView,
+    AdvisorSettings,
+    AssistantPreferencesUpdate,
+    AssistantPreferencesView,
+)
 
 # Only this business has dashboard accounts. A future tenant resolver must also
 # authorize account membership before exposing preferences for another tenant.
@@ -38,6 +44,17 @@ class AssistantPreferenceService:
             updated_by=row.updated_by if row else None,
         )
 
+    def advisor_for_tenant(self, tenant_id: str) -> AdvisorSettings:
+        row = self.repository.get(tenant_id) if tenant_id == ACTIVE_TENANT_ID else None
+        if row is None:
+            return AdvisorSettings()
+        return AdvisorSettings(
+            **{
+                key: getattr(row, f"advisor_{key}")
+                for key in ("enabled", "name", "phone", "template", "language")
+            }
+        )
+
     def requested_for_tenant(self, tenant_id: str) -> bool:
         """Read within the caller's transaction after verifying the Meta channel."""
         if tenant_id != ACTIVE_TENANT_ID:
@@ -62,3 +79,27 @@ class AssistantPreferenceService:
                 updated_at=datetime.now(UTC),
             )
             return self._view(row)
+
+    def get_advisor(self, actor: AccountView) -> AdvisorPreferencesView:
+        self._require_admin(actor)
+        with self.session.begin():
+            return AdvisorPreferencesView(
+                settings=self.advisor_for_tenant(ACTIVE_TENANT_ID),
+                notifications=HandoffStatusService(self.session).recent(),
+            )
+
+    def update_advisor(self, actor: AccountView, data: AdvisorSettings) -> AdvisorPreferencesView:
+        self._require_admin(actor)
+        with self.session.begin():
+            current = self.repository.get(ACTIVE_TENANT_ID)
+            self.repository.save(
+                ACTIVE_TENANT_ID,
+                enabled=bool(current and current.natural_language_enabled),
+                advisor=data,
+                actor_id=actor.id,
+                updated_at=datetime.now(UTC),
+            )
+            return AdvisorPreferencesView(
+                settings=self.advisor_for_tenant(ACTIVE_TENANT_ID),
+                notifications=HandoffStatusService(self.session).recent(),
+            )

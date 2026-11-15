@@ -1,4 +1,4 @@
 """Parrilladas sales platform."""
 
-__version__ = "1.0.0-beta.5"
-__release_name__ = "Beta 1.04"
+__version__ = "1.0.0-beta.6"
+__release_name__ = "Beta 1.05"

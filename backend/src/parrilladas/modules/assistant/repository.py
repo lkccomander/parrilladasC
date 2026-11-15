@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from .models import AssistantPreference
+from .schemas import AdvisorSettings
 
 
 class AssistantPreferenceRepository:
@@ -15,13 +16,21 @@ class AssistantPreferenceRepository:
         return self.session.get(AssistantPreference, tenant_id)
 
     def save(
-        self, tenant_id: str, *, enabled: bool, actor_id: UUID, updated_at: datetime
+        self,
+        tenant_id: str,
+        *,
+        enabled: bool,
+        actor_id: UUID,
+        updated_at: datetime,
+        advisor: AdvisorSettings | None = None,
     ) -> AssistantPreference:
         values = {
             "natural_language_enabled": enabled,
             "updated_at": updated_at,
             "updated_by": actor_id,
         }
+        if advisor is not None:
+            values.update({f"advisor_{key}": value for key, value in advisor.model_dump().items()})
         statement = (
             insert(AssistantPreference)
             .values(tenant_id=tenant_id, **values)

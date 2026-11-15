@@ -2,11 +2,10 @@
 {% block title %}Asistente{% endblock %}
 {% block content %}
   <p class="eyebrow">CONFIGURACIÓN · ASISTENTE</p>
-  <h1>Lenguaje natural</h1>
-  <p class="lead">Seleccione el modo de atención que desea para Parrilladas.</p>
-  {% if saved %}
-    <p class="notice" role="status">Preferencia guardada.</p>
-  {% endif %}
+  <h1>Asistente</h1>
+  <p class="lead">Seleccione el modo de atención y configure al asesor de Parrilladas.</p>
+  {% if saved %}<p class="notice" role="status">Preferencia guardada.</p>{% endif %}
+  {% if advisor_saved %}<p class="notice" role="status">Configuración del asesor guardada.</p>{% endif %}
   <section class="card" aria-labelledby="assistant-mode-heading">
     <h2 id="assistant-mode-heading">Modo de atención</h2>
     <p><strong>Modo actual:</strong> {{ 'Lenguaje natural' if preferences.active_mode == 'natural_language' else 'Guiado' }}</p>
@@ -17,8 +16,7 @@
     <form method="post" action="/dashboard/assistant">
       <input type="hidden" name="csrf_token" value="{{ context.csrf_token }}">
       <label class="checkbox" for="natural-language-enabled">
-        <input id="natural-language-enabled" type="checkbox" name="natural_language_enabled"
-               {% if preferences.natural_language_enabled %}checked{% endif %}>
+        <input id="natural-language-enabled" type="checkbox" name="natural_language_enabled" {% if preferences.natural_language_enabled %}checked{% endif %}>
         Usar lenguaje natural
       </label>
       <p class="help">Esta preferencia no reanuda conversaciones pausadas ni cambia la atención de un asesor.</p>
@@ -26,4 +24,26 @@
       <button type="submit">Guardar preferencia</button>
     </form>
   </section>
+  {% if advisor_info %}
+  <section class="card">
+    <h2>Asesor por WhatsApp</h2>
+    <form method="post" action="/dashboard/assistant/advisor">
+      <input type="hidden" name="csrf_token" value="{{ context.csrf_token }}">
+      <label class="checkbox"><input type="checkbox" name="enabled" {% if advisor_info.settings.enabled %}checked{% endif %}> Notificar al asesor al derivar una consulta</label>
+      <label>Nombre del asesor<input name="name" maxlength="80" value="{{ advisor_info.settings.name or '' }}"></label>
+      <label>WhatsApp del asesor<input name="phone" type="tel" placeholder="+50612345678" value="{{ advisor_info.settings.phone or '' }}"></label>
+      <label>Nombre de la plantilla aprobada<input name="template" placeholder="consulta_para_asesor" value="{{ advisor_info.settings.template or '' }}"></label>
+      <label>Idioma de la plantilla<input name="language" placeholder="es" value="{{ advisor_info.settings.language or '' }}"></label>
+      <p class="help">La plantilla de WhatsApp debe estar aprobada y contener tres parámetros de cuerpo, en este orden: código de consulta, teléfono del cliente y resumen. El asesor debe aceptar recibir avisos en este número y responderá desde su propio WhatsApp.</p>
+      <p class="help">Después del aviso se envía una nueva bienvenida con otro código. Los mensajes privados del asesor no se sincronizan con Admin.</p>
+      <button type="submit">Guardar asesor</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2>Avisos recientes al asesor</h2>
+    {% for item in advisor_info.notifications %}
+      <p><strong>{{ item.reference }}</strong> · {{ {'pending': 'Pendiente', 'sending': 'Enviando', 'sent': 'Aceptado por WhatsApp', 'delivered': 'Entregado', 'read': 'Leído', 'failed': 'Fallido', 'uncertain': 'Envío sin confirmar'}.get(item.status, item.status) }}{% if item.reason %} · {{ {'not_configured': 'Falta configurar el asesor', 'same_recipient': 'El asesor y el cliente tienen el mismo número', 'send_failed': 'No se pudo confirmar el envío'}.get(item.reason, 'Revise la configuración del asesor') }}{% endif %}</p>
+    {% else %}<p>Todavía no hay avisos al asesor.</p>{% endfor %}
+  </section>
+  {% else %}<p class="notice">La configuración del asesor no está disponible en este momento.</p>{% endif %}
 {% endblock %}

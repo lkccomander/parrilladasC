@@ -363,3 +363,71 @@ def test_admin_reports_natural_language_only_when_preference_and_runtime_are_ena
         "/assistant/preferences", headers=headers, json={"natural_language_enabled": False}
     )
     assert response.json()["active_mode"] == "guided"
+
+
+def test_advisor_configuration_is_admin_only_and_requires_csrf(preference_client):
+    state = preference_client
+    path = "/assistant/preferences/advisor"
+    data = {
+        "enabled": True,
+        "name": "Synthetic Advisor",
+        "phone": "+15550000009",
+        "template": "consulta_para_asesor",
+        "language": "es",
+    }
+    assert state.api.get(path).status_code == 401
+    assert state.api.patch(path, json=data).status_code == 401
+    headers = login(state, sales=True)
+    assert state.api.get(path, headers=headers).status_code == 403
+    assert state.api.patch(path, headers=headers, json=data).status_code == 403
+    state.client.cookies.clear()
+    headers = login(state)
+    assert (
+        state.api.patch(
+            path, headers={"Authorization": headers["Authorization"]}, json=data
+        ).status_code
+        == 403
+    )
+    assert state.api.patch(path, headers=headers, json={"enabled": True}).status_code == 422
+    assert state.api.patch(path, headers=headers, json={**data, "phone": "123"}).status_code == 422
+    assert state.api.patch(path, headers=headers, json=data).status_code == 200
+    assert state.api.get(path, headers=headers).json()["settings"] == data
+    # Saving the old mode contract preserves the independently configured contact.
+    response = state.api.patch(
+        "/assistant/preferences", headers=headers, json={"natural_language_enabled": True}
+    )
+    assert response.status_code == 200 and "advisor" not in response.json()
+    assert state.api.get(path, headers=headers).json()["settings"] == data
+    with Session(state.db.engine) as session:
+        row = session.get(AssistantPreference, "parrilladas")
+        assert row.advisor_enabled and row.updated_by == state.db.admin.id
+        assert row.natural_language_enabled
+
+
+def test_advisor_admin_form_round_trip_preserves_mode_and_rejects_cross_site(preference_client):
+    state = preference_client
+    login(state)
+    page = state.client.get("/dashboard/assistant")
+    assert "Asesor por WhatsApp" in page.text
+    token = csrf(page)
+    data = {
+        "csrf_token": token,
+        "enabled": "on",
+        "name": "Synthetic Advisor",
+        "phone": "+15550000009",
+        "template": "consulta_para_asesor",
+        "language": "es",
+    }
+    path = "/dashboard/assistant/advisor"
+    assert (
+        state.client.post(path, data=data, headers={"Sec-Fetch-Site": "cross-site"}).status_code
+        == 403
+    )
+    assert state.client.post(path, data={**data, "csrf_token": "wrong"}).status_code == 403
+    response = state.client.post(path, data=data)
+    assert response.status_code == 200
+    assert "Configuración del asesor guardada." in response.text
+    assert 'value="+15550000009"' in response.text
+    with Session(state.db.engine) as session:
+        row = session.get(AssistantPreference, "parrilladas")
+        assert row.advisor_enabled and not row.natural_language_enabled

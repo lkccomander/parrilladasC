@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,6 +22,13 @@ class Message(Record, Base):
     __tablename__ = "messages"
 
     conversation_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), index=True)
+    interaction_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("conversation_interactions.id"), index=True
+    )
+    recipient: Mapped[str | None] = mapped_column(String(32))
+    purpose: Mapped[str] = mapped_column(String(32), default="customer", server_default="customer")
+    depends_on_id: Mapped[UUID | None] = mapped_column(ForeignKey("messages.id"))
+    attempted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     external_message_id: Mapped[str | None] = mapped_column(String(255), unique=True)
     direction: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
@@ -38,3 +45,21 @@ class WhatsAppInboxEvent(Record, Base):
     kind: Mapped[str] = mapped_column(String(16))
     payload: Mapped[dict] = mapped_column(JSONB)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class Interaction(Record, Base):
+    __tablename__ = "conversation_interactions"
+
+    conversation_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), index=True)
+    reference: Mapped[str] = mapped_column(String(40), unique=True)
+    status: Mapped[str] = mapped_column(String(24), default="active", server_default="active")
+    snapshot: Mapped[dict] = mapped_column(JSONB, default=dict)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+Index(
+    "uq_interaction_active_conversation",
+    Interaction.conversation_id,
+    unique=True,
+    postgresql_where=text("status = 'active'"),
+)

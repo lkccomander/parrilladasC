@@ -1,3 +1,4 @@
+import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -31,3 +32,7 @@ class FlowDecision:
     should_respond: bool = True
     updates: Mapping[str, object] = MappingProxyType({})
     reset: bool = False
+
+
+def child_event_key(event_key: str, kind: str) -> str:
+    return hashlib.sha256(f"{event_key}:{kind}".encode()).hexdigest()
