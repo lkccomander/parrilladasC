@@ -6,6 +6,10 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+KnowledgeTopic = Literal[
+    "menu", "coverage", "preparation", "pricing", "availability", "allergens", "policies", "general"
+]
+
 EventField = Literal["event_date", "guest_count", "location", "service_type"]
 EVENT_FIELDS: tuple[EventField, ...] = (
     "event_date",
@@ -64,6 +68,7 @@ class ExtractionCandidate(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
     intent: Literal["quote", "business_question", "human_handoff", "unsupported"]
+    topic: KnowledgeTopic = "general"
     details: EventDetails = Field(repr=False)
     ambiguities: list[EventField] = Field(default_factory=list, max_length=4)
     date_evidence: str | None = Field(default=None, max_length=4000, repr=False)
@@ -72,7 +77,7 @@ class ExtractionCandidate(BaseModel):
 class ExtractionOutcome(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    status: Literal["disabled", "paused", "fallback", "handoff", "extracted"]
+    status: Literal["disabled", "paused", "fallback", "handoff", "knowledge", "extracted"]
     reason: Literal[
         "disabled",
         "human_control",
@@ -84,6 +89,7 @@ class ExtractionOutcome(BaseModel):
         "review_required",
     ]
     details: EventDetails = Field(repr=False)
+    topic: KnowledgeTopic = "general"
     proposed_changes: EventDetails = Field(default_factory=EventDetails, repr=False)
     missing_fields: tuple[EventField, ...] = ()
     changed_fields: tuple[EventField, ...] = ()

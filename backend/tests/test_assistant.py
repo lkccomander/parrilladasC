@@ -163,13 +163,13 @@ def test_provider_outage_preserves_details_and_uses_a_safe_reason():
     ("intent", "status", "reason"),
     [
         ("human_handoff", "handoff", "requested_handoff"),
-        ("business_question", "handoff", "knowledge_not_available"),
+        ("business_question", "knowledge", "knowledge_not_available"),
         ("unsupported", "fallback", "unsupported"),
     ],
 )
 def test_non_quote_intents_do_not_apply_extracted_fields(intent, status, reason):
     outcome = AssistantService(provider_returning(candidate(intent=intent)), enabled=True).extract(
-        request()
+        request("Quiero hablar con Daniel" if intent == "human_handoff" else "¿Qué ofrecen?")
     )
     assert outcome.status == status
     assert outcome.reason == reason

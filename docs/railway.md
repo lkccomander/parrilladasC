@@ -20,7 +20,7 @@ Revisar el plan antes de aplicar: para cambios de despliegue no se esperan elimi
 
 Autodeploy está habilitado para `main` en `api` y `web`, con **Wait for CI** activado en ambos (`checkSuites: true`). Verificado directamente en Railway después de corregir los permisos de GitHub. El workflow `Checks` se ejecuta en cada push; Railway espera su resultado antes de desplegar. Los servicios pueden actualizarse en momentos distintos, por lo que los cambios de contratos y migraciones deben mantener compatibilidad durante el despliegue.
 
-Los watch paths actuales son `/backend/**`, `/Dockerfile` y `/.dockerignore` en ambos servicios. Un push que solo cambie documentación o `.railway/` no provoca un despliegue de la aplicación. `APP_MODULE` sigue seleccionando qué factory ejecuta cada servicio.
+Los watch paths actuales son `/backend/**`, `/knowledge/parrilladas/menu.json`, `/Dockerfile` y `/.dockerignore` en ambos servicios. Un push que solo cambie documentación o `.railway/` no provoca un despliegue de la aplicación. `APP_MODULE` sigue seleccionando qué factory ejecuta cada servicio.
 
 La fuente y `checkSuites` se conservan en `.railway/railway.ts`. No se guardan tokens personales en GitHub. Como alternativa operativa, se puede desplegar explícitamente desde el último commit de GitHub:
 
@@ -178,3 +178,13 @@ Las 206 pruebas y el empaquetado pasaron antes de la publicación.
 La activación corresponde a extracción de solicitudes nuevas. Las conversaciones
 ya guiadas, pausadas y cerradas conservan su estado. La ingesta del menú editable
 en pgvector y las respuestas RAG siguen pendientes.
+
+## Beta 1.03: límites de conversación y catálogo
+
+`1.0.0-beta.4` incorpora el catálogo aprobado dentro del wheel. El Dockerfile
+copia `knowledge/parrilladas/menu.json` antes de construirlo, y ambos servicios
+vigilan esa ruta para futuros cambios. CI comprueba la presencia del recurso en
+el paquete instalado, además de versiones, pruebas y migraciones desechables.
+No se añaden dependencias, variables, tablas ni migraciones. Se mantienen los
+gates, la preferencia Admin y el instante de activación existente del worker.
+Las conversaciones previamente pausadas no se reanudan durante el despliegue.

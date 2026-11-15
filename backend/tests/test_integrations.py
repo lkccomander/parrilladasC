@@ -63,8 +63,8 @@ def test_admin_footer_displays_product_release(dashboard):
 
     assert response.status_code == 200
     assert "Parrilladas en su Casa" in response.text
-    assert "Beta 1.02" in response.text
-    assert "v1.0.0-beta.3" in response.text
+    assert "Beta 1.03" in response.text
+    assert "v1.0.0-beta.4" in response.text
 
 
 def test_connection_check_uses_read_only_meta_request_and_bearer_header():

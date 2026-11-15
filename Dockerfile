@@ -7,6 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 COPY backend/requirements.lock /app/requirements.lock
 RUN pip install -r requirements.lock
+COPY knowledge/parrilladas/menu.json /app/knowledge/parrilladas/menu.json
 COPY backend /app/backend
 COPY assets /app/assets
 RUN pip install --no-deps --no-build-isolation /app/backend \

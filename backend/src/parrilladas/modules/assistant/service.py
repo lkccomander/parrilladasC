@@ -4,12 +4,15 @@ from typing import Protocol
 from pydantic import ValidationError
 
 from .errors import ExtractionUnavailable
+from .knowledge import KnowledgeAnswer, answer_question
+from .policies import requests_human
 from .schemas import (
     EVENT_FIELDS,
     EventDetails,
     ExtractionCandidate,
     ExtractionOutcome,
     ExtractionRequest,
+    KnowledgeTopic,
 )
 
 
@@ -22,11 +25,19 @@ class AssistantService:
         self.provider = provider
         self.enabled = enabled
 
+    @staticmethod
+    def requests_human(message: str) -> bool:
+        return requests_human(message)
+
+    def answer_question(self, topic: KnowledgeTopic, *, tenant_id: str) -> KnowledgeAnswer:
+        return answer_question(topic, tenant_id=tenant_id)
+
     def extract(self, request: ExtractionRequest, *, bot_paused: bool = False) -> ExtractionOutcome:
-        def unchanged(status, reason):
+        def unchanged(status, reason, *, topic="general"):
             return ExtractionOutcome(
                 status=status,
                 reason=reason,
+                topic=topic,
                 details=request.confirmed,
                 missing_fields=tuple(
                     field for field in EVENT_FIELDS if getattr(request.confirmed, field) is None
@@ -50,9 +61,11 @@ class AssistantService:
             return unchanged("fallback", "invalid_output")
 
         if candidate.intent == "human_handoff":
-            return unchanged("handoff", "requested_handoff")
+            if requests_human(request.message):
+                return unchanged("handoff", "requested_handoff")
+            return unchanged("fallback", "unsupported")
         if candidate.intent == "business_question":
-            return unchanged("handoff", "knowledge_not_available")
+            return unchanged("knowledge", "knowledge_not_available", topic=candidate.topic)
         if candidate.intent == "unsupported":
             return unchanged("fallback", "unsupported")
 

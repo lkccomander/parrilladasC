@@ -1,8 +1,10 @@
 # Conocimiento comercial de Parrilladas
 
 Contenido inicial proporcionado por el negocio el 15 de noviembre de 2026.
-Estos archivos preparan las fuentes para la futura ingesta RAG; todavía no se
-importan a PostgreSQL ni generan embeddings automáticamente.
+El JSON alimenta las respuestas controladas de menú y cobertura desde Beta 1.03.
+Se empaqueta en el wheel; editarlo exige ejecutar pruebas y desplegar una nueva
+imagen. Todavía no se importa a PostgreSQL ni genera embeddings. La recuperación
+es por tema y las respuestas usan plantillas, sin generación comercial libre.
 
 - [Menú legible](parrilladas/menu.md): presentación del menú y cobertura.
 - [Menú estructurado](parrilladas/menu.json): fuente editable con categorías,

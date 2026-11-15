@@ -1,5 +1,7 @@
 """Convert validated extraction proposals into explicit customer review steps."""
 
+from datetime import date
+
 from pydantic import ValidationError
 
 from parrilladas.modules.assistant.schemas import EVENT_FIELDS, EventDetails, ExtractionRequest
@@ -21,6 +23,21 @@ QUESTIONS = {
     "location": "¿En qué lugar se realizará el evento?",
     "service_type": "¿Te interesa nuestro servicio de parrillada?",
 }
+HELP_BUTTONS = (
+    ("nl_continue", "Continuar solicitud"),
+    ("nl_menu", "Ver menú"),
+    ("nl_advisor", "Hablar con asesor"),
+)
+INFO_BUTTONS = (
+    ("nl_menu", "Ver menú"),
+    ("nl_coverage", "Ver cobertura"),
+    ("nl_continue", "Solicitar cotización"),
+)
+FALLBACK_BUTTONS = (
+    ("nl_guided", "Continuar sin IA"),
+    ("nl_continue", "Volver a mis datos"),
+    ("nl_advisor", "Hablar con asesor"),
+)
 HANDOFF = "Dejaré tu consulta para un asesor. El bot queda en pausa para que pueda atenderte."
 
 
@@ -55,6 +72,55 @@ def next_question(details: EventDetails) -> FlowDecision:
     )
 
 
+def side_reply(step: str, text: str, *, buttons=HELP_BUTTONS) -> FlowDecision:
+    # Preserve both the draft and any proposed corrections until explicit acceptance.
+    return FlowDecision(step=step, text=text, buttons=buttons)
+
+
+def continue_request(step: str, data: dict) -> FlowDecision:
+    if step == "nl_changes":
+        return side_reply(
+            step,
+            "Tienes una corrección pendiente. ¿Quieres aplicarla o conservar los datos anteriores?",
+            buttons=CHANGE_BUTTONS,
+        )
+    return next_question(EventDetails.model_validate(data.get("_nl_draft") or {}))
+
+
+def guided_answer(step: str, incoming: IncomingText, details: EventDetails) -> FlowDecision:
+    """Literal, validated fallback answers; no model is required to advance."""
+    if step != "nl_collect":
+        return side_reply(
+            step,
+            "Puedes confirmar los datos o hablar con un asesor.",
+            buttons=REVIEW_BUTTONS if step == "nl_review" else CHANGE_BUTTONS,
+        )
+    field = next((field for field in EVENT_FIELDS if getattr(details, field) is None), None)
+    if field is None:
+        return review(details)
+    value = incoming.body.strip()
+    try:
+        if field == "event_date":
+            value = date.fromisoformat(value)
+            if value < ExtractionRequest(message="date validation").reference_date:
+                raise ValueError("Past date")
+        elif field == "guest_count":
+            if not value.isascii() or not value.isdecimal():
+                raise ValueError("Use a positive integer")
+            value = int(value)
+        elif field == "service_type":
+            value = "parrilla" if value.casefold() in {"parrilla", "parrillada"} else value
+        updated = EventDetails.model_validate({**details.model_dump(), field: value})
+    except (ValueError, ValidationError):
+        prompt = (
+            "Usa el formato AAAA-MM-DD para la fecha."
+            if field == "event_date"
+            else QUESTIONS[field]
+        )
+        return FlowDecision(step=step, text=prompt, buttons=HELP_BUTTONS)
+    return next_question(updated)
+
+
 def natural_language_decision(
     step: str,
     incoming: IncomingText | ButtonReply,
@@ -62,13 +128,35 @@ def natural_language_decision(
     assistant: AssistantService,
 ) -> FlowDecision | None:
     """None leaves existing guided conversations and buttons on their current flow."""
-    if step == "submitted":
+    if step not in NL_STEPS | {"start", "menu"}:
         return None
-    if isinstance(incoming, IncomingText) and incoming.body.strip().casefold() == "asesor":
+    if isinstance(incoming, IncomingText) and (
+        not incoming.body.strip() or len(incoming.body) > 4000
+    ):
+        return FlowDecision(step=step, text="Escribe brevemente los datos de tu evento, por favor.")
+    if isinstance(incoming, IncomingText) and assistant.requests_human(incoming.body):
         return FlowDecision(step=step, text=HANDOFF, handoff=True)
     if isinstance(incoming, ButtonReply):
         if incoming.id in {"nl_advisor", "talk_to_agent", "advisor"}:
             return FlowDecision(step=step, text=HANDOFF, handoff=True)
+        if incoming.id in {"view_services", "services"}:
+            answer = assistant.answer_question("general", tenant_id="parrilladas")
+            return side_reply(step, answer.text, buttons=INFO_BUTTONS)
+        if incoming.id in {"nl_menu", "nl_coverage"}:
+            topic = "menu" if incoming.id == "nl_menu" else "coverage"
+            answer = assistant.answer_question(topic, tenant_id="parrilladas")
+            return side_reply(step, answer.text)
+        if incoming.id in {"nl_continue", "nl_guided"}:
+            decision = continue_request(step, data)
+            if incoming.id == "nl_guided":
+                return FlowDecision(
+                    step=decision.step,
+                    text="Sigamos con preguntas sencillas. Para fechas usa AAAA-MM-DD.\n\n"
+                    + decision.text,
+                    buttons=decision.buttons,
+                    updates={**decision.updates, "_nl_guided": True},
+                )
+            return decision
         if step == "menu" and incoming.id in {"quote", "request_quote"}:
             return next_question(EventDetails())
         if step not in NL_STEPS:
@@ -96,12 +184,10 @@ def natural_language_decision(
             text="Selecciona una opción o escribe los datos que deseas corregir.",
             buttons=CHANGE_BUTTONS if step == "nl_changes" else REVIEW_BUTTONS,
         )
-    if step not in NL_STEPS | {"start", "menu"}:
-        return None
-    if not incoming.body.strip() or len(incoming.body) > 4000:
-        return FlowDecision(step=step, text="Escribe brevemente los datos de tu evento, por favor.")
     try:
         details = EventDetails.model_validate(data.get("_nl_draft") or {})
+        if data.get("_nl_guided"):
+            return guided_answer(step, incoming, details)
         requested_field = next(
             (field for field in EVENT_FIELDS if getattr(details, field) is None), None
         )
@@ -113,16 +199,32 @@ def natural_language_decision(
             )
         )
     except ValidationError:
-        return FlowDecision(step=step, text=HANDOFF, handoff=True)
+        return side_reply(
+            step,
+            "No pude recuperar los datos. Un asesor puede ayudarte si lo deseas.",
+            buttons=(("nl_advisor", "Hablar con asesor"),),
+        )
     if outcome.status == "handoff":
         return FlowDecision(step=step, text=HANDOFF, handoff=True)
+    if outcome.status == "knowledge":
+        answer = assistant.answer_question(outcome.topic, tenant_id="parrilladas")
+        return side_reply(
+            step,
+            answer.text,
+            buttons=INFO_BUTTONS if outcome.topic == "general" else HELP_BUTTONS,
+        )
     if outcome.status != "extracted":
-        if step not in NL_STEPS:
-            return None
-        return FlowDecision(
-            step=step,
-            text="No pude interpretar el mensaje. Un asesor podrá revisar tu solicitud.",
-            handoff=True,
+        if outcome.reason == "unsupported":
+            return side_reply(
+                step,
+                "Te puedo ayudar con el menú, la cobertura y la solicitud de tu evento. "
+                "¿Qué te gustaría consultar?",
+            )
+        return side_reply(
+            step,
+            "Ahora no pude interpretar tu mensaje. Tus datos siguen guardados. "
+            "Podemos continuar con preguntas sencillas o, si prefieres, con un asesor.",
+            buttons=FALLBACK_BUTTONS,
         )
     if not any(getattr(outcome.details, field) is not None for field in EVENT_FIELDS):
         return next_question(outcome.details) if step in NL_STEPS else None
@@ -149,4 +251,6 @@ def natural_language_decision(
                 "_nl_changes": proposed,
             },
         )
+    if step == "nl_changes":
+        return continue_request(step, data)
     return next_question(outcome.details)

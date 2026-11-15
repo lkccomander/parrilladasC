@@ -63,6 +63,7 @@ Antes del primer ingreso en producción, el operador debe crear el Admin en una 
       el modo efectivo combina la preferencia con los gates y runtime del API.
 - [x] Canal Meta verificado del único tenant, aplicación del modo y recuperación durable.
 - [x] Extracción Gemini, aclaración/confirmación explícita, correcciones y pausa.
-- [ ] RAG, herramientas de revisión operativa de envíos inciertos y evaluación del piloto real.
+- [x] Respuestas controladas desde el catálogo editable, límites de intención y fallback sin pausa.
+- [ ] Recuperación vectorial, herramientas de revisión operativa de envíos inciertos y evaluación del piloto real.
 
 Ver [piloto de extracción](assistant.md). La activación requiere gates del API y preferencia Admin. Google Calendar continúa fuera del alcance.

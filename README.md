@@ -78,7 +78,7 @@ uv pip compile backend/pyproject.toml backend/requirements-build.in --extra dev 
 
 Revisar los cambios, reinstalar en un entorno limpio y ejecutar CI antes de publicar. Los comandos resuelven versiones nuevas dentro de los rangos de `pyproject.toml`; las instalaciones normales usan exclusivamente los locks.
 
-La versión actual es `1.0.0-beta.3` (etiqueta del panel: **Beta 1.02**). Al publicar,
+La versión actual es `1.0.0-beta.4` (etiqueta del panel: **Beta 1.03**). Al publicar,
 actualizar `backend/pyproject.toml`, `backend/src/parrilladas/__init__.py` y la
 comprobación del pie de página. GitHub Actions valida que la versión del paquete
 coincida con la aplicación. Publicar en `main` y esperar **Checks** antes del

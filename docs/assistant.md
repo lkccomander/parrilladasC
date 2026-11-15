@@ -56,8 +56,10 @@ reserva. Los precios, aprobación y envío de cotizaciones siguen siendo manuale
 Las conversaciones que ya estaban en una pregunta guiada conservan su flujo.
 Las nuevas usan el modo efectivo guardado en Admin. Apagar la preferencia no
 impide confirmar un borrador NL existente mediante botones; si necesita más
-interpretación, deriva a una persona. Errores del modelo, consultas sin conocimiento
-aprobado y peticiones de asesor producen fallback o pausa, sin inventar respuestas.
+interpretación, ofrece preguntas literales sin IA o atención humana. Errores del
+modelo y consultas sin conocimiento aprobado no pausan automáticamente el bot.
+La pausa requiere petición explícita de una persona o selección de «Hablar con asesor».
+Las pausas humanas previas y las solicitudes finalizadas conservan su estado.
 
 ## Admin
 
@@ -92,13 +94,37 @@ diciembre del próximo año. Genera consumo del modelo. Las alertas de USD 15/me
 no son un límite duro. El comando sin `--check-connection` conserva el gate
 `NATURAL_LANGUAGE_ENABLED` y tampoco contacta a clientes.
 
-## Conocimiento comercial pendiente
+## Respuestas comerciales controladas (Beta 1.03)
 
-El [catálogo editable](../knowledge/README.md) contiene platos y cobertura nacional
-proporcionados por el usuario. Se mantiene en archivos por ahora, sin pantalla de
-menú en Admin. La ingesta, embeddings y consultas pgvector siguen pendientes;
-esta entrega activa extracción de solicitudes, no RAG. Las preguntas de menú o
-políticas se derivan a un asesor hasta incorporar esas fuentes.
+El [catálogo editable](../knowledge/README.md) contiene platos y cobertura nacional.
+Se incluye en el wheel y la imagen de API; no se requiere una pantalla de menú en
+Admin. La recuperación inicial selecciona hechos por tema, sin embeddings ni
+consultas pgvector. Gemini clasifica la intención y el tema en un esquema cerrado;
+Python responde mediante plantillas y hechos validados, nunca con texto comercial
+libre generado por el modelo. Cada respuesta de catálogo identifica internamente
+la fuente y su versión. El único negocio soportado es `parrilladas`; otro tenant
+no puede consultar estos hechos. Antes de habilitar más canales se necesita el
+mapeo y aislamiento multi-tenant completos.
+
+- Menú: nombres de platos activos; no asumir paquetes, porciones o ingredientes.
+- Cobertura: provincias documentadas; no implica fecha disponible ni traslado gratis.
+- Preparación: cocinar en el lugar solo si lo indica el catálogo.
+- Precios y disponibilidad: explicar revisión humana, sin cifras ni reservas.
+- Alergias, pagos, cancelaciones y detalles no documentados: reconocer el límite y
+  ofrecer un asesor. La oferta no pausa; el cliente debe seleccionarla.
+- «Quiero más información»: ofrecer menú, cobertura o solicitud.
+- Fuera de tema: recordar el alcance y ofrecer continuar, sin borrar el borrador.
+- Fallo/JSON inválido: conservar datos y ofrecer «Continuar sin IA». El modo literal
+  valida fecha ISO completa, entero positivo, ubicación y servicio, sin el modelo.
+
+Las preguntas laterales conservan estado, borrador, referencia y correcciones
+pendientes; «Continuar solicitud» vuelve al resumen o al dato faltante. Las
+correcciones continúan requiriendo aceptación y confirmación final independientes.
+Un mensaje del modelo que indique `human_handoff` no autoriza la pausa si el texto
+del cliente no contiene una petición explícita. «Sí» aislado no autoriza atención
+humana; la aceptación se realiza mediante el botón. No se habilitan Search/Maps.
+Los documentos son hechos aprobados, no instrucciones para cambiar estas reglas.
+No se afirma que este enfoque elimine todos los errores de clasificación.
 
 Las pruebas usan datos y proveedores sintéticos; las de PostgreSQL solo una base
 vacía y desechable mediante `TEST_DATABASE_URL`. Cubren recuperación, duplicados,

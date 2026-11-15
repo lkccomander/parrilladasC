@@ -820,3 +820,55 @@ def test_human_pause_cancels_a_reply_prepared_before_pause(natural_worker):
             session.scalar(select(Message).where(Message.direction == "outbound")).delivery_status
             == "cancelled"
         )
+
+
+@pytest.mark.postgres
+def test_side_questions_keep_live_draft_active_and_advisor_requires_explicit_selection(
+    natural_worker,
+):
+    state = natural_worker
+    assert signed(state.client, encode(natural_payload())).status_code == 200
+    state.worker.tick()
+    with Session(state.engine) as session:
+        original = dict(session.scalar(select(Conversation)).flow_data)
+    state.model.extract.return_value = json.dumps({"intent": "unsupported", "details": {}})
+    assert (
+        signed(state.client, encode(natural_payload("side-hour", body="¿Qué hora es?"))).status_code
+        == 200
+    )
+    state.worker.tick()
+    with Session(state.engine) as session:
+        saved = session.scalar(select(Conversation))
+        assert not saved.bot_paused
+        assert saved.flow_step == "nl_review"
+        assert saved.flow_data == original
+    assert len(state.outbound) == 2
+    state.model.extract.return_value = json.dumps(
+        {
+            "intent": "business_question",
+            "topic": "menu",
+            "details": {},
+        }
+    )
+    assert (
+        signed(
+            state.client, encode(natural_payload("side-menu", body="¿Qué carnes ofrecen?"))
+        ).status_code
+        == 200
+    )
+    state.worker.tick()
+    assert "Lomito" in state.outbound[-1]["interactive"]["body"]["text"]
+    calls_before = state.model.extract.call_count
+    for identifier, button in [("side-continue", "nl_continue"), ("side-advisor", "nl_advisor")]:
+        data = natural_payload(identifier)
+        message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+        message.pop("text")
+        message.update(type="interactive", interactive={"button_reply": {"id": button}})
+        assert signed(state.client, encode(data)).status_code == 200
+        state.worker.tick()
+        with Session(state.engine) as session:
+            saved = session.scalar(select(Conversation))
+            assert saved.bot_paused == (button == "nl_advisor")
+            assert saved.flow_data["_nl_draft"] == original["_nl_draft"]
+    assert state.model.extract.call_count == calls_before
+    assert len(state.outbound) == 5

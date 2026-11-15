@@ -94,7 +94,7 @@ def test_date_without_literal_year_evidence_is_asked_again():
     assert "día, mes y año" in decision.text
 
 
-def test_model_error_hands_existing_nl_draft_to_human_without_losing_details():
+def test_model_error_offers_guided_fallback_without_pausing_or_losing_details():
     model = Mock(extract=Mock(side_effect=ExtractionUnavailable("unavailable")))
     decision = natural_language_decision(
         "nl_review",
@@ -102,7 +102,8 @@ def test_model_error_hands_existing_nl_draft_to_human_without_losing_details():
         {"_nl_draft": DETAILS},
         AssistantService(model, enabled=True),
     )
-    assert decision.handoff
+    assert not decision.handoff
+    assert ("nl_guided", "Continuar sin IA") in decision.buttons
     assert not decision.updates
 
 

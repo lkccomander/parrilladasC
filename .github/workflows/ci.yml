@@ -52,3 +52,14 @@ jobs:
       - run: pytest backend/tests
       - run: python -m pip check
       - run: python -m pip wheel --no-deps --no-build-isolation ./backend --wheel-dir /tmp/wheels
+      - name: Validate packaged knowledge
+        run: |
+          python -m pip install --no-deps --target /tmp/release-smoke /tmp/wheels/parrilladas-*.whl
+          PYTHONPATH=/tmp/release-smoke python - <<'PYTHON'
+          from importlib.resources import files
+          from parrilladas.modules.assistant.knowledge import load_menu
+
+          assert files("parrilladas.modules.assistant").joinpath("data/menu.json").is_file()
+          assert load_menu().tenant_id == "parrilladas"
+          print("Packaged approved catalog verified")
+          PYTHON
