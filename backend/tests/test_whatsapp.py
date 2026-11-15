@@ -31,6 +31,7 @@ from parrilladas.modules.accounts.service import AccountService
 from parrilladas.modules.assistant.config import AssistantSettings
 from parrilladas.modules.assistant.preferences import AssistantPreferenceService
 from parrilladas.modules.assistant.schemas import AssistantPreferencesUpdate
+from parrilladas.modules.conversations.flow import GREETING, MENU_BUTTONS
 from parrilladas.modules.conversations.models import Conversation, Message, WhatsAppInboxEvent
 from parrilladas.modules.conversations.repository import InboxRepository
 from parrilladas.modules.conversations.service import ConversationService, InboxService
@@ -512,12 +513,16 @@ def test_duplicate_statuses_preserve_each_delivery_transition(inbox_client):
 
 
 @pytest.fixture
-def natural_worker(inbox_database, monkeypatch):
+def natural_worker(inbox_database, monkeypatch, request):
     engine, url = inbox_database
     with Session(engine) as session, session.begin():
         session.execute(delete(Message))
         session.execute(delete(Conversation))
         session.execute(delete(WhatsAppInboxEvent))
+        # Most cases exercise intake after the shared welcome; first-contact
+        # cases explicitly request an empty conversation database below.
+        if getattr(request, "param", "menu") == "menu":
+            session.add(Conversation(whatsapp_number="15550000001", flow_step="menu", flow_data={}))
         actor = session.scalar(select(Account))
         actor = AccountView.model_validate(actor) if actor is not None else None
     if actor is None:
@@ -561,6 +566,7 @@ def natural_worker(inbox_database, monkeypatch):
         whatsapp_access_token=TOKEN,
         whatsapp_graph_api_version="v27.0",
         conversation_worker_enabled=True,
+        api_public_base_url="https://example.com",
         conversation_processing_start_at=datetime.now(UTC) - timedelta(seconds=2),
     )
     # Execute ticks deterministically, with the exact same worker used in production.
@@ -628,6 +634,7 @@ def test_live_webhook_commits_before_model_work_and_duplicate_delivery_does_not_
 
 
 @pytest.mark.postgres
+@pytest.mark.parametrize("natural_worker", ["start"], indirect=True)
 def test_paused_and_submitted_conversations_never_call_gemini(natural_worker):
     state = natural_worker
     with Session(state.engine) as session, session.begin():
@@ -698,6 +705,7 @@ def test_uncertain_send_pauses_conversation_and_is_never_retried(natural_worker)
 
 
 @pytest.mark.postgres
+@pytest.mark.parametrize("natural_worker", ["start"], indirect=True)
 def test_disabled_preference_and_unrecognized_channel_do_not_use_model(natural_worker):
     state = natural_worker
     with Session(state.engine) as session:
@@ -872,3 +880,45 @@ def test_side_questions_keep_live_draft_active_and_advisor_requires_explicit_sel
             assert saved.flow_data["_nl_draft"] == original["_nl_draft"]
     assert state.model.extract.call_count == calls_before
     assert len(state.outbound) == 5
+
+
+@pytest.mark.postgres
+@pytest.mark.parametrize("natural_worker", ["start"], indirect=True)
+@pytest.mark.parametrize("next_action", ["text", "button"])
+def test_natural_language_sends_shared_branded_welcome_then_accepts_intake(
+    natural_worker, next_action
+):
+    state = natural_worker
+    greeting = natural_payload("welcome", body="hola")
+    assert signed(state.client, encode(greeting)).status_code == 200
+    state.worker.tick()
+    state.model.extract.assert_not_called()
+    assert len(state.outbound) == 1
+    first = state.outbound[0]["interactive"]
+    assert first["body"]["text"] == GREETING
+    assert first["header"] == {
+        "type": "image",
+        "image": {"link": "https://example.com/assets/welcome_header.jpg"},
+    }
+    assert [
+        (button["reply"]["id"], button["reply"]["title"]) for button in first["action"]["buttons"]
+    ] == list(MENU_BUTTONS)
+    assert signed(state.client, encode(greeting)).status_code == 200
+    assert not state.worker.tick()
+    assert len(state.outbound) == 1
+    if next_action == "button":
+        data = natural_payload("welcome-quote-button")
+        message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+        message.pop("text")
+        message.update(type="interactive", interactive={"button_reply": {"id": "request_quote"}})
+        assert signed(state.client, encode(data)).status_code == 200
+        state.worker.tick()
+        state.model.extract.assert_not_called()
+    assert signed(state.client, encode(natural_payload("after-welcome"))).status_code == 200
+    state.worker.tick()
+    assert state.model.extract.call_count == 1
+    with Session(state.engine) as session:
+        conversation = session.scalar(select(Conversation))
+        assert conversation.flow_step == "nl_review"
+        assert conversation.flow_data["_nl_draft"]["guest_count"] == 20
+        assert not conversation.bot_paused

@@ -128,6 +128,9 @@ def natural_language_decision(
     assistant: AssistantService,
 ) -> FlowDecision | None:
     """None leaves existing guided conversations and buttons on their current flow."""
+    if step == "start" and isinstance(incoming, IncomingText):
+        # Both modes share the branded opening before interpreting free text.
+        return decide(step, incoming, flow_data=data)
     if step not in NL_STEPS | {"start", "menu"}:
         return None
     if isinstance(incoming, IncomingText) and (

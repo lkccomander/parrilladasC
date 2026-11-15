@@ -42,8 +42,12 @@ El worker no reanuda ni reinicia conversaciones por su cuenta.
 
 ## Captura y confirmación
 
-Una conversación nueva puede aportar fecha, invitados, ubicación y servicio en
-un solo mensaje. El modelo propone datos; Python valida tipos, fecha completa con
+Ambos modos comparten el primer mensaje de bienvenida del flujo guiado, con
+la imagen, el texto y los tres botones originales. La bienvenida no llama a
+Gemini y los reintentos del webhook no la duplican. Después del saludo el cliente
+puede seleccionar «Solicitar cotización» o escribir directamente los datos.
+La captura de fecha, invitados, ubicación y servicio puede hacerse en un solo
+mensaje posterior a la bienvenida. El modelo propone datos; Python valida tipos, fecha completa con
 año y evidencia literal, y preguntas de aclaración. No se exige presupuesto ni
 tipo de evento. Los datos propuestos se guardan en el borrador de conversación.
 

@@ -1,10 +1,13 @@
 import json
 from unittest.mock import Mock
 
+import pytest
+
 from parrilladas.modules.assistant.errors import ExtractionUnavailable
 from parrilladas.modules.assistant.schemas import EventDetails
 from parrilladas.modules.assistant.service import AssistantService
 from parrilladas.modules.conversations.contracts import ButtonReply, IncomingText
+from parrilladas.modules.conversations.flow import decide
 from parrilladas.modules.conversations.natural_language import natural_language_decision
 
 MESSAGE = "Quiero parrillada para 20 personas el 20 de diciembre de 2027 en Alajuela."
@@ -34,7 +37,7 @@ def provider(details=None, **extra):
 def test_complete_request_is_reviewed_before_customer_confirmation_and_remains_terminal():
     model = provider()
     assistant = AssistantService(model, enabled=True)
-    decision = natural_language_decision("start", IncomingText(MESSAGE), {}, assistant)
+    decision = natural_language_decision("menu", IncomingText(MESSAGE), {}, assistant)
     assert decision.step == "nl_review"
     assert decision.updates["_nl_draft"] == DETAILS
     assert "no confirma precio" in decision.text
@@ -84,7 +87,7 @@ def test_correction_needs_explicit_acceptance_and_another_final_confirmation():
 def test_date_without_literal_year_evidence_is_asked_again():
     model = provider(date_evidence=None)
     decision = natural_language_decision(
-        "start",
+        "menu",
         IncomingText("parrillada para diciembre"),
         {},
         AssistantService(model, enabled=True),
@@ -154,3 +157,14 @@ def test_unrecognized_interactive_payload_is_safe_text_instead_of_poisoning_the_
         {"type": "interactive", "interactive": {"list_reply": {"id": "unknown"}}}
     ) == IncomingText("")
     assert ConversationService._incoming({"type": "text", "text": "invalid"}) == IncomingText("")
+
+
+@pytest.mark.parametrize("message", ["hola", MESSAGE, "quiero más información", "ASESOR"])
+def test_natural_language_opening_matches_guided_flow_without_calling_model(message):
+    model = Mock(extract=Mock(side_effect=ExtractionUnavailable("unavailable")))
+    incoming = IncomingText(message)
+    decision = natural_language_decision(
+        "start", incoming, {}, AssistantService(model, enabled=True)
+    )
+    assert decision == decide("start", incoming)
+    model.extract.assert_not_called()

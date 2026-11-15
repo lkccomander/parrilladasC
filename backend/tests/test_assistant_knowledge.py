@@ -75,7 +75,7 @@ def test_coverage_is_independent_of_availability_and_transport_costs():
     assert "costos de traslado" in result.text
 
 
-@pytest.mark.parametrize("step", ["start", "menu", "nl_collect", "nl_review", "nl_changes"])
+@pytest.mark.parametrize("step", ["menu", "nl_collect", "nl_review", "nl_changes"])
 def test_off_topic_messages_preserve_draft_and_pending_changes_without_handoff(step):
     data = {"_nl_draft": DRAFT, "_nl_changes": {**DRAFT, "guest_count": 30}}
     result = natural_language_decision(
