@@ -151,7 +151,7 @@ requieren revisión antes de cualquier reintento. Detalles: [asistente](assistan
 - `/health/ready`: Admin comprueba API; API comprueba PostgreSQL.
 - `/docs` y `/openapi.json`: deshabilitados en producción.
 
-El panel incluye login, permisos y gestión de cuentas. Antes de ingresar, crear el primer Admin mediante el comando privado documentado en [acceso y cuentas](accounts.md). Envío de mensajes, cotizaciones, PDF y tareas se implementan posteriormente. Todavía no corresponde conectar el webhook real de WhatsApp.
+El panel incluye login, permisos, cuentas y configuración del asistente. Antes de ingresar, crear el primer Admin mediante el comando privado documentado en [acceso y cuentas](accounts.md). El canal WhatsApp configurado puede recibir mensajes y preparar solicitudes con Gemini. La gestión completa de cotizaciones, PDF y recordatorios sigue pendiente.
 
 ## Costos y datos
 
@@ -160,3 +160,21 @@ Presupuesto objetivo del proyecto: USD 35 mensuales. Los cobros dependen del con
 Un volumen persistente no sustituye backups. La configuración y restauración de backups deben verificarse antes de usar datos de clientes.
 
 Referencias: [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code), [PostgreSQL](https://docs.railway.com/databases/postgresql), [control de costos](https://docs.railway.com/pricing/cost-control).
+
+## Activación verificada de Gemini
+
+El 15 de noviembre de 2026 se activó **Beta 1.02 (`1.0.0-beta.3`)** desde el commit
+`17e3b05b6bff1cad1e29131f77136425780d71fa`, después de
+[Checks aprobado](https://github.com/lkccomander/parrilladasC/actions/runs/43766301295).
+Las 206 pruebas y el empaquetado pasaron antes de la publicación.
+
+- Admin: `57e110f6-29c7-45e0-ae27-d02043bb87cc`.
+- API con activación aplicada a la misma imagen probada: `434f6c90-86e3-42da-87cc-71128d17b1ec`.
+- Gates del API y preferencia guardada por Admin encendidos; modo efectivo `natural_language`.
+- Extracción y confirmación sintética verificadas con Gemini desde el API publicado,
+  sin enviar WhatsApp ni insertar datos ficticios en la base comercial.
+- Readiness HTTP 200 en ambos servicios y versión Beta 1.02 visible en Admin.
+
+La activación corresponde a extracción de solicitudes nuevas. Las conversaciones
+ya guiadas, pausadas y cerradas conservan su estado. La ingesta del menú editable
+en pgvector y las respuestas RAG siguen pendientes.

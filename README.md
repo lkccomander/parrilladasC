@@ -6,7 +6,7 @@ Plataforma comercial de Parrillas en su Casa: WhatsApp guiado, atención humana 
 
 ## Estado
 
-Funcionan FastAPI, PostgreSQL, health checks, login/logout, permisos Admin/Sales y gestión de cuentas desde el dashboard. Las cuentas se desactivan para conservar el historial. Conversaciones reales, cotizaciones, PDF y recordatorios operativos son los próximos módulos. No conectar aún el webhook de producción.
+Funcionan FastAPI, PostgreSQL, health checks, login/logout, permisos Admin/Sales y gestión de cuentas desde el dashboard. WhatsApp recibe mensajes mediante un canal verificado y puede capturar solicitudes con Gemini, revisión explícita de datos y control de pausa. Las cuentas se desactivan para conservar el historial. La operación completa de leads, cotizaciones, PDF, recordatorios y RAG sigue pendiente.
 
 Admin y API viven en servicios independientes: navegador → Admin → API con Bearer JWT → PostgreSQL. Admin no tiene acceso directo a la base ni a la clave de firma.
 

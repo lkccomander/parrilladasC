@@ -60,7 +60,7 @@ Antes del primer ingreso en producción, el operador debe crear el Admin en una 
 - [x] Cuenta de servicio dedicada en API Railway y llamada sintética verificada a
       Google Cloud; conexión habilitada para diagnóstico, bot todavía guiado.
 - [x] Preferencia persistida de Admin/API con JWT, permisos, CSRF y migración `0005`;
-      el modo efectivo continúa guiado hasta completar la integración.
+      el modo efectivo combina la preferencia con los gates y runtime del API.
 - [x] Canal Meta verificado del único tenant, aplicación del modo y recuperación durable.
 - [x] Extracción Gemini, aclaración/confirmación explícita, correcciones y pausa.
 - [ ] RAG, herramientas de revisión operativa de envíos inciertos y evaluación del piloto real.

@@ -21,7 +21,7 @@ backend/
       accounts/             # cuentas, autenticación, Admin y Sales
       leads/                # contacto y datos del evento
       conversations/        # flujo guiado, historial y control humano
-      assistant/            # extracción validada y preferencias de modo; bot aún guiado
+      assistant/            # extracción validada, confirmación y preferencias de modo
       quotes/               # precios manuales, versiones y aprobación
       reminders/            # tareas internas de seguimiento
       dashboard/            # composición de páginas Jinja2/HTMX
