@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Asistente{% endblock %}
+{% block content %}
+  <p class="eyebrow">CONFIGURACIÓN · ASISTENTE</p>
+  <h1>Lenguaje natural</h1>
+  <p class="lead">Seleccione el modo de atención que desea para Parrilladas.</p>
+  {% if saved %}
+    <p class="notice" role="status">Preferencia guardada.</p>
+  {% endif %}
+  <section class="card" aria-labelledby="assistant-mode-heading">
+    <h2 id="assistant-mode-heading">Modo de atención</h2>
+    <p><strong>Modo actual:</strong> Guiado</p>
+    <p><strong>Preferencia guardada:</strong> {{ 'Lenguaje natural' if preferences.natural_language_enabled else 'Guiado' }}</p>
+    {% if preferences.natural_language_enabled %}
+      <p class="notice">Activación pendiente. El bot continúa con las preguntas guiadas hasta que esté disponible el modo de lenguaje natural.</p>
+    {% endif %}
+    <form method="post" action="/dashboard/assistant">
+      <input type="hidden" name="csrf_token" value="{{ context.csrf_token }}">
+      <label class="checkbox" for="natural-language-enabled">
+        <input id="natural-language-enabled" type="checkbox" name="natural_language_enabled"
+               {% if preferences.natural_language_enabled %}checked{% endif %}>
+        Preferir lenguaje natural cuando esté disponible
+      </label>
+      <p class="help">Esta preferencia no reanuda conversaciones pausadas ni cambia la atención de un asesor.</p>
+      <button type="submit">Guardar preferencia</button>
+    </form>
+  </section>
+{% endblock %}

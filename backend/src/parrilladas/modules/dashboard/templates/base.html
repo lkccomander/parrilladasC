@@ -20,6 +20,9 @@
         </a>
         {% if context and context.account %}
           <div class="identity">
+            {% if context.account.role == 'admin' and preferences is defined %}
+              {% include "assistant_mode_badge.html" %}
+            {% endif %}
             <span>
               {{ context.account.display_name }}
               <small>{{ 'Admin' if context.account.role == 'admin' else 'Sales' }}</small>
@@ -43,6 +46,10 @@
             <a href="/dashboard/integrations"
                {% if request.url.path.startswith('/dashboard/integrations') %}aria-current="page"{% endif %}>
               Integraciones
+            </a>
+            <a href="/dashboard/assistant"
+               {% if request.url.path.startswith('/dashboard/assistant') %}aria-current="page"{% endif %}>
+              Asistente
             </a>
           {% endif %}
         </nav>

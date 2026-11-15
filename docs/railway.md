@@ -65,6 +65,69 @@ El API tiene el dominio público `https://api-production-3c20d.up.railway.app`, 
 
 Solo el API ejecuta `alembic upgrade head` antes del despliegue; Admin no ejecuta migraciones. Si falla la migración o readiness, la versión nueva no se considera lista. El Dockerfile selecciona la factory mediante `APP_MODULE`, conserva `PORT` y ejecuta como usuario sin privilegios.
 
+## Conexión con Google Cloud
+
+El proyecto del piloto es `parrilladas-ai-pilot`. El API utiliza la cuenta
+`parrilladas-railway-api@parrilladas-ai-pilot.iam.gserviceaccount.com`, con los roles
+`roles/aiplatform.user` y `roles/serviceusage.serviceUsageConsumer`.
+No utiliza las credenciales ADC personales del desarrollador.
+
+Variables exclusivas de `api`, entorno `production`:
+
+| Variable | Valor |
+|---|---|
+| `GOOGLE_CLOUD_PROJECT` | `parrilladas-ai-pilot` |
+| `GOOGLE_CLOUD_LOCATION` | `global` |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Secreto JSON de la cuenta de servicio; nunca guardar en Git |
+| `VERTEX_CONNECTION_ENABLED` | `true`, permite una comprobación sintética explícita |
+| `NATURAL_LANGUAGE_ENABLED` | `false`, el bot conserva el modo guiado |
+
+El adaptador carga el secreto en memoria y valida tipo, proyecto y URL de tokens.
+Admin no recibe estas variables. El SDK y el comando de comprobación están
+incluidos en la imagen desplegada. Configurar variables no conecta por sí solo
+la extracción con WhatsApp.
+
+La credencial se carga por stdin del CLI, sin imprimirla ni pasarla como argumento.
+Tras cargarla, usar **api → Variables → GOOGLE_SERVICE_ACCOUNT_JSON → Seal** en el
+dashboard de Railway para impedir su lectura posterior por CLI/API. La carga por
+CLI no la sella automáticamente. Para rotarla: crear una nueva clave de esa cuenta,
+reemplazar la variable, aplicar el cambio, verificar la conexión y revocar la clave
+anterior en Google Cloud. No revocar primero la clave que está en uso.
+
+El presupuesto de Google Cloud tiene alertas de USD 15/mes; no es un límite de
+consumo. La comprobación realiza una llamada sintética con salida limitada a 512
+tokens y sin Search/Maps. La activación de IA en conversaciones requiere el trabajo
+pendiente descrito en [el módulo de asistente](assistant.md).
+
+Verificación del 15 de noviembre de 2026: llamada sintética desde el contenedor API
+de Railway con esa cuenta y modelo, extracción JSON correcta y readiness de API y
+Admin con HTTP 200. Se reaplicó la imagen estable existente, sin publicar el código
+local pendiente. Como esa imagen todavía no incluye Google Gen AI, la prueba usó
+un entorno temporal aislado con `google-genai==3.3.0`, eliminado al terminar.
+El bot permaneció con `NATURAL_LANGUAGE_ENABLED=false`.
+
+Despliegue posterior del dashboard, 15 de noviembre de 2026:
+
+- API: `beb1f7b1-4fab-4ea0-a1d5-8c6ead2f9353`, migración `0005` aplicada.
+- Admin: `5974d44e-2aaf-4475-981a-fecbfebbd7c0`, tarjetas **Modo guiado** y
+  **Lenguaje natural**, más etiqueta con el modo efectivo.
+- Ambos servicios saludables (HTTP 200), dashboard privado (redirección al login)
+  y comprobación sintética de Gemini correcta con el SDK de la imagen.
+- Subida directa de un paquete aislado con la aplicación probada (183 pruebas),
+  sin publicar notas, credenciales ni otros archivos locales. Esa subida no generó
+  un commit; la entrega versionada posterior usa GitHub Actions y autodeploy.
+
+La entrega **Beta 1.01 (`1.0.0-beta.2`)** incorpora el asistente a Git y valida en
+**Checks** la consistencia entre la versión del paquete y la aplicación, además
+de las pruebas y el empaquetado. Los dos servicios esperan CI en `main`; comprobar
+que ambos despliegues correspondan al mismo commit antes de dar la entrega por lista.
+
+El primer intento se detuvo en predeploy por una conexión cerrada al despertar
+PostgreSQL. Se comprobó readiness del API existente y se reintentó la misma imagen
+con éxito. Si PostgreSQL está suspendido, comprobar que haya despertado antes
+de reintentar una migración fallida por conectividad.
+
 ## Comprobación
 
 - `/`: acceso público al panel.

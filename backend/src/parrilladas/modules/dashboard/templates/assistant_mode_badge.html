@@ -1,0 +1,5 @@
+{% if preferences and preferences.active_mode == 'guided' %}
+  <span class="badge" aria-label="Modo de atención actual">Modo guiado</span>
+{% else %}
+  <span class="badge muted" aria-label="Modo de atención actual">Modo sin verificar</span>
+{% endif %}

@@ -51,4 +51,17 @@ Antes del primer ingreso en producción, el operador debe crear el Admin en una 
 - [ ] Restauración de backup, permisos y recuperación de fallos.
 - [ ] Piloto con Daniel y guía de operación.
 
-Google Calendar y conversación con IA quedan para después del lanzamiento.
+## Lenguaje natural: piloto y preferencias
+
+- [x] Contratos validados, gate apagado por defecto y preservación de datos confirmados.
+- [x] Adaptador Vertex AI con ADC, salida JSON, límites y fallback ante fallos.
+- [x] Comando sintético local y pruebas con proveedor simulado.
+- [x] Cuenta de servicio dedicada en API Railway y llamada sintética verificada a
+      Google Cloud; conexión habilitada para diagnóstico, bot todavía guiado.
+- [x] Preferencia persistida de Admin/API con JWT, permisos, CSRF y migración `0005`;
+      el modo efectivo continúa guiado hasta completar la integración.
+- [ ] Integración operativa: tenant verificado, aplicación del modo, recuperación durable,
+      aclaración/confirmación de datos, RAG y piloto supervisado en WhatsApp.
+
+Ver [piloto de extracción](assistant.md). Este avance no activa IA en el webhook.
+Google Calendar y conversación con IA en producción quedan para después del lanzamiento.

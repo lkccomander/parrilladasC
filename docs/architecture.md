@@ -21,11 +21,13 @@ backend/
       accounts/             # cuentas, autenticación, Admin y Sales
       leads/                # contacto y datos del evento
       conversations/        # flujo guiado, historial y control humano
+      assistant/            # extracción validada y preferencias de modo; bot aún guiado
       quotes/               # precios manuales, versiones y aprobación
       reminders/            # tareas internas de seguimiento
       dashboard/            # composición de páginas Jinja2/HTMX
       health/               # probes públicos
     integrations/whatsapp/  # transporte Meta, firmas y errores externos
+    integrations/vertex_ai/ # modelos con ADC o cuenta de servicio, sin reglas comerciales
   migrations/               # historial de schema versionado
   tests/
 ```

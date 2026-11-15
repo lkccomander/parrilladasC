@@ -17,6 +17,10 @@ from parrilladas.modules.accounts.schemas import (
     SessionContext,
     SessionCreated,
 )
+from parrilladas.modules.assistant.schemas import (
+    AssistantPreferencesUpdate,
+    AssistantPreferencesView,
+)
 from parrilladas.modules.dashboard.cookies import cookie_name, refresh_cookie_name
 from parrilladas.modules.integrations.schemas import WhatsAppIntegrationStatus
 
@@ -103,6 +107,16 @@ class AdminApiClient:
     def check_whatsapp(self) -> WhatsAppIntegrationStatus:
         return WhatsAppIntegrationStatus.model_validate(
             self._call("POST", "/integrations/whatsapp/check")
+        )
+
+    def assistant_preferences(self) -> AssistantPreferencesView:
+        return AssistantPreferencesView.model_validate(self._call("GET", "/assistant/preferences"))
+
+    def update_assistant_preferences(
+        self, data: AssistantPreferencesUpdate
+    ) -> AssistantPreferencesView:
+        return AssistantPreferencesView.model_validate(
+            self._call("PATCH", "/assistant/preferences", data=data.model_dump(mode="json"))
         )
 
     def get_account(self, account_id: UUID) -> AccountView:

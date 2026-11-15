@@ -12,7 +12,7 @@ export default defineRailway(() => {
   });
   // Preserve the public domain and existing service name for Admin.
   const web = service("web", {
-    source: github("lkccomander/parrilladasC"),
+    source: github("lkccomander/parrilladasC", { branch: "main", checkSuites: true }),
     build: {
       buildEnvironment: "V3",
       builder: "DOCKERFILE",
@@ -29,7 +29,7 @@ export default defineRailway(() => {
     },
   });
   const api = service("api", {
-    source: github("lkccomander/parrilladasC"),
+    source: github("lkccomander/parrilladasC", { branch: "main", checkSuites: true }),
     build: {
       buildEnvironment: "V3",
       builder: "DOCKERFILE",

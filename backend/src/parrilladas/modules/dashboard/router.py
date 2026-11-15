@@ -17,6 +17,8 @@ from parrilladas.modules.accounts.errors import (
     LoginThrottled,
 )
 from parrilladas.modules.accounts.schemas import AccountCreate, AccountUpdate
+from parrilladas.modules.assistant.schemas import AssistantPreferencesUpdate
+from parrilladas.modules.dashboard.client import ApiUnavailable
 from parrilladas.modules.dashboard.cookies import clear_cookies, set_session_cookie
 from parrilladas.modules.dashboard.dependencies import (
     Admin,
@@ -131,8 +133,16 @@ def logout(
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, context: Authenticated) -> HTMLResponse:
-    return page(request, "dashboard.html", context=context)
+def dashboard(request: Request, service: Service, context: Authenticated) -> HTMLResponse:
+    preferences = None
+    if context.account.role == "admin":
+        try:
+            preferences = service.assistant_preferences()
+        except ApiUnavailable:
+            pass
+        except AccessDenied as error:
+            raise HTTPException(403, str(error)) from None
+    return page(request, "dashboard.html", context=context, preferences=preferences)
 
 
 def integration_page(request: Request, context, report: WhatsAppIntegrationStatus) -> HTMLResponse:
@@ -174,6 +184,33 @@ def accounts(request: Request, service: Service, context: Admin) -> HTMLResponse
         context=context,
         accounts=accounts,
     )
+
+
+@router.get("/dashboard/assistant", response_class=HTMLResponse)
+def assistant_preferences(request: Request, service: Service, context: Admin) -> HTMLResponse:
+    try:
+        preferences = service.assistant_preferences()
+    except AccessDenied as error:
+        raise HTTPException(403, str(error)) from None
+    return page(request, "assistant.html", context=context, preferences=preferences)
+
+
+@router.post("/dashboard/assistant", response_class=HTMLResponse)
+def update_assistant_preferences(
+    request: Request, service: Service, context: Admin, form: CheckedForm
+) -> HTMLResponse:
+    if set(form) - {"csrf_token", "natural_language_enabled"} or form.get(
+        "natural_language_enabled", "off"
+    ) not in {"on", "off"}:
+        raise HTTPException(422, "Revise la preferencia de lenguaje natural.")
+    data = AssistantPreferencesUpdate(
+        natural_language_enabled=form.get("natural_language_enabled") == "on"
+    )
+    try:
+        preferences = service.update_assistant_preferences(data)
+    except AccessDenied as error:
+        raise HTTPException(403, str(error)) from None
+    return page(request, "assistant.html", context=context, preferences=preferences, saved=True)
 
 
 @router.get("/dashboard/accounts/new", response_class=HTMLResponse)

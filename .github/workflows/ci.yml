@@ -34,6 +34,19 @@ jobs:
           cache-dependency-path: backend/requirements-dev.lock
       - run: python -m pip install -r backend/requirements-dev.lock
       - run: python -m pip install --no-deps --no-build-isolation -e backend
+      - name: Validate release version
+        run: |
+          python - <<'PY'
+          import tomllib
+          from importlib.metadata import version
+          from pathlib import Path
+          from packaging.version import Version
+          from parrilladas import __version__
+
+          configured = tomllib.loads(Path("backend/pyproject.toml").read_text())["project"]["version"]
+          assert Version(configured) == Version(__version__) == Version(version("parrilladas"))
+          print(f"Validated release {__version__}")
+          PY
       - run: ruff check backend
       - run: ruff format --check backend
       - run: pytest backend/tests

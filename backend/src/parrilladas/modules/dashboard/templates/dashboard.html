@@ -4,6 +4,27 @@
   <p class="eyebrow">PANEL COMERCIAL</p>
   <h1>Hola, {{ context.account.display_name }}</h1>
   <p class="lead">Su espacio para organizar la atención de Parrillas en su Casa.</p>
+  {% if context.account.role == "admin" %}
+    <h2>Modo de atención</h2>
+    {% if not preferences %}
+      <p class="notice" role="status">No pudimos consultar el modo actual. Intente recargar la página.</p>
+    {% endif %}
+    <div class="grid" aria-label="Modos de atención">
+      <section class="card" aria-labelledby="guided-mode-heading">
+        <span class="badge{% if not preferences %} muted{% endif %}">{{ 'Activo' if preferences and preferences.active_mode == 'guided' else 'Sin verificar' }}</span>
+        <h3 id="guided-mode-heading">Modo guiado</h3>
+        <p>Recopila los datos del evento mediante preguntas paso a paso.</p>
+      </section>
+      <section class="card" aria-labelledby="natural-mode-heading">
+        <span class="badge muted">{{ 'Activación pendiente' if preferences and preferences.natural_language_enabled else ('Inactivo' if preferences else 'Sin verificar') }}</span>
+        <h3 id="natural-mode-heading">Lenguaje natural</h3>
+        <p>Permite comprender mensajes libres para proponer los datos del evento.</p>
+        <p class="help">{{ 'La preferencia está guardada. El modo actual sigue siendo guiado.' if preferences and preferences.natural_language_enabled else 'Disponible cuando se complete su integración con las conversaciones.' }}</p>
+        <a class="button quiet" href="/dashboard/assistant">Configurar preferencia</a>
+      </section>
+    </div>
+    <h2>Gestión del negocio</h2>
+  {% endif %}
   <div class="grid">
     {% if context.account.role == "admin" %}<section class="card"><span class="badge">Disponible</span><h2>Cuentas de acceso</h2><p>Administre el equipo, sus permisos y el acceso al panel.</p><a class="button" href="/dashboard/accounts">Administrar cuentas</a></section>{% endif %}
     {% if context.account.role == "admin" %}
@@ -12,6 +33,14 @@
         <h2>Meta y WhatsApp</h2>
         <p>Revise la conexión de WhatsApp y consulte la dirección del webhook.</p>
         <a class="button" href="/dashboard/integrations">Ver integraciones</a>
+      </section>
+    {% endif %}
+    {% if context.account.role == "admin" %}
+      <section class="card">
+        <span class="badge">Disponible</span>
+        <h2>Asistente</h2>
+        <p>Guarde su preferencia de lenguaje natural y consulte el modo de atención actual.</p>
+        <a class="button" href="/dashboard/assistant">Configurar asistente</a>
       </section>
     {% endif %}
     <section class="card">
