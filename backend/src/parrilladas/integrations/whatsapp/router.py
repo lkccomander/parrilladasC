@@ -98,17 +98,22 @@ async def receive_webhook(
     if events:
         try:
             await run_in_threadpool(InboxService(session).receive, events)
-            sender = _outbound_sender(request, settings)
-            await run_in_threadpool(ConversationService(session, sender).receive, events)
+            if not settings.conversation_worker_enabled:
+                sender = _outbound_sender(request, settings)
+                await run_in_threadpool(ConversationService(session, sender).receive, events)
         except SQLAlchemyError as error:
             # Meta must retry failures, never receive a success before commit.
-            logger.exception("WhatsApp webhook storage failure: %s", type(error).__name__)
+            logger.error("WhatsApp webhook storage failure: %s", type(error).__name__)
             raise HTTPException(status_code=503, detail="Webhook storage unavailable") from None
     return {"status": "ok"}
 
 
 def _outbound_sender(request: Request, settings: ApiSettings):
-    client = MetaClient(request.app.state.meta_http)
+    return create_outbound_sender(request.app.state.meta_http, settings)
+
+
+def create_outbound_sender(http, settings: ApiSettings):
+    client = MetaClient(http)
     token = settings.whatsapp_access_token
     version = settings.whatsapp_graph_api_version
     phone_id = settings.whatsapp_phone_number_id

@@ -81,7 +81,10 @@ Variables exclusivas de `api`, entorno `production`:
 | `GEMINI_MODEL` | `gemini-3.5-flash-lite` |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Secreto JSON de la cuenta de servicio; nunca guardar en Git |
 | `VERTEX_CONNECTION_ENABLED` | `true`, permite una comprobación sintética explícita |
-| `NATURAL_LANGUAGE_ENABLED` | `false`, el bot conserva el modo guiado |
+| `NATURAL_LANGUAGE_ENABLED` | Gate del API; `true` para activar extracción con la preferencia Admin |
+| `CONVERSATION_WORKER_ENABLED` | `true` para procesar el inbox/outbox persistido |
+| `CONVERSATION_PROCESSING_START_AT` | Fecha/hora UTC de activación, conservada entre despliegues |
+| `ASSISTANT_TIMEOUT_MS` | `15000` en el piloto activo |
 
 El adaptador carga el secreto en memoria y valida tipo, proyecto y URL de tokens.
 Admin no recibe estas variables. El SDK y el comando de comprobación están
@@ -129,6 +132,17 @@ con éxito. Si PostgreSQL está suspendido, comprobar que haya despertado antes
 de reintentar una migración fallida por conectividad.
 
 ## Comprobación
+
+La entrega **Beta 1.02 (`1.0.0-beta.3`)** conecta Gemini con solicitudes nuevas de
+WhatsApp. Publicar el código por GitHub y esperar **Checks**; las variables de
+activación del API deben aplicarse al nuevo despliegue, nunca a la versión Beta 1.01
+que todavía restringía extracción a piloto local. El Admin debe guardar su
+preferencia con su cuenta: la activación de infraestructura no suplanta ese actor.
+
+Para volver al modo guiado, apagar la preferencia o el gate del modelo. Mantener
+el worker y su fecha de activación para conservar la recuperación de mensajes.
+Las conversaciones pausadas/cerradas no se reabren y los intentos de envío inciertos
+requieren revisión antes de cualquier reintento. Detalles: [asistente](assistant.md).
 
 - `/`: acceso público al panel.
 - `/login`: formulario de acceso, sin registro público.

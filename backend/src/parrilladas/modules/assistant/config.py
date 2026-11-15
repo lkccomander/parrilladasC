@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AssistantSettings(BaseSettings):
-    """Model connection and local pilot settings; no database credentials required."""
+    """Model connection and extraction settings; no database credentials required."""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
@@ -21,8 +21,6 @@ class AssistantSettings(BaseSettings):
 
     @model_validator(mode="after")
     def require_explicit_pilot_configuration(self):
-        if self.natural_language_enabled and self.app_env not in {"development", "test"}:
-            raise ValueError("Natural-language extraction is a local pilot only")
         if (self.natural_language_enabled or self.vertex_connection_enabled) and not all(
             value and value.strip()
             for value in (

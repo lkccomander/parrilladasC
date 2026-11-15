@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "content_version": 1,
+  "tenant_id": "parrilladas",
+  "title": "Menú de Parrillas en su Casa",
+  "description": "Realizamos eventos en cualquier parte de Costa Rica con un menú de carnes premium, guarniciones dulces, saladas, frías o calientes y panes artesanales. Cocinamos en el lugar del evento.",
+  "prepared_on_site": true,
+  "coverage": {
+    "country_code": "CR",
+    "country_name": "Costa Rica",
+    "nationwide": true,
+    "provinces": [
+      "San José",
+      "Alajuela",
+      "Cartago",
+      "Heredia",
+      "Guanacaste",
+      "Puntarenas",
+      "Limón"
+    ]
+  },
+  "categories": [
+    {"id": "carnes", "name": "Carnes premium"},
+    {"id": "guarniciones", "name": "Guarniciones"},
+    {"id": "panes", "name": "Panes artesanales"}
+  ],
+  "items": [
+    {
+      "id": "lomito",
+      "category_id": "carnes",
+      "name": "Lomito",
+      "description": null,
+      "active": true
+    },
+    {
+      "id": "costilla-de-cerdo",
+      "category_id": "carnes",
+      "name": "Costilla de cerdo",
+      "description": null,
+      "active": true
+    },
+    {
+      "id": "chorizo",
+      "category_id": "carnes",
+      "name": "Chorizo",
+      "description": null,
+      "active": true
+    },
+    {
+      "id": "ensalada-verde",
+      "category_id": "guarniciones",
+      "name": "Ensalada verde",
+      "description": null,
+      "active": true
+    },
+    {
+      "id": "panes-artesanales",
+      "category_id": "panes",
+      "name": "Panes artesanales",
+      "description": null,
+      "active": true
+    }
+  ],
+  "source": {
+    "type": "user_provided",
+    "provided_on": "2026-11-15"
+  }
+}

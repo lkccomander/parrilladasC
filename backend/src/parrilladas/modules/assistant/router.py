@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from parrilladas.db.session import get_session
@@ -13,9 +13,12 @@ router = APIRouter(prefix="/assistant/preferences", tags=["assistant"])
 
 
 def preference_service(
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
 ) -> AssistantPreferenceService:
-    return AssistantPreferenceService(session)
+    return AssistantPreferenceService(
+        session, runtime_available=request.app.state.assistant.enabled
+    )
 
 
 Service = Annotated[AssistantPreferenceService, Depends(preference_service)]

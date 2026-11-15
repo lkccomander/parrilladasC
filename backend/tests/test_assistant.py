@@ -197,7 +197,7 @@ def test_settings_default_off_and_require_explicit_configuration_for_local_pilot
     assert not AssistantSettings(_env_file=None).natural_language_enabled
     with pytest.raises(ValidationError, match="project, location and model"):
         AssistantSettings(natural_language_enabled=True, _env_file=None)
-    with pytest.raises(ValidationError, match="local pilot only"):
+    with pytest.raises(ValidationError, match="project, location and model"):
         AssistantSettings(app_env="production", natural_language_enabled=True, _env_file=None)
 
 

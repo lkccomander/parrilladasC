@@ -51,3 +51,39 @@ def test_admin_needs_neither_database_nor_signing_secret():
     )
     assert "database_url" not in type(settings).model_fields
     assert "jwt_secret" not in type(settings).model_fields
+
+
+def test_durable_worker_requires_an_aware_cutoff_and_complete_outbound_configuration():
+    from parrilladas.core.config import ApiSettings
+
+    with pytest.raises(ValidationError, match="worker requires"):
+        ApiSettings(
+            app_env="test",
+            database_url="postgresql://test@localhost/test",
+            jwt_secret="synthetic-only-key-at-least-32-characters",
+            conversation_worker_enabled=True,
+            _env_file=None,
+        )
+
+
+def test_live_model_processing_requires_a_durable_worker():
+    from parrilladas.core.config import ApiSettings
+    from parrilladas.main import create_app
+    from parrilladas.modules.assistant.config import AssistantSettings
+
+    with pytest.raises(ValueError, match="durable conversation worker"):
+        create_app(
+            ApiSettings(
+                app_env="test",
+                database_url="postgresql://test@localhost/test",
+                jwt_secret="synthetic-only-key-at-least-32-characters",
+                _env_file=None,
+            ),
+            assistant_settings=AssistantSettings(
+                natural_language_enabled=True,
+                google_cloud_project="synthetic",
+                google_cloud_location="global",
+                gemini_model="synthetic",
+                _env_file=None,
+            ),
+        )

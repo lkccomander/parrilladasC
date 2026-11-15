@@ -45,6 +45,7 @@ class ExtractionRequest(BaseModel):
 
     message: str = Field(min_length=1, max_length=4000, repr=False)
     confirmed: EventDetails = Field(default_factory=EventDetails, repr=False)
+    requested_field: EventField | None = None
     reference_date: date = Field(
         default_factory=lambda: datetime.now(ZoneInfo("America/Costa_Rica")).date()
     )
@@ -100,8 +101,6 @@ class AssistantPreferencesView(BaseModel):
 
     tenant_id: str
     natural_language_enabled: bool
-    # This release persists a preference. No customer-facing model processing is
-    # wired yet, so the reported operating mode must remain guided.
-    active_mode: Literal["guided"] = "guided"
+    active_mode: Literal["guided", "natural_language"] = "guided"
     updated_at: datetime | None = None
     updated_by: UUID | None = None

@@ -9,12 +9,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import sessionmaker
+from starlette.concurrency import run_in_threadpool
 
 import parrilladas.db.models  # noqa: F401  # Register all ORM models with Base.metadata.
 from parrilladas import __version__
 from parrilladas.core.config import ApiSettings
 from parrilladas.core.security_headers import SecurityHeadersMiddleware
 from parrilladas.db.session import create_database_engine
+from parrilladas.integrations.whatsapp.router import create_outbound_sender
 from parrilladas.integrations.whatsapp.router import router as whatsapp_router
 from parrilladas.modules.accounts.errors import (
     AccessDenied,
@@ -25,7 +27,11 @@ from parrilladas.modules.accounts.errors import (
     LoginThrottled,
 )
 from parrilladas.modules.accounts.router import router as accounts_router
+from parrilladas.modules.assistant.config import AssistantSettings
+from parrilladas.modules.assistant.errors import ExtractionUnavailable
 from parrilladas.modules.assistant.router import router as assistant_router
+from parrilladas.modules.assistant.service import AssistantService
+from parrilladas.modules.conversations.worker import ConversationWorker
 from parrilladas.modules.health.router import router as health_router
 from parrilladas.modules.integrations.router import router as integrations_router
 
@@ -59,10 +65,17 @@ async def invalid_request(request: Request, error: RequestValidationError) -> JS
 
 
 def create_app(
-    settings: ApiSettings | None = None, *, meta_http: httpx.Client | None = None
+    settings: ApiSettings | None = None,
+    *,
+    meta_http: httpx.Client | None = None,
+    assistant_settings: AssistantSettings | None = None,
+    extractor=None,
 ) -> FastAPI:
     """API service only: owns database resources and JSON business endpoints."""
     settings = settings if settings is not None else ApiSettings()
+    assistant_settings = assistant_settings or AssistantSettings(app_env=settings.app_env)
+    if assistant_settings.natural_language_enabled and not settings.conversation_worker_enabled:
+        raise ValueError("Live natural language requires the durable conversation worker")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -70,9 +83,36 @@ def create_app(
         engine = create_database_engine(settings)
         app.state.session_factory = sessionmaker(bind=engine, expire_on_commit=False)
         app.state.meta_http = meta_http if meta_http is not None else httpx.Client()
+        provider = extractor
+        if assistant_settings.natural_language_enabled and provider is None:
+            from parrilladas.integrations.vertex_ai.client import VertexExtractor
+
+            try:
+                provider = VertexExtractor.from_settings(assistant_settings)
+            except ExtractionUnavailable:
+                logging.getLogger(__name__).warning(
+                    "Assistant authentication unavailable; guided mode"
+                )
+        app.state.assistant = AssistantService(
+            provider, enabled=assistant_settings.natural_language_enabled and provider is not None
+        )
+        worker = None
+        if settings.conversation_worker_enabled:
+            worker = ConversationWorker(
+                app.state.session_factory,
+                sender=create_outbound_sender(app.state.meta_http, settings),
+                assistant=app.state.assistant,
+                settings=settings,
+            )
+            worker.start()
+        app.state.conversation_worker = worker
         try:
             yield
         finally:
+            if worker is not None:
+                await run_in_threadpool(worker.stop)
+            if provider is not None and extractor is None:
+                provider.close()
             if meta_http is None:
                 app.state.meta_http.close()
             engine.dispose()

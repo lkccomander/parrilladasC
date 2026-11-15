@@ -1,9 +1,9 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import Numeric, case, cast, exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from parrilladas.modules.conversations.contracts import InboxEvent
 from parrilladas.modules.conversations.models import Conversation, Message, WhatsAppInboxEvent
@@ -34,6 +34,29 @@ class InboxRepository:
 
     def mark_processed(self, event: WhatsAppInboxEvent) -> None:
         event.processed_at = datetime.now(UTC)
+
+    def lock_worker(self) -> bool:
+        # Serialize this single-business pilot across replicas, not just threads.
+        return bool(self.session.scalar(select(func.pg_try_advisory_xact_lock(74291301))))
+
+    def next_pending(self, not_before: datetime) -> WhatsAppInboxEvent | None:
+        timestamp = WhatsAppInboxEvent.payload["value"]["messages"][0]["timestamp"].as_string()
+        return self.session.scalar(
+            select(WhatsAppInboxEvent)
+            .where(
+                WhatsAppInboxEvent.processed_at.is_(None),
+                WhatsAppInboxEvent.created_at >= not_before,
+            )
+            .order_by(
+                case(
+                    (WhatsAppInboxEvent.kind == "message", cast(timestamp, Numeric(20, 0))), else_=0
+                ),
+                WhatsAppInboxEvent.created_at,
+                WhatsAppInboxEvent.id,
+            )
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        )
 
 
 class ConversationRepository:
@@ -121,4 +144,36 @@ class ConversationRepository:
     def mark_failed(self, message_id: UUID) -> None:
         self.session.execute(
             update(Message).where(Message.id == message_id).values(delivery_status="failed")
+        )
+
+    def next_outbound(self, not_before: datetime):
+        attempt = aliased(Message)
+        return self.session.execute(
+            select(Message, Conversation)
+            .join(Conversation, Message.conversation_id == Conversation.id)
+            .where(
+                Message.direction == "outbound",
+                Message.delivery_status == "pending",
+                Message.created_at >= not_before,
+                ~exists().where(
+                    attempt.conversation_id == Message.conversation_id,
+                    attempt.delivery_status.in_(("sending", "uncertain")),
+                ),
+            )
+            .order_by(Message.created_at, Message.id)
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        ).first()
+
+    def mark_uncertain(self, message_id: UUID) -> None:
+        self.session.execute(
+            update(Message).where(Message.id == message_id).values(delivery_status="uncertain")
+        )
+        self.session.execute(
+            update(Conversation)
+            .where(
+                Conversation.id
+                == select(Message.conversation_id).where(Message.id == message_id).scalar_subquery()
+            )
+            .values(bot_paused=True)
         )

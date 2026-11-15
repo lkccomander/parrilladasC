@@ -340,3 +340,26 @@ def test_service_rejects_non_admin_and_inactive_actors(preference_database):
                 service.get(actor)
             with pytest.raises(AccessDenied):
                 service.update(actor, AssistantPreferencesUpdate(natural_language_enabled=True))
+
+
+def test_admin_reports_natural_language_only_when_preference_and_runtime_are_enabled(
+    preference_client,
+):
+    state = preference_client
+    headers = login(state)
+    response = state.api.patch(
+        "/assistant/preferences", headers=headers, json={"natural_language_enabled": True}
+    )
+    assert response.json()["active_mode"] == "guided"
+    state.api.app.state.assistant.enabled = True
+    assert (
+        state.api.get("/assistant/preferences", headers=headers).json()["active_mode"]
+        == "natural_language"
+    )
+    page = state.client.get("/dashboard")
+    assert 'aria-label="Modo de atención actual">Lenguaje natural' in page.text
+    assert ">Activación pendiente</span>" not in page.text
+    response = state.api.patch(
+        "/assistant/preferences", headers=headers, json={"natural_language_enabled": False}
+    )
+    assert response.json()["active_mode"] == "guided"

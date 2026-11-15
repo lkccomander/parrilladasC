@@ -4,7 +4,10 @@ import hmac
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -21,9 +24,17 @@ from parrilladas.integrations.whatsapp.client import MetaClient, MetaSendError
 from parrilladas.integrations.whatsapp.router import MAX_BODY_BYTES
 from parrilladas.integrations.whatsapp.webhook import parse_events
 from parrilladas.main import create_app
-from parrilladas.modules.conversations.models import WhatsAppInboxEvent
+from parrilladas.modules.accounts.contracts import Role
+from parrilladas.modules.accounts.models import Account
+from parrilladas.modules.accounts.schemas import AccountCreate, AccountView
+from parrilladas.modules.accounts.service import AccountService
+from parrilladas.modules.assistant.config import AssistantSettings
+from parrilladas.modules.assistant.preferences import AssistantPreferenceService
+from parrilladas.modules.assistant.schemas import AssistantPreferencesUpdate
+from parrilladas.modules.conversations.models import Conversation, Message, WhatsAppInboxEvent
 from parrilladas.modules.conversations.repository import InboxRepository
-from parrilladas.modules.conversations.service import InboxService
+from parrilladas.modules.conversations.service import ConversationService, InboxService
+from parrilladas.modules.conversations.worker import ConversationWorker
 
 # Synthetic provider data only; never copy real customer events into fixtures.
 SECRET = "synthetic-meta-app-secret"
@@ -498,3 +509,314 @@ def test_duplicate_statuses_preserve_each_delivery_transition(inbox_client):
             "delivered",
             "read",
         }
+
+
+@pytest.fixture
+def natural_worker(inbox_database, monkeypatch):
+    engine, url = inbox_database
+    with Session(engine) as session, session.begin():
+        session.execute(delete(Message))
+        session.execute(delete(Conversation))
+        session.execute(delete(WhatsAppInboxEvent))
+        actor = session.scalar(select(Account))
+        actor = AccountView.model_validate(actor) if actor is not None else None
+    if actor is None:
+        with Session(engine, expire_on_commit=False) as session:
+            actor = AccountService(session).bootstrap_admin(
+                AccountCreate(
+                    email="nl-worker@example.com",
+                    display_name="Synthetic NL Admin",
+                    role=Role.ADMIN,
+                    password="synthetic-worker-password-123",
+                )
+            )
+    with Session(engine) as session:
+        AssistantPreferenceService(session).update(
+            actor, AssistantPreferencesUpdate(natural_language_enabled=True)
+        )
+    model = Mock(
+        extract=Mock(
+            return_value=json.dumps(
+                {
+                    "intent": "quote",
+                    "details": {
+                        "event_date": "2027-12-20",
+                        "guest_count": 20,
+                        "location": "Alajuela",
+                        "service_type": "parrilla",
+                    },
+                    "date_evidence": "20 de diciembre de 2027",
+                }
+            )
+        )
+    )
+    outbound = []
+
+    def meta(request):
+        outbound.append(json.loads(request.content))
+        return httpx.Response(200, json={"messages": [{"id": f"wamid.nl.{len(outbound)}"}]})
+
+    config = settings(
+        database_url=url,
+        whatsapp_access_token=TOKEN,
+        whatsapp_graph_api_version="v27.0",
+        conversation_worker_enabled=True,
+        conversation_processing_start_at=datetime.now(UTC) - timedelta(seconds=2),
+    )
+    # Execute ticks deterministically, with the exact same worker used in production.
+    monkeypatch.setattr(ConversationWorker, "start", lambda self: None)
+    monkeypatch.setattr(ConversationWorker, "stop", lambda self: None)
+    with httpx.Client(transport=httpx.MockTransport(meta)) as http:
+        app = create_app(
+            config,
+            meta_http=http,
+            extractor=model,
+            assistant_settings=AssistantSettings(
+                app_env="test",
+                natural_language_enabled=True,
+                google_cloud_project="synthetic",
+                google_cloud_location="global",
+                gemini_model="synthetic",
+                _env_file=None,
+            ),
+        )
+        with TestClient(app) as client:
+            yield SimpleNamespace(
+                client=client,
+                engine=engine,
+                model=model,
+                outbound=outbound,
+                worker=app.state.conversation_worker,
+                settings=config,
+                actor=actor,
+            )
+
+
+def natural_payload(identifier="nl-first", *, body=None):
+    data = payload(identifier)
+    message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+    message["timestamp"] = str(int(datetime.now(UTC).timestamp()))
+    message["text"]["body"] = (
+        body or "Quiero parrillada para 20 personas el 20 de diciembre de 2027 en Alajuela."
+    )
+    return data
+
+
+@pytest.mark.postgres
+def test_live_webhook_commits_before_model_work_and_duplicate_delivery_does_not_repeat(
+    natural_worker,
+):
+    state = natural_worker
+    data = natural_payload()
+    assert signed(state.client, encode(data)).status_code == 200
+    assert signed(state.client, encode(data)).status_code == 200
+    state.model.extract.assert_not_called()
+    assert not state.outbound
+    assert state.worker.tick()
+    assert state.model.extract.call_count == 1
+    assert len(state.outbound) == 1
+    assert not state.worker.tick()
+    with Session(state.engine) as session:
+        conversation = session.scalar(select(Conversation))
+        assert conversation.flow_step == "nl_review"
+        assert conversation.flow_data["_nl_draft"]["guest_count"] == 20
+        assert not conversation.flow_data.get("_nl_confirmed")
+        assert (
+            session.scalar(select(Message).where(Message.direction == "outbound")).delivery_status
+            == "sent"
+        )
+
+
+@pytest.mark.postgres
+def test_paused_and_submitted_conversations_never_call_gemini(natural_worker):
+    state = natural_worker
+    with Session(state.engine) as session, session.begin():
+        session.add(
+            Conversation(
+                whatsapp_number="15550000001", bot_paused=True, flow_step="menu", flow_data={}
+            )
+        )
+    assert signed(state.client, encode(natural_payload())).status_code == 200
+    state.worker.tick()
+    state.model.extract.assert_not_called()
+    assert not state.outbound
+    with Session(state.engine) as session, session.begin():
+        conversation = session.scalar(select(Conversation))
+        conversation.bot_paused = False
+        conversation.flow_step = "submitted"
+    assert signed(state.client, encode(natural_payload("nl-after-close"))).status_code == 200
+    state.worker.tick()
+    state.model.extract.assert_not_called()
+    assert not state.outbound
+    assert (
+        signed(
+            state.client, encode(natural_payload("advisor-after-close", body="ASESOR"))
+        ).status_code
+        == 200
+    )
+    state.worker.tick()
+    assert not state.outbound
+
+
+@pytest.mark.postgres
+def test_pending_outbound_is_recovered_without_repeating_model_after_worker_restart(natural_worker):
+    state = natural_worker
+    assert signed(state.client, encode(natural_payload())).status_code == 200
+    with Session(state.engine) as session:
+        service = ConversationService(session, assistant=state.worker.assistant)
+        assert service.process_next(
+            not_before=state.settings.conversation_processing_start_at,
+            business_account_id=WABA,
+            phone_number_id=PHONE_ID,
+        )
+    assert not state.outbound
+    restarted = ConversationWorker(
+        state.worker.session_factory,
+        sender=state.worker.sender,
+        assistant=state.worker.assistant,
+        settings=state.settings,
+    )
+    assert restarted.tick()
+    assert len(state.outbound) == 1
+    assert state.model.extract.call_count == 1
+
+
+@pytest.mark.postgres
+def test_uncertain_send_pauses_conversation_and_is_never_retried(natural_worker):
+    state = natural_worker
+    state.worker.sender = Mock(side_effect=MetaSendError("unavailable"))
+    assert signed(state.client, encode(natural_payload())).status_code == 200
+    state.worker.tick()
+    assert not state.worker.tick()
+    assert state.worker.sender.call_count == 1
+    with Session(state.engine) as session:
+        assert session.scalar(select(Conversation)).bot_paused
+        assert (
+            session.scalar(select(Message).where(Message.direction == "outbound")).delivery_status
+            == "uncertain"
+        )
+
+
+@pytest.mark.postgres
+def test_disabled_preference_and_unrecognized_channel_do_not_use_model(natural_worker):
+    state = natural_worker
+    with Session(state.engine) as session:
+        AssistantPreferenceService(session).update(
+            state.actor, AssistantPreferencesUpdate(natural_language_enabled=False)
+        )
+    assert signed(state.client, encode(natural_payload())).status_code == 200
+    state.worker.tick()
+    state.model.extract.assert_not_called()
+    assert len(state.outbound) == 1  # guided greeting
+    with Session(state.engine) as session:
+        AssistantPreferenceService(session).update(
+            state.actor, AssistantPreferencesUpdate(natural_language_enabled=True)
+        )
+    other = natural_payload("unknown-channel")
+    other["entry"][0]["id"] = "999999"
+    assert signed(state.client, encode(other)).status_code == 403
+    # Re-check persisted routing too, independently of HTTP signature verification.
+    event = parse_events(encode(natural_payload("stored-other")), WABA, PHONE_ID)[0]
+    event.payload["business_account_id"] = "999999"
+    with Session(state.engine) as session:
+        InboxService(session).receive([event])
+    state.worker.tick()
+    state.model.extract.assert_not_called()
+    assert len(state.outbound) == 1
+
+
+@pytest.mark.postgres
+def test_old_messages_and_crashed_sending_attempts_are_not_replayed(natural_worker):
+    state = natural_worker
+    old = natural_payload("old-message")
+    old["entry"][0]["changes"][0]["value"]["messages"][0]["timestamp"] = "1000000000"
+    assert signed(state.client, encode(old)).status_code == 200
+    state.worker.tick()
+    state.model.extract.assert_not_called()
+    assert not state.outbound
+    assert signed(state.client, encode(natural_payload())).status_code == 200
+    with Session(state.engine) as session:
+        service = ConversationService(session, assistant=state.worker.assistant)
+        service.process_next(
+            not_before=state.settings.conversation_processing_start_at,
+            business_account_id=WABA,
+            phone_number_id=PHONE_ID,
+        )
+    with Session(state.engine) as session, session.begin():
+        message = session.scalar(select(Message).where(Message.direction == "outbound"))
+        message.delivery_status = "sending"
+    state.worker.tick()
+    assert not state.outbound
+
+
+@pytest.mark.postgres
+def test_handoff_notice_is_sent_once_and_next_customer_message_stays_paused(natural_worker):
+    state = natural_worker
+    assert signed(state.client, encode(natural_payload(body="ASESOR"))).status_code == 200
+    state.worker.tick()
+    assert len(state.outbound) == 1
+    state.model.extract.assert_not_called()
+    assert signed(state.client, encode(natural_payload("after-handoff"))).status_code == 200
+    state.worker.tick()
+    assert len(state.outbound) == 1
+    state.model.extract.assert_not_called()
+
+
+@pytest.mark.postgres
+def test_concurrent_workers_prepare_and_send_one_reply(natural_worker):
+    state = natural_worker
+    assert signed(state.client, encode(natural_payload())).status_code == 200
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(lambda _: state.worker.tick(), range(2)))
+    state.worker.tick()
+    assert state.model.extract.call_count == 1
+    assert len(state.outbound) == 1
+
+
+@pytest.mark.postgres
+def test_customer_confirmation_is_persisted_and_closed_requests_stay_closed(natural_worker):
+    state = natural_worker
+    assert signed(state.client, encode(natural_payload())).status_code == 200
+    state.worker.tick()
+    data = natural_payload("nl-confirm")
+    message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+    message.pop("text")
+    message.update(
+        type="interactive",
+        interactive={"button_reply": {"id": "nl_confirm", "title": "Confirmar datos"}},
+    )
+    assert signed(state.client, encode(data)).status_code == 200
+    state.worker.tick()
+    with Session(state.engine) as session:
+        conversation = session.scalar(select(Conversation))
+        assert conversation.flow_step == "submitted"
+        assert conversation.flow_data["_nl_confirmed"] is True
+        assert conversation.flow_data["guest_count"] == 20
+    assert len(state.outbound) == 2
+    assert state.model.extract.call_count == 1
+    assert signed(state.client, encode(natural_payload("after-confirmation"))).status_code == 200
+    state.worker.tick()
+    assert len(state.outbound) == 2
+    assert state.model.extract.call_count == 1
+
+
+@pytest.mark.postgres
+def test_human_pause_cancels_a_reply_prepared_before_pause(natural_worker):
+    state = natural_worker
+    assert signed(state.client, encode(natural_payload())).status_code == 200
+    with Session(state.engine) as session:
+        service = ConversationService(session, assistant=state.worker.assistant)
+        service.process_next(
+            not_before=state.settings.conversation_processing_start_at,
+            business_account_id=WABA,
+            phone_number_id=PHONE_ID,
+        )
+    with Session(state.engine) as session, session.begin():
+        session.scalar(select(Conversation)).bot_paused = True
+    state.worker.tick()
+    assert not state.outbound
+    with Session(state.engine) as session:
+        assert (
+            session.scalar(select(Message).where(Message.direction == "outbound")).delivery_status
+            == "cancelled"
+        )

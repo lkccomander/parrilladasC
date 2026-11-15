@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -41,6 +42,27 @@ class ApiSettings(Settings):
         default=None, pattern=r"^v[0-9]{1,3}\.[0-9]{1,2}$"
     )
     api_public_base_url: str | None = None
+    conversation_worker_enabled: bool = False
+    conversation_processing_start_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def require_durable_worker_configuration(self):
+        if self.conversation_worker_enabled and (
+            self.conversation_processing_start_at is None
+            or self.conversation_processing_start_at.tzinfo is None
+            or not all(
+                (
+                    self.whatsapp_app_secret,
+                    self.whatsapp_verify_token,
+                    self.whatsapp_business_account_id,
+                    self.whatsapp_phone_number_id,
+                    self.whatsapp_access_token,
+                    self.whatsapp_graph_api_version,
+                )
+            )
+        ):
+            raise ValueError("Conversation worker requires a verified channel and aware start time")
+        return self
 
     @field_validator("api_public_base_url")
     @classmethod

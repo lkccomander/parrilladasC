@@ -78,7 +78,7 @@ uv pip compile backend/pyproject.toml backend/requirements-build.in --extra dev 
 
 Revisar los cambios, reinstalar en un entorno limpio y ejecutar CI antes de publicar. Los comandos resuelven versiones nuevas dentro de los rangos de `pyproject.toml`; las instalaciones normales usan exclusivamente los locks.
 
-La versión actual es `1.0.0-beta.2` (etiqueta del panel: **Beta 1.01**). Al publicar,
+La versión actual es `1.0.0-beta.3` (etiqueta del panel: **Beta 1.02**). Al publicar,
 actualizar `backend/pyproject.toml`, `backend/src/parrilladas/__init__.py` y la
 comprobación del pie de página. GitHub Actions valida que la versión del paquete
 coincida con la aplicación. Publicar en `main` y esperar **Checks** antes del
@@ -94,10 +94,13 @@ Recepción de eventos de WhatsApp: [webhook e inbox persistente](docs/whatsapp.m
 El panel Admin incluye `/dashboard/integrations` para consultar el webhook y
 comprobar la conexión con Meta y el número de WhatsApp.
 
-Piloto local de lenguaje natural, desactivado por defecto y separado del bot en
-producción: [configuración y prueba de extracción](docs/assistant.md).
-Admin puede guardar la preferencia en `/dashboard/assistant`; el modo actual
-continúa guiado hasta completar la integración. Requiere la migración `0005` del API.
+Lenguaje natural para extraer y confirmar solicitudes de WhatsApp: [configuración y comprobación](docs/assistant.md).
+Requiere gate del API, worker persistente con fecha de activación y preferencia
+guardada por Admin en `/dashboard/assistant`. Las conversaciones guiadas en curso,
+pausadas y cerradas conservan su estado. Requiere la migración `0005` del API. RAG sigue pendiente.
+
+Fuentes comerciales editables para la futura ingesta RAG: [menú y cobertura](knowledge/README.md).
+El catálogo inicial tiene versión de contenido propia; todavía no se importa a pgvector.
 
 ## Git y GitHub
 

@@ -1,114 +1,106 @@
-# Lenguaje natural: piloto y preferencias de Admin
+# Lenguaje natural y control de Admin
 
 El módulo `backend/src/parrilladas/modules/assistant/` valida intención y datos
-del evento. El adaptador `integrations/vertex_ai/` usa el SDK Google Gen AI con
-ADC local o una cuenta de servicio dedicada en Railway, un timeout de 30 segundos, un solo intento,
-JSON estructurado, thinking mínimo y 512 tokens de salida por defecto. No utiliza
-Search, Maps ni otras herramientas externas.
+del evento. `integrations/vertex_ai/` utiliza Google Gen AI, JSON estructurado,
+thinking mínimo, un solo intento y 512 tokens de salida. El proyecto, modelo,
+ubicación y timeout son configurables. No utiliza Search, Maps ni herramientas externas.
 
-La extracción continúa como piloto local, sin conexión al webhook. El flag
-`NATURAL_LANGUAGE_ENABLED` está desactivado por defecto y solo controla este
-piloto, no el bot desplegado. RAG, la resolución de tenant desde Meta, la
-recuperación durable y la integración con WhatsApp siguen pendientes.
+## Activación en WhatsApp
 
-## Preferencia persistida de Admin
+Se requieren tres condiciones: `NATURAL_LANGUAGE_ENABLED=true` en el API,
+`CONVERSATION_WORKER_ENABLED=true` con configuración completa del canal, y la
+preferencia de lenguaje natural guardada por un Admin. El API rechaza activar
+procesamiento de modelos sin el worker persistente. Si la autenticación del modelo
+no puede configurarse, conserva el modo guiado y no informa IA activa.
 
-La página **Admin → Asistente**, en `/dashboard/assistant`, permite guardar la
-preferencia de lenguaje natural de Parrilladas. El API expone `GET` y `PATCH`
-`/assistant/preferences`; ambos requieren una cuenta Admin activa y Bearer JWT.
-El `PATCH` requiere también `X-CSRF-Token`. El formulario web valida CSRF y
-solicitudes cross-site antes de reenviar la operación por HTTP al API.
+`CONVERSATION_PROCESSING_START_AT` debe ser una fecha/hora con zona, fijada al
+activar el piloto. El worker no recupera filas anteriores a esa fecha y descarta
+mensajes cuyo timestamp de Meta sea anterior. No se reinicia este valor al
+redesplegar: así se recupera trabajo pendiente creado durante una interrupción.
 
-La migración `0005` crea `assistant_preferences`, con clave `tenant_id`, valor
-booleano apagado por defecto y fecha/actor de la última escritura. Antes de usar
-la página en un entorno de despliegue, aplicar `alembic upgrade head` en la fase
-de migración del API. No ejecutar migraciones desde el proceso web. Las pruebas
-de migración usan únicamente `TEST_DATABASE_URL` vacío y desechable.
+El webhook verifica firma, WABA y `phone_number_id`, guarda el lote en PostgreSQL
+y responde sin esperar a Google ni a Meta. Un worker del API consulta el inbox y
+outbox persistidos. Un lock transaccional de PostgreSQL serializa el procesamiento
+entre réplicas para este negocio. La configuración verificada del canal corresponde
+al único tenant activo, `parrilladas`; el modelo y el remitente no eligen el tenant.
+No habilitar otros negocios sin resolver pertenencia y aislar también sus conversaciones.
 
-El tenant activo se fija en el servidor como `parrilladas`: las cuentas actuales
-pertenecen a ese negocio y no existe administración multi-tenant. La mutación no
-acepta `tenant_id`, y todas las consultas de preferencias aplican esa clave.
-Antes de añadir otros negocios se necesita un resolver confiable y autorización
-de pertenencia de cuentas; el modelo nunca determina el tenant.
+El worker prepara la respuesta y marca el evento procesado en una transacción.
+Los envíos pendientes se recuperan tras reinicios. Antes de llamar a Meta, persiste
+`sending`; tras éxito guarda `sent`. Un fallo de resultado ambiguo queda
+`uncertain`, pausa la conversación y requiere revisión operativa. Ni `sending` ni
+`uncertain` se reenvían automáticamente, y bloquean envíos posteriores de esa
+conversación. Un proceso interrumpido durante el envío puede dejar `sending`;
+revisarlo con el operador y con el estado de Meta antes de cualquier nuevo intento.
+No existe garantía de entrega exactamente una vez ni un botón de reintento manual.
 
-La preferencia guardada y el modo operativo son conceptos distintos. Esta entrega
-reporta siempre `active_mode=guided`, incluso con la preferencia encendida. La
-página muestra «Activación pendiente» en ese caso. Guardar la preferencia no
-realiza llamadas a Google, no reanuda conversaciones pausadas y no modifica sus
-datos. El Admin no accede a PostgreSQL ni a las credenciales de Google Cloud.
+Las conversaciones pausadas no llaman al modelo. Una pausa cancela respuestas
+pendientes, salvo el aviso de derivación que produjo la propia pausa. La llamada
+externa ya iniciada puede completarse; la pausa no puede retirar mensajes enviados.
+Las solicitudes cerradas siguen cerradas hasta una operación explícita del operador.
+El worker no reanuda ni reinicia conversaciones por su cuenta.
 
-El inicio del dashboard muestra dos tarjetas: **Modo guiado** y **Lenguaje natural**.
-La etiqueta superior indica el modo efectivo consultado al API; encender la
-preferencia solo cambia la tarjeta de lenguaje natural a «Activación pendiente».
-Si no se puede consultar el estado, se muestra «Modo sin verificar», sin asumir
-que algún modo está activo. Las tarjetas y la configuración son exclusivas de Admin.
+## Captura y confirmación
 
-## Ejecutar desde PowerShell
+Una conversación nueva puede aportar fecha, invitados, ubicación y servicio en
+un solo mensaje. El modelo propone datos; Python valida tipos, fecha completa con
+año y evidencia literal, y preguntas de aclaración. No se exige presupuesto ni
+tipo de evento. Los datos propuestos se guardan en el borrador de conversación.
 
-Con dependencias instaladas desde los locks y el paquete editable disponible:
+Los estados `nl_collect`, `nl_review` y `nl_changes` distinguen datos faltantes,
+revisión y correcciones. Una corrección no sustituye datos anteriores sin pulsar
+**Aplicar cambios**. Después se vuelve al resumen; **Confirmar datos** es otra
+acción explícita y cierra la solicitud. No se confirma precio, disponibilidad ni
+reserva. Los precios, aprobación y envío de cotizaciones siguen siendo manuales.
+
+Las conversaciones que ya estaban en una pregunta guiada conservan su flujo.
+Las nuevas usan el modo efectivo guardado en Admin. Apagar la preferencia no
+impide confirmar un borrador NL existente mediante botones; si necesita más
+interpretación, deriva a una persona. Errores del modelo, consultas sin conocimiento
+aprobado y peticiones de asesor producen fallback o pausa, sin inventar respuestas.
+
+## Admin
+
+`/dashboard/assistant` y `GET/PATCH /assistant/preferences` requieren Admin activo.
+El API usa Bearer JWT; las mutaciones y el formulario validan CSRF. La migración
+`0005` conserva la preferencia, tenant y fecha/actor. Esta activación reutiliza el
+esquema existente; no necesita crear tablas en el arranque.
+
+El dashboard muestra **Modo guiado** y **Lenguaje natural**. La etiqueta usa
+`active_mode` del API, combinando la preferencia con la disponibilidad del runtime.
+Una preferencia encendida con gate/runtime apagado muestra **Activación pendiente**.
+Si falla la consulta del estado, muestra **Modo sin verificar**. Admin nunca accede
+al ORM, a PostgreSQL ni a las credenciales de Google.
+
+## Comprobación sintética
+
+Con el paquete y los locks instalados, puede comprobarse Google sin mensajes a
+clientes ni PostgreSQL:
 
 ```powershell
-.\.venv\Scripts\python.exe -m parrilladas.modules.assistant.cli
-```
-
-Sin activación explícita muestra que está deshabilitado y no carga credenciales ni
-realiza llamadas al proveedor. Para una prueba sintética con el proyecto piloto:
-
-```powershell
-gcloud auth application-default login
-gcloud auth application-default set-quota-project parrilladas-ai-pilot
-$env:APP_ENV = "development"
 $env:GOOGLE_CLOUD_PROJECT = "parrilladas-ai-pilot"
 $env:GOOGLE_CLOUD_LOCATION = "global"
 $env:GEMINI_MODEL = "gemini-3.5-flash-lite"
-$env:NATURAL_LANGUAGE_ENABLED = "true"
-try {
-    .\.venv\Scripts\python.exe -m parrilladas.modules.assistant.cli
-} finally {
-    $env:NATURAL_LANGUAGE_ENABLED = "false"
-}
+$env:VERTEX_CONNECTION_ENABLED = "true"
+.\.venv\Scripts\python.exe -m parrilladas.modules.assistant.cli --check-connection
 ```
 
-El comando envía una única solicitud sintética (20 personas, Alajuela y 20 de
-diciembre del próximo año), verifica el resultado y no contacta a clientes ni
-requiere PostgreSQL. La llamada genera consumo del modelo. El presupuesto de
-alertas del piloto es USD 15/mes; las alertas no detienen el consumo. No copiar
-credenciales ADC al repositorio ni al servicio Admin. La identidad de Railway
-se configura por separado según [Railway](railway.md#conexión-con-google-cloud).
+En desarrollo se usa ADC; en Railway, una cuenta de servicio exclusiva del API.
+Las credenciales ADC personales se rechazan en producción. Consultar [Railway](railway.md).
+La comprobación envía una solicitud sintética para 20 personas en Alajuela el 20 de
+diciembre del próximo año. Genera consumo del modelo. Las alertas de USD 15/mes
+no son un límite duro. El comando sin `--check-connection` conserva el gate
+`NATURAL_LANGUAGE_ENABLED` y tampoco contacta a clientes.
 
-Para verificar exclusivamente la conexión, definir `VERTEX_CONNECTION_ENABLED=true`
-y ejecutar el mismo comando con `--check-connection`. Esta comprobación permite
-`APP_ENV=production` y no requiere activar `NATURAL_LANGUAGE_ENABLED`, que permanece
-restringido al piloto local. El comando sin ese argumento conserva su gate original.
-La comprobación usa datos sintéticos, no requiere PostgreSQL ni activa el webhook.
-En producción se rechazan credenciales ADC personales.
+## Conocimiento comercial pendiente
 
-Los IDs de modelo, proyecto y ubicación son configurables. Este modelo y `global`
-se probaron desde el entorno local; no equivalen a una garantía de disponibilidad
-en otros proyectos ni a residencia de datos en una región concreta.
+El [catálogo editable](../knowledge/README.md) contiene platos y cobertura nacional
+proporcionados por el usuario. Se mantiene en archivos por ahora, sin pantalla de
+menú en Admin. La ingesta, embeddings y consultas pgvector siguen pendientes;
+esta entrega activa extracción de solicitudes, no RAG. Las preguntas de menú o
+políticas se derivan a un asesor hasta incorporar esas fuentes.
 
-## Contrato y límites
-
-- `AssistantService.extract` devuelve un resultado estructurado; no envía mensajes,
-  no persiste datos ni aprueba operaciones comerciales.
-- Con el gate apagado o con `bot_paused=True` no llama al proveedor. La pausa tiene
-  prioridad sobre el gate y el llamador debe obtenerla del estado persistido real.
-- El resultado del modelo es una propuesta. Los datos confirmados son inmutables;
-  los cambios se devuelven en `proposed_changes` para confirmación explícita.
-- Fecha completa, invitados, ubicación y servicio componen los campos de revisión.
-  No se exige presupuesto ni tipo de evento. El único servicio soportado en este
-  piloto es `parrilla`, normalizado desde parrilla/parrillada.
-- Las fechas necesitan año explícito y una cita literal del mensaje que incluya
-  ese año. Fechas pasadas, sin evidencia o marcadas ambiguas requieren aclaración.
-  Fechas relativas y formatos numéricos ambiguos quedan para una etapa posterior.
-  La evidencia y la validación de tipos no demuestran por sí solas exactitud semántica.
-- Los errores de autenticación, transporte y salida inválida producen fallback
-  sin registrar prompts, credenciales o respuestas del proveedor. Las preguntas
-  de negocio se derivan porque todavía no existe conocimiento RAG aprobado.
-- Las pruebas usan proveedor simulado y datos sintéticos, sin consumo de modelos.
-
-Antes de conectar el bot: resolver tenant desde Meta verificado; completar
-recuperación persistente de inbox y envíos; integrar la preferencia guardada con
-la selección efectiva del modo, aclaración/confirmación y atención humana;
-evaluar ejemplos en español y aislamiento por tenant. Los precios siguen siendo
-manuales y aprobación y envío permanecen separados.
+Las pruebas usan datos y proveedores sintéticos; las de PostgreSQL solo una base
+vacía y desechable mediante `TEST_DATABASE_URL`. Cubren recuperación, duplicados,
+confirmación, pausas, cierre, canal verificado y resultados inciertos, sin enviar
+mensajes reales ni guardar credenciales de producción.

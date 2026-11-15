@@ -11,15 +11,15 @@
     {% endif %}
     <div class="grid" aria-label="Modos de atención">
       <section class="card" aria-labelledby="guided-mode-heading">
-        <span class="badge{% if not preferences %} muted{% endif %}">{{ 'Activo' if preferences and preferences.active_mode == 'guided' else 'Sin verificar' }}</span>
+        <span class="badge{% if not preferences or preferences.active_mode != 'guided' %} muted{% endif %}">{{ 'Activo' if preferences and preferences.active_mode == 'guided' else ('Inactivo' if preferences else 'Sin verificar') }}</span>
         <h3 id="guided-mode-heading">Modo guiado</h3>
         <p>Recopila los datos del evento mediante preguntas paso a paso.</p>
       </section>
       <section class="card" aria-labelledby="natural-mode-heading">
-        <span class="badge muted">{{ 'Activación pendiente' if preferences and preferences.natural_language_enabled else ('Inactivo' if preferences else 'Sin verificar') }}</span>
+        <span class="badge{% if not preferences or preferences.active_mode != 'natural_language' %} muted{% endif %}">{{ 'Activo' if preferences and preferences.active_mode == 'natural_language' else ('Activación pendiente' if preferences and preferences.natural_language_enabled else ('Inactivo' if preferences else 'Sin verificar')) }}</span>
         <h3 id="natural-mode-heading">Lenguaje natural</h3>
         <p>Permite comprender mensajes libres para proponer los datos del evento.</p>
-        <p class="help">{{ 'La preferencia está guardada. El modo actual sigue siendo guiado.' if preferences and preferences.natural_language_enabled else 'Disponible cuando se complete su integración con las conversaciones.' }}</p>
+        <p class="help">{{ 'Los datos extraídos requieren confirmación antes de registrar la solicitud.' if preferences and preferences.active_mode == 'natural_language' else ('La preferencia está guardada. El modo actual sigue siendo guiado.' if preferences and preferences.natural_language_enabled else 'Active la preferencia para comprender mensajes libres cuando el servicio esté habilitado.') }}</p>
         <a class="button quiet" href="/dashboard/assistant">Configurar preferencia</a>
       </section>
     </div>

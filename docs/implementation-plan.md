@@ -28,7 +28,8 @@ Antes del primer ingreso en producción, el operador debe crear el Admin en una 
 
 - [x] Recepción Meta con verificación de suscripción, firma e inbox persistente idempotente.
 - [x] Panel Admin de integraciones: configuración, webhook y diagnóstico de conectividad con Meta/WhatsApp.
-- [ ] Procesador persistente del inbox hacia conversaciones/leads y adaptador de envío Meta.
+- [x] Procesamiento persistente del inbox hacia conversaciones y envío Meta con control de intentos inciertos.
+- [ ] Vincular solicitudes de conversación con leads y completar operación de atención humana.
 - [ ] Preguntas guiadas: fecha, invitados y ubicación; completar datos relevantes del demo.
 - [ ] Captura de leads y confirmación de datos.
 - [ ] Inbox privado, mensajes y pausa/reanudación explícita del bot.
@@ -60,8 +61,8 @@ Antes del primer ingreso en producción, el operador debe crear el Admin en una 
       Google Cloud; conexión habilitada para diagnóstico, bot todavía guiado.
 - [x] Preferencia persistida de Admin/API con JWT, permisos, CSRF y migración `0005`;
       el modo efectivo continúa guiado hasta completar la integración.
-- [ ] Integración operativa: tenant verificado, aplicación del modo, recuperación durable,
-      aclaración/confirmación de datos, RAG y piloto supervisado en WhatsApp.
+- [x] Canal Meta verificado del único tenant, aplicación del modo y recuperación durable.
+- [x] Extracción Gemini, aclaración/confirmación explícita, correcciones y pausa.
+- [ ] RAG, herramientas de revisión operativa de envíos inciertos y evaluación del piloto real.
 
-Ver [piloto de extracción](assistant.md). Este avance no activa IA en el webhook.
-Google Calendar y conversación con IA en producción quedan para después del lanzamiento.
+Ver [piloto de extracción](assistant.md). La activación requiere gates del API y preferencia Admin. Google Calendar continúa fuera del alcance.
