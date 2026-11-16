@@ -8,7 +8,7 @@
 
 **Última actualización:** 16 de noviembre de 2026 (America/Costa_Rica)
 
-**Estado:** Admin y API separados en Railway; Gemini real habilitado para el piloto de WhatsApp con preferencias Admin y validación de datos. Catálogo editable y respuestas comerciales controladas operativos; recuperación vectorial e ingesta de embeddings pendientes. Beta 1.09 desplegada. Corrección del reinicio después de confirmar preparada para Beta 1.10, en verificación antes de CI/CD. Ver sección 26 para el estado vigente.
+**Estado:** Admin y API separados en Railway; Gemini real habilitado para el piloto de WhatsApp con preferencias Admin y validación de datos. Catálogo editable y respuestas comerciales controladas operativos; recuperación vectorial e ingesta de embeddings pendientes. Beta 1.10 desplegada: un texto nuevo después de confirmar abre otra interacción sin modificar la solicitud anterior. Ver sección 26 para el estado vigente.
 
 **Carpeta de trabajo:** `proyect_brain`
 
@@ -1205,7 +1205,7 @@ USD 0.93 por 1,000 interacciones con la misma mezcla; no es una prueba de carga
 ni incluye WhatsApp, Railway, cola o tiempos humanos. El intento descartado por
 codificación y la repetición sumaron aproximadamente USD 0.058314.
 
-Evidencia local: [informe del piloto](../reports/benchmarks/gemini-real-2026-11-15.md).
+Evidencia local (artefactos aún no versionados): [informe del piloto](../reports/benchmarks/gemini-real-2026-11-15.md).
 No se enviaron mensajes a clientes ni al asesor durante esta evaluación.
 
 ### Incidencia: silencio después de confirmar
@@ -1218,8 +1218,13 @@ históricos y respeta la pausa humana y los envíos inciertos.
 
 - [x] Reproducir el fallo con webhook firmado, worker y PostgreSQL desechable.
 - [x] Implementar reinicio para modos guiado y natural, incluyendo solicitudes antiguas.
-- [ ] Completar checks, CI y despliegue de Beta 1.10 (`1.0.0-beta.11`).
+- [x] Completar checks, CI y despliegue de Beta 1.10 (`1.0.0-beta.11`), commit `b5a702f`; API y Admin en estado `SUCCESS`.
+  [GitHub Actions 43982780024](https://github.com/lkccomander/parrilladasC/actions/runs/43982780024): 284 pruebas aprobadas, Ruff, formato, dependencias y wheel con catálogo incluidos.
 - [ ] Verificar en WhatsApp: confirmar → escribir «Hola» → nueva bienvenida/código.
+
+La segunda ejecución local completó 282 pruebas y tuvo dos timeouts de conexión
+a PostgreSQL desechable. CI completó las 284 sin fallos; no se modificaron límites
+de conexión de producción para compensar el problema local.
 
 ### Próximos pendientes
 
