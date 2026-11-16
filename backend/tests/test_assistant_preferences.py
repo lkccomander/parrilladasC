@@ -365,6 +365,32 @@ def test_admin_reports_natural_language_only_when_preference_and_runtime_are_ena
     assert response.json()["active_mode"] == "guided"
 
 
+def test_unconfigured_advisor_displays_default_without_enabling_or_writing(
+    preference_client, monkeypatch
+):
+    monkeypatch.setattr(
+        "parrilladas.modules.assistant.preferences.DEFAULT_ADVISOR_PHONE", "+15550000008"
+    )
+    state = preference_client
+    headers = login(state)
+    path = "/assistant/preferences/advisor"
+    settings = state.api.get(path, headers=headers).json()["settings"]
+    assert settings["phone"] == "+15550000008"
+    assert not settings["enabled"]
+    assert 'value="+15550000008"' in state.client.get("/dashboard/assistant").text
+    with Session(state.db.engine) as session:
+        assert session.get(AssistantPreference, "parrilladas") is None
+    # Existing installations may have a mode preference with no advisor contact.
+    state.api.patch(
+        "/assistant/preferences", headers=headers, json={"natural_language_enabled": True}
+    )
+    settings = state.api.get(path, headers=headers).json()["settings"]
+    assert settings["phone"] == "+15550000008" and not settings["enabled"]
+    with Session(state.db.engine) as session:
+        assert session.get(AssistantPreference, "parrilladas").advisor_phone is None
+        assert AssistantPreferenceService(session).advisor_for_tenant("other").phone is None
+
+
 def test_advisor_configuration_is_admin_only_and_requires_csrf(preference_client):
     state = preference_client
     path = "/assistant/preferences/advisor"

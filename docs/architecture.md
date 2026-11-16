@@ -85,3 +85,8 @@ un destinatario de asesor, propósito y dependencias de entrega. El servicio de
 conversaciones decide derivación y reinicio; el adaptador Meta solo traduce mensajes
 y plantillas. El worker existente entrega los trabajos persistidos y conserva
 idempotencia. No se agrega otro servicio desplegable ni una cola en memoria.
+
+El teléfono del asesor se edita en Admin → Asistente. Si no hay uno guardado,
+se presenta el contacto predeterminado del negocio; un contacto personalizado
+tiene prioridad. Este valor inicial no habilita las notificaciones ni modifica
+la preferencia de lenguaje natural.

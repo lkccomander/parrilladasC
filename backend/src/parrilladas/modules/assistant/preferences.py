@@ -18,6 +18,7 @@ from .schemas import (
 # Only this business has dashboard accounts. A future tenant resolver must also
 # authorize account membership before exposing preferences for another tenant.
 ACTIVE_TENANT_ID = "parrilladas"
+DEFAULT_ADVISOR_PHONE = "+50683383928"
 
 
 class AssistantPreferenceService:
@@ -47,12 +48,15 @@ class AssistantPreferenceService:
     def advisor_for_tenant(self, tenant_id: str) -> AdvisorSettings:
         row = self.repository.get(tenant_id) if tenant_id == ACTIVE_TENANT_ID else None
         if row is None:
-            return AdvisorSettings()
+            return AdvisorSettings(
+                phone=DEFAULT_ADVISOR_PHONE if tenant_id == ACTIVE_TENANT_ID else None
+            )
         return AdvisorSettings(
             **{
                 key: getattr(row, f"advisor_{key}")
-                for key in ("enabled", "name", "phone", "template", "language")
-            }
+                for key in ("enabled", "name", "template", "language")
+            },
+            phone=row.advisor_phone or DEFAULT_ADVISOR_PHONE,
         )
 
     def requested_for_tenant(self, tenant_id: str) -> bool:
