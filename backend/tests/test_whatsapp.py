@@ -928,7 +928,7 @@ def test_natural_language_sends_shared_branded_welcome_then_accepts_intake(
     assert first["body"]["text"].startswith(GREETING + "\n\nCódigo de interacción: PEC-")
     assert first["header"] == {
         "type": "image",
-        "image": {"link": "https://example.com/assets/welcome_header.jpg"},
+        "image": {"link": "https://example.com/assets/welcome_header.png"},
     }
     assert [
         (button["reply"]["id"], button["reply"]["title"]) for button in first["action"]["buttons"]

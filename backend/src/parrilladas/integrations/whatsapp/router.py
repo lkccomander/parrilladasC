@@ -141,7 +141,7 @@ def create_outbound_sender(http, settings: ApiSettings):
                 recipient=action.recipient,
                 body=action.text,
                 buttons=list(action.buttons),
-                header_image_url=(f"{base_url}/assets/welcome_header.jpg" if base_url else None),
+                header_image_url=(f"{base_url}/assets/welcome_header.png" if base_url else None),
             )
         if action.buttons:
             return client.send_buttons(
