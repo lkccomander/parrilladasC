@@ -8,6 +8,7 @@ from parrilladas.modules.assistant.schemas import EVENT_FIELDS, EventDetails, Ex
 from parrilladas.modules.assistant.service import AssistantService
 
 from .contracts import ButtonReply, FlowDecision, IncomingText
+from .date_answers import MONTHS, parse_date_answer
 from .flow import decide
 
 NL_STEPS = {"nl_collect", "nl_review", "nl_changes"}
@@ -54,21 +55,34 @@ def review(details: EventDetails) -> FlowDecision:
             "Esta solicitud no confirma precio, reserva ni disponibilidad."
         ),
         buttons=REVIEW_BUTTONS,
-        updates={"_nl_draft": details.model_dump(mode="json"), "_nl_changes": None},
+        updates={
+            "_nl_draft": details.model_dump(mode="json"),
+            "_nl_changes": None,
+            "_nl_date_parts": None,
+        },
     )
 
 
-def next_question(details: EventDetails) -> FlowDecision:
+def next_question(details: EventDetails, date_parts: dict | None = None) -> FlowDecision:
     today = ExtractionRequest(message="date validation").reference_date
     if details.event_date is not None and details.event_date < today:
         details = details.model_copy(update={"event_date": None})
     missing = [field for field in EVENT_FIELDS if getattr(details, field) is None]
     if not missing:
         return review(details)
+    question = QUESTIONS[missing[0]]
+    if missing[0] == "event_date" and date_parts:
+        question = f"¿De qué año sería el {date_parts['day']} de {MONTHS[date_parts['month'] - 1]}?"
+    else:
+        date_parts = None
     return FlowDecision(
         step="nl_collect",
-        text=QUESTIONS[missing[0]],
-        updates={"_nl_draft": details.model_dump(mode="json"), "_nl_changes": None},
+        text=question,
+        updates={
+            "_nl_draft": details.model_dump(mode="json"),
+            "_nl_changes": None,
+            "_nl_date_parts": date_parts,
+        },
     )
 
 
@@ -84,7 +98,37 @@ def continue_request(step: str, data: dict) -> FlowDecision:
             "Tienes una corrección pendiente. ¿Quieres aplicarla o conservar los datos anteriores?",
             buttons=CHANGE_BUTTONS,
         )
-    return next_question(EventDetails.model_validate(data.get("_nl_draft") or {}))
+    return next_question(
+        EventDetails.model_validate(data.get("_nl_draft") or {}), data.get("_nl_date_parts")
+    )
+
+
+def date_answer(message: str, details: EventDetails, data: dict) -> FlowDecision | None:
+    parsed = parse_date_answer(message, data.get("_nl_date_parts"))
+    if parsed is None:
+        return None
+    day, month, year = parsed
+    try:
+        # Leap year permits February 29 until the customer supplies the actual year.
+        value = date(year if year is not None else 2000, month, day)
+    except ValueError:
+        return FlowDecision(
+            step="nl_collect",
+            text="Esa fecha no existe en el calendario. ¿Qué fecha deseas para tu evento? "
+            "Indica día, mes y año, por favor.",
+            updates={"_nl_date_parts": None},
+        )
+    parts = {"day": day, "month": month}
+    if year is None:
+        return next_question(details, parts)
+    if value < ExtractionRequest(message="date validation").reference_date:
+        return FlowDecision(
+            step="nl_collect",
+            text=f"El {day} de {MONTHS[month - 1]} de {year} ya pasó. "
+            "¿Cuál es la nueva fecha del evento? Incluye el año, por favor.",
+            updates={"_nl_date_parts": None},
+        )
+    return next_question(details.model_copy(update={"event_date": value}))
 
 
 def guided_answer(step: str, incoming: IncomingText, details: EventDetails) -> FlowDecision:
@@ -189,6 +233,10 @@ def natural_language_decision(
         )
     try:
         details = EventDetails.model_validate(data.get("_nl_draft") or {})
+        if step == "nl_collect" and details.event_date is None:
+            clarified = date_answer(incoming.body, details, data)
+            if clarified is not None:
+                return clarified
         if data.get("_nl_guided"):
             return guided_answer(step, incoming, details)
         requested_field = next(
@@ -230,7 +278,9 @@ def natural_language_decision(
             buttons=FALLBACK_BUTTONS,
         )
     if not any(getattr(outcome.details, field) is not None for field in EVENT_FIELDS):
-        return next_question(outcome.details) if step in NL_STEPS else None
+        return (
+            next_question(outcome.details, data.get("_nl_date_parts")) if step in NL_STEPS else None
+        )
     if outcome.changed_fields:
         proposed = outcome.details.model_dump(mode="json")
         changes = outcome.proposed_changes.model_dump(mode="json", exclude_none=True)
@@ -256,4 +306,4 @@ def natural_language_decision(
         )
     if step == "nl_changes":
         return continue_request(step, data)
-    return next_question(outcome.details)
+    return next_question(outcome.details, data.get("_nl_date_parts"))

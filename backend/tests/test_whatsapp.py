@@ -1189,3 +1189,35 @@ def test_template_adapter_sends_only_the_configured_body_parameters():
             parameters=("PEC-SYNTHETIC", "+15550000001", "Personas: 20"),
         )
     assert result == "wamid.synthetic-template"
+
+
+@pytest.mark.postgres
+def test_partial_date_and_year_follow_up_survive_separate_worker_ticks(natural_worker):
+    state = natural_worker
+    data = natural_payload("partial-date-start")
+    message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+    message.pop("text")
+    message.update(type="interactive", interactive={"button_reply": {"id": "nl_continue"}})
+    assert signed(state.client, encode(data)).status_code == 200
+    state.worker.tick()
+    partial = natural_payload("partial-date", body="Diciembre 12")
+    assert signed(state.client, encode(partial)).status_code == 200
+    state.worker.tick()
+    assert "¿De qué año sería el 12 de diciembre?" in state.outbound[-1]["text"]["body"]
+    with Session(state.engine) as session:
+        saved = session.scalar(select(Conversation))
+        assert saved.flow_data["_nl_date_parts"] == {"day": 12, "month": 12}
+        reference = saved.flow_data["request_reference"]
+    assert signed(state.client, encode(partial)).status_code == 200
+    assert not state.worker.tick()
+    assert (
+        signed(state.client, encode(natural_payload("date-year", body="2027"))).status_code == 200
+    )
+    state.worker.tick()
+    assert "¿Para cuántas personas" in state.outbound[-1]["text"]["body"]
+    with Session(state.engine) as session:
+        saved = session.scalar(select(Conversation))
+        assert saved.flow_data["_nl_draft"]["event_date"] == "2027-12-12"
+        assert saved.flow_data["request_reference"] == reference
+        assert not saved.bot_paused and saved.flow_step == "nl_collect"
+    state.model.extract.assert_not_called()

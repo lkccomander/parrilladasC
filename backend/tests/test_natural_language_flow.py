@@ -168,3 +168,73 @@ def test_natural_language_opening_matches_guided_flow_without_calling_model(mess
     )
     assert decision == decide("start", incoming)
     model.extract.assert_not_called()
+
+
+def test_partial_spanish_date_asks_only_year_and_combines_follow_up():
+    model = provider({"event_date": "2027-12-12"}, date_evidence="Diciembre 12")
+    assistant = AssistantService(model, enabled=True)
+    opening = natural_language_decision("menu", ButtonReply("nl_continue"), {}, assistant)
+    data = {**opening.updates, "request_reference": "PEC-SYNTHETIC"}
+    partial = natural_language_decision("nl_collect", IncomingText("Diciembre 12"), data, assistant)
+    assert "año" in partial.text and "12 de diciembre" in partial.text
+    assert "día, mes y año" not in partial.text
+    assert partial.updates["_nl_draft"]["event_date"] is None
+    data.update(partial.updates)
+    completed = natural_language_decision("nl_collect", IncomingText("2027"), data, assistant)
+    assert completed.updates["_nl_draft"]["event_date"] == "2027-12-12"
+    assert completed.text == "¿Para cuántas personas necesitas el servicio?"
+    model.extract.assert_not_called()
+
+
+@pytest.mark.parametrize("text", ["Diciembre 12", "12 de diciembre", "el 12 de diciembre."])
+def test_partial_date_keeps_other_event_details_and_can_resume_after_menu(text):
+    assistant = AssistantService(provider(), enabled=True)
+    data = {"_nl_draft": {**DETAILS, "event_date": None}}
+    partial = natural_language_decision("nl_collect", IncomingText(text), data, assistant)
+    data.update(partial.updates)
+    menu = natural_language_decision("nl_collect", ButtonReply("nl_menu"), data, assistant)
+    assert not menu.updates
+    resumed = natural_language_decision("nl_collect", ButtonReply("nl_continue"), data, assistant)
+    assert resumed.text == "¿De qué año sería el 12 de diciembre?"
+    data.update(resumed.updates)
+    completed = natural_language_decision("nl_collect", IncomingText("en 2027"), data, assistant)
+    assert completed.step == "nl_review"
+    assert completed.updates["_nl_draft"] == {**DETAILS, "event_date": "2027-12-12"}
+
+
+@pytest.mark.parametrize(
+    ("text", "reason"),
+    [("31 de febrero", "no existe"), ("12 de diciembre de 2000", "ya pasó")],
+)
+def test_invalid_or_past_date_does_not_advance_or_lose_event_details(text, reason):
+    data = {"_nl_draft": {**DETAILS, "event_date": None}}
+    assistant = AssistantService(provider(), enabled=True)
+    decision = natural_language_decision("nl_collect", IncomingText(text), data, assistant)
+    assert decision.step == "nl_collect" and reason in decision.text
+    data.update(decision.updates)
+    assert data["_nl_draft"] == {**DETAILS, "event_date": None}
+    assert data.get("_nl_date_parts") is None
+
+
+def test_leap_day_is_validated_against_supplied_year_and_never_assumed():
+    assistant = AssistantService(provider(), enabled=True)
+    partial = natural_language_decision("nl_collect", IncomingText("29 de febrero"), {}, assistant)
+    assert partial.updates["_nl_draft"]["event_date"] is None
+    invalid = natural_language_decision(
+        "nl_collect", IncomingText("2027"), partial.updates, assistant
+    )
+    assert "no existe" in invalid.text
+    valid = natural_language_decision(
+        "nl_collect", IncomingText("2028"), partial.updates, assistant
+    )
+    assert valid.updates["_nl_draft"]["event_date"] == "2028-02-29"
+
+
+def test_explicit_complete_date_replaces_pending_parts_without_merging_old_day():
+    assistant = AssistantService(provider(), enabled=True)
+    partial = natural_language_decision("nl_collect", IncomingText("Diciembre 12"), {}, assistant)
+    decision = natural_language_decision(
+        "nl_collect", IncomingText("15 de enero de 2028"), partial.updates, assistant
+    )
+    assert decision.updates["_nl_draft"]["event_date"] == "2028-01-15"
+    assert decision.updates["_nl_date_parts"] is None

@@ -173,3 +173,14 @@ Un envío de asesor incierto no se repite automáticamente ni bloquea la nueva
 interacción; un intento interrumpido pasa a incierto tras 60 segundos. Los envíos
 inciertos al cliente siguen requiriendo revisión operativa y pausan ese chat.
 No se promete un tiempo fijo de respuesta ni se intenta reenviar cotizaciones.
+
+## Aclaración de fechas parciales (Beta 1.07)
+
+En la captura de fecha, «Diciembre 12» o «12 de diciembre» conserva día y mes
+en el estado de la interacción y pregunta únicamente el año. Una respuesta como
+«2027» completa la fecha sin inferir el año actual. La fecha se valida contra el
+calendario y la fecha local de Costa Rica antes de avanzar; tampoco se aceptan
+fechas pasadas. El borrador, la referencia y los demás datos se conservan, incluso
+si se consulta el menú antes de continuar. Los mensajes con varios datos siguen
+usando la extracción validada. La revisión final del cliente continúa siendo
+obligatoria. Esta aclaración literal también funciona en el fallback sin IA.
