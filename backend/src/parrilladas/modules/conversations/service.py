@@ -15,6 +15,7 @@ from parrilladas.modules.conversations.contracts import (
     child_event_key,
 )
 from parrilladas.modules.conversations.flow import GREETING, MENU_BUTTONS, decide
+from parrilladas.modules.conversations.models import Conversation
 from parrilladas.modules.conversations.natural_language import NL_STEPS, natural_language_decision
 from parrilladas.modules.conversations.repository import ConversationRepository, InboxRepository
 
@@ -82,6 +83,20 @@ class ConversationService:
         with self.session.begin():
             return self._prepare_locked(event)
 
+    def _restart_submitted(self, conversation: Conversation) -> None:
+        # Preserve legacy requests too, even if they predate interaction tracking.
+        reference = (conversation.flow_data or {}).get("request_reference")
+        previous = self.repository.interaction_for_reference(conversation.id, reference)
+        if previous is None:
+            previous = self.repository.active_interaction(conversation)
+        if previous.status == "active":
+            previous.snapshot = dict(conversation.flow_data or {})
+            previous.status = "submitted"
+            previous.closed_at = datetime.now(UTC)
+            self.session.flush()
+        conversation.flow_step = "start"
+        conversation.flow_data = {}
+
     def _prepare_locked(self, event: InboxEvent) -> tuple[UUID, OutboundAction] | None:
         inbox_event = self.inbox.ensure(event)
         if inbox_event.processed_at is not None:
@@ -107,7 +122,7 @@ class ConversationService:
         if inbound is None:
             self.inbox.mark_processed(inbox_event)
             return None
-        if conversation.bot_paused or conversation.flow_step == "submitted":
+        if conversation.bot_paused:
             self.inbox.mark_processed(inbox_event)
             return None
         advisor = AssistantPreferenceService(self.session).advisor_for_tenant(ACTIVE_TENANT_ID)
@@ -118,6 +133,13 @@ class ConversationService:
             # Replies to internal notices never become new customer requests.
             self.inbox.mark_processed(inbox_event)
             return None
+        if conversation.flow_step == "submitted":
+            if not isinstance(incoming, IncomingText) or not incoming.body.strip():
+                if origin and origin.conversation_id == conversation.id:
+                    inbound.interaction_id = origin.interaction_id
+                self.inbox.mark_processed(inbox_event)
+                return None
+            self._restart_submitted(conversation)
         interaction = self.repository.active_interaction(conversation)
         inbound.interaction_id = interaction.id
         if (

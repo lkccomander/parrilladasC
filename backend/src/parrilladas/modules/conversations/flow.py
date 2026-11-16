@@ -141,8 +141,8 @@ def decide(
         return _decision("menu", GREETING, buttons=MENU_BUTTONS, updates={INVALID_ATTEMPTS_KEY: 0})
 
     if step == "submitted":
-        # The confirmation message already closed the interaction. Stay terminal
-        # until an operator explicitly restarts the conversation.
+        # This interaction stays terminal. ConversationService starts a separate
+        # interaction when a new customer text arrives after submission.
         return _decision("submitted", "", should_respond=False)
 
     if step == "menu" and isinstance(incoming, ButtonReply):

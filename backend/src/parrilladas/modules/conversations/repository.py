@@ -86,6 +86,18 @@ class ConversationRepository:
             conversation.flow_data = {}
         return conversation
 
+    def interaction_for_reference(
+        self, conversation_id: UUID, reference: str | None
+    ) -> Interaction | None:
+        return self.session.scalar(
+            select(Interaction)
+            .where(
+                Interaction.conversation_id == conversation_id,
+                Interaction.reference == reference,
+            )
+            .with_for_update()
+        )
+
     def active_interaction(self, conversation: Conversation) -> Interaction:
         row = self.session.scalar(
             select(Interaction)

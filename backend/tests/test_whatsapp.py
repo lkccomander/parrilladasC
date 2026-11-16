@@ -641,34 +641,21 @@ def test_live_webhook_commits_before_model_work_and_duplicate_delivery_does_not_
 
 @pytest.mark.postgres
 @pytest.mark.parametrize("natural_worker", ["start"], indirect=True)
-def test_paused_and_submitted_conversations_never_call_gemini(natural_worker):
+def test_paused_conversations_never_call_gemini_or_restart(natural_worker):
     state = natural_worker
     with Session(state.engine) as session, session.begin():
         session.add(
             Conversation(
-                whatsapp_number="15550000001", bot_paused=True, flow_step="menu", flow_data={}
+                whatsapp_number="15550000001", bot_paused=True, flow_step="submitted", flow_data={}
             )
         )
-    assert signed(state.client, encode(natural_payload())).status_code == 200
+    assert signed(state.client, encode(natural_payload(body="Hola"))).status_code == 200
     state.worker.tick()
     state.model.extract.assert_not_called()
     assert not state.outbound
-    with Session(state.engine) as session, session.begin():
-        conversation = session.scalar(select(Conversation))
-        conversation.bot_paused = False
-        conversation.flow_step = "submitted"
-    assert signed(state.client, encode(natural_payload("nl-after-close"))).status_code == 200
-    state.worker.tick()
-    state.model.extract.assert_not_called()
-    assert not state.outbound
-    assert (
-        signed(
-            state.client, encode(natural_payload("advisor-after-close", body="ASESOR"))
-        ).status_code
-        == 200
-    )
-    state.worker.tick()
-    assert not state.outbound
+    with Session(state.engine) as session:
+        assert session.scalar(select(Conversation)).flow_step == "submitted"
+        assert session.scalar(select(Interaction)) is None
 
 
 @pytest.mark.postgres
@@ -804,7 +791,7 @@ def test_concurrent_workers_prepare_and_send_one_reply(natural_worker):
 
 
 @pytest.mark.postgres
-def test_customer_confirmation_is_persisted_and_closed_requests_stay_closed(natural_worker):
+def test_new_text_after_confirmation_starts_new_case_and_preserves_closed_request(natural_worker):
     state = natural_worker
     assert signed(state.client, encode(natural_payload())).status_code == 200
     state.worker.tick()
@@ -824,10 +811,107 @@ def test_customer_confirmation_is_persisted_and_closed_requests_stay_closed(natu
         assert conversation.flow_data["guest_count"] == 20
     assert len(state.outbound) == 2
     assert state.model.extract.call_count == 1
-    assert signed(state.client, encode(natural_payload("after-confirmation"))).status_code == 200
+    with Session(state.engine) as session:
+        previous = session.scalar(select(Interaction))
+        previous_id, previous_reference = previous.id, previous.reference
+        previous_snapshot = dict(previous.snapshot)
+        previous_closed_at = previous.closed_at
+    # Old confirmation buttons must never reopen the completed request.
+    stale = natural_payload("stale-confirmation")
+    stale_message = stale["entry"][0]["changes"][0]["value"]["messages"][0]
+    stale_message.pop("text")
+    stale_message.update(
+        type="interactive",
+        context={"id": "wamid.nl.1"},
+        interactive={"button_reply": {"id": "nl_confirm", "title": "Confirmar datos"}},
+    )
+    assert signed(state.client, encode(stale)).status_code == 200
     state.worker.tick()
     assert len(state.outbound) == 2
+    following = natural_payload("after-confirmation", body="Hola")
+    assert signed(state.client, encode(following)).status_code == 200
+    state.worker.tick()
+    assert len(state.outbound) == 3
+    assert state.outbound[-1]["interactive"]["body"]["text"].startswith(GREETING)
     assert state.model.extract.call_count == 1
+    assert signed(state.client, encode(following)).status_code == 200
+    assert not state.worker.tick()
+    with Session(state.engine) as session:
+        previous = session.get(Interaction, previous_id)
+        assert previous.status == "submitted"
+        assert previous.snapshot == previous_snapshot
+        assert previous.closed_at == previous_closed_at
+        cases = session.scalars(select(Interaction)).all()
+        assert len(cases) == 2
+        active = next(case for case in cases if case.status == "active")
+        assert active.reference != previous_reference
+        assert active.reference in state.outbound[-1]["interactive"]["body"]["text"]
+        conversation = session.scalar(select(Conversation))
+        assert conversation.flow_step == "menu"
+        assert conversation.flow_data == {
+            "request_reference": active.reference,
+            "_invalid_attempts": 0,
+        }
+        inbound = session.scalar(
+            select(Message).where(Message.external_message_id == "after-confirmation")
+        )
+        assert inbound.interaction_id == active.id
+    # A stale button after the new welcome cannot mutate the new interaction either.
+    stale_message["id"] = "stale-after-welcome"
+    assert signed(state.client, encode(stale)).status_code == 200
+    state.worker.tick()
+    assert len(state.outbound) == 3
+    assert signed(state.client, encode(natural_payload("second-request"))).status_code == 200
+    state.worker.tick()
+    assert len(state.outbound) == 4
+    assert state.model.extract.call_count == 2
+
+
+@pytest.mark.postgres
+@pytest.mark.parametrize("natural_worker", ["start"], indirect=True)
+@pytest.mark.parametrize("nl_enabled", [False, True])
+def test_legacy_submitted_request_is_archived_before_new_welcome(natural_worker, nl_enabled):
+    state = natural_worker
+    previous_data = {"request_reference": "PEC-SYNTHETIC-LEGACY", "guest_count": 7}
+    with Session(state.engine) as session:
+        AssistantPreferenceService(session).update(
+            state.actor, AssistantPreferencesUpdate(natural_language_enabled=nl_enabled)
+        )
+    with Session(state.engine) as session, session.begin():
+        session.add(
+            Conversation(
+                whatsapp_number="15550000001", flow_step="submitted", flow_data=previous_data
+            )
+        )
+    unsupported = natural_payload("unsupported-after-close")
+    message = unsupported["entry"][0]["changes"][0]["value"]["messages"][0]
+    message.pop("text")
+    message["type"] = "image"
+    message["image"] = {"id": "synthetic-media"}
+    assert signed(state.client, encode(unsupported)).status_code == 200
+    state.worker.tick()
+    assert not state.outbound
+    assert (
+        signed(state.client, encode(natural_payload("legacy-next", body="Hola"))).status_code == 200
+    )
+    state.worker.tick()
+    assert len(state.outbound) == 1
+    assert state.outbound[0]["interactive"]["body"]["text"].startswith(GREETING)
+    state.model.extract.assert_not_called()
+    with Session(state.engine) as session:
+        cases = session.scalars(select(Interaction)).all()
+        assert len(cases) == 2
+        previous = next(
+            case for case in cases if case.reference == previous_data["request_reference"]
+        )
+        assert previous.status == "submitted"
+        assert previous.snapshot == previous_data
+        assert previous.closed_at is not None
+        active = next(case for case in cases if case.status == "active")
+        assert session.scalar(select(Conversation)).flow_data == {
+            "request_reference": active.reference,
+            "_invalid_attempts": 0,
+        }
 
 
 @pytest.mark.postgres

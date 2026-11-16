@@ -195,3 +195,16 @@ sin perder el borrador y sin derivar automáticamente a un asesor. Las respuesta
 con más datos siguen pasando por extracción y revisión de correcciones.
 Un «sí» aislado en otros pasos no completa campos ni acepta cambios o el envío
 final: la confirmación final continúa requiriendo el botón «Confirmar datos».
+
+## Nueva interacción después de confirmar (Beta 1.10)
+
+Confirmar datos cierra la solicitud y conserva su código, snapshot e historial.
+Si el cliente escribe otro texto, el servicio abre una interacción independiente
+con código nuevo y envía la misma bienvenida del modo guiado y del modo natural.
+La apertura no llama a Gemini ni modifica la solicitud confirmada. Las solicitudes
+anteriores al registro de interacciones se archivan antes del reinicio.
+
+Los botones antiguos no reabren solicitudes. Los duplicados del webhook no crean
+otras interacciones, y una conversación pausada por atención humana o por un envío
+incierto conserva la pausa. Los mensajes descartados antes de esta corrección no
+se reproducen: el siguiente texto nuevo inicia la interacción.
