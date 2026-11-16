@@ -238,3 +238,87 @@ def test_explicit_complete_date_replaces_pending_parts_without_merging_old_day()
     )
     assert decision.updates["_nl_draft"]["event_date"] == "2028-01-15"
     assert decision.updates["_nl_date_parts"] is None
+
+
+def test_yes_to_parrillada_question_advances_to_review_without_submitting():
+    model = provider({"service_type": None}, date_evidence=None)
+    assistant = AssistantService(model, enabled=True)
+    draft = {
+        "event_date": "2027-06-03",
+        "guest_count": 7,
+        "location": "Guachipelín",
+        "service_type": None,
+    }
+    data = {"_nl_draft": draft, "request_reference": "PEC-SYNTHETIC"}
+    question = natural_language_decision("nl_collect", ButtonReply("nl_continue"), data, assistant)
+    assert question.text == "¿Te interesa nuestro servicio de parrillada?"
+    decision = natural_language_decision("nl_collect", IncomingText("Si"), data, assistant)
+    assert decision.step == "nl_review"
+    assert decision.updates["_nl_draft"] == {**draft, "service_type": "parrilla"}
+    assert not decision.updates.get("_nl_confirmed")
+    assert not decision.handoff
+
+
+@pytest.mark.parametrize("answer", ["Sí", "SI", "sí, claro", "Claro", "De acuerdo", "Así es"])
+@pytest.mark.parametrize("guided", [False, True])
+def test_contextual_service_acceptance_works_with_or_without_ai(answer, guided):
+    model = Mock(extract=Mock(side_effect=ExtractionUnavailable("unavailable")))
+    data = {"_nl_draft": {**DETAILS, "service_type": None}, "_nl_guided": guided}
+    decision = natural_language_decision(
+        "nl_collect", IncomingText(answer), data, AssistantService(model, enabled=True)
+    )
+    assert decision.step == "nl_review"
+    assert decision.updates["_nl_draft"] == DETAILS
+    assert not decision.updates.get("_nl_confirmed")
+    model.extract.assert_not_called()
+
+
+@pytest.mark.parametrize("answer", ["No", "No gracias", "No me interesa"])
+def test_declining_service_preserves_draft_and_offers_options_without_handoff(answer):
+    model = Mock(extract=Mock(side_effect=ExtractionUnavailable("unavailable")))
+    decision = natural_language_decision(
+        "nl_collect",
+        IncomingText(answer),
+        {"_nl_draft": {**DETAILS, "service_type": None}},
+        AssistantService(model, enabled=True),
+    )
+    assert decision.step == "nl_collect" and not decision.updates
+    assert "Conservé los datos" in decision.text
+    assert ("nl_advisor", "Hablar con asesor") in decision.buttons
+    assert not decision.handoff
+    model.extract.assert_not_called()
+
+
+@pytest.mark.parametrize("step", ["nl_collect", "nl_review", "nl_changes"])
+def test_yes_does_not_accept_other_fields_pending_corrections_or_final_submission(step):
+    model = provider({"service_type": None}, date_evidence=None)
+    draft = (
+        DETAILS if step != "nl_collect" else {**DETAILS, "guest_count": None, "service_type": None}
+    )
+    data = {"_nl_draft": draft}
+    if step == "nl_changes":
+        data["_nl_changes"] = {**DETAILS, "guest_count": 30}
+    decision = natural_language_decision(
+        step, IncomingText("Sí"), data, AssistantService(model, enabled=True)
+    )
+    assert decision.step == step
+    assert not decision.updates.get("_nl_confirmed")
+    if step == "nl_collect":
+        assert decision.updates["_nl_draft"]["service_type"] is None
+        assert decision.updates["_nl_draft"]["guest_count"] is None
+    if step == "nl_changes":
+        assert not decision.updates
+
+
+def test_yes_with_more_event_data_still_uses_extraction_and_correction_review():
+    model = provider({"guest_count": 30}, date_evidence=None)
+    decision = natural_language_decision(
+        "nl_collect",
+        IncomingText("Sí, pero seremos 30 personas"),
+        {"_nl_draft": {**DETAILS, "service_type": None}},
+        AssistantService(model, enabled=True),
+    )
+    assert decision.step == "nl_changes"
+    assert decision.updates["_nl_changes"]["guest_count"] == 30
+    assert decision.updates["_nl_draft"]["guest_count"] == 20
+    assert model.extract.call_count == 1

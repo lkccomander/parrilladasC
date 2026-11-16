@@ -184,3 +184,14 @@ fechas pasadas. El borrador, la referencia y los demás datos se conservan, incl
 si se consulta el menú antes de continuar. Los mensajes con varios datos siguen
 usando la extracción validada. La revisión final del cliente continúa siendo
 obligatoria. Esta aclaración literal también funciona en el fallback sin IA.
+
+## Confirmación contextual del servicio (Beta 1.09)
+
+Cuando el siguiente dato faltante es el servicio y se pregunta por parrillada,
+«Sí», «Si», «Claro» y afirmaciones equivalentes completan `service_type=parrilla`
+y muestran la revisión, conservando los otros datos. Esta aceptación literal
+funciona también sin IA. Una negativa ofrece opciones sin inventar otro servicio,
+sin perder el borrador y sin derivar automáticamente a un asesor. Las respuestas
+con más datos siguen pasando por extracción y revisión de correcciones.
+Un «sí» aislado en otros pasos no completa campos ni acepta cambios o el envío
+final: la confirmación final continúa requiriendo el botón «Confirmar datos».

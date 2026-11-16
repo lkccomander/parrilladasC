@@ -1221,3 +1221,37 @@ def test_partial_date_and_year_follow_up_survive_separate_worker_ticks(natural_w
         assert saved.flow_data["request_reference"] == reference
         assert not saved.bot_paused and saved.flow_step == "nl_collect"
     state.model.extract.assert_not_called()
+
+
+@pytest.mark.postgres
+def test_natural_intake_accepts_yes_for_service_then_requires_final_confirmation(natural_worker):
+    state = natural_worker
+    state.model.extract.side_effect = [
+        json.dumps({"intent": "quote", "details": {"guest_count": 7}}),
+        json.dumps({"intent": "quote", "details": {"location": "Guachipelín"}}),
+    ]
+    data = natural_payload("service-yes-start")
+    message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+    message.pop("text")
+    message.update(type="interactive", interactive={"button_reply": {"id": "nl_continue"}})
+    assert signed(state.client, encode(data)).status_code == 200
+    state.worker.tick()
+    for index, body in enumerate(["3 de junio", "2027", "Siete", "Guachipelín", "Si"]):
+        data = natural_payload(f"service-yes-{index}", body=body)
+        assert signed(state.client, encode(data)).status_code == 200
+        state.worker.tick()
+    assert state.model.extract.call_count == 2
+    assert "Revisa los datos" in state.outbound[-1]["interactive"]["body"]["text"]
+    with Session(state.engine) as session:
+        saved = session.scalar(select(Conversation))
+        assert saved.flow_step == "nl_review" and not saved.bot_paused
+        assert saved.flow_data["_nl_draft"] == {
+            "event_date": "2027-06-03",
+            "guest_count": 7,
+            "location": "Guachipelín",
+            "service_type": "parrilla",
+        }
+        assert not saved.flow_data.get("_nl_confirmed")
+    assert signed(state.client, encode(data)).status_code == 200
+    assert not state.worker.tick()
+    assert len(state.outbound) == 6

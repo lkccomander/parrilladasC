@@ -1,5 +1,6 @@
 """Convert validated extraction proposals into explicit customer review steps."""
 
+import unicodedata
 from datetime import date
 
 from pydantic import ValidationError
@@ -131,6 +132,37 @@ def date_answer(message: str, details: EventDetails, data: dict) -> FlowDecision
     return next_question(details.model_copy(update={"event_date": value}))
 
 
+def service_answer(message: str, details: EventDetails) -> FlowDecision | None:
+    text = "".join(
+        char
+        for char in unicodedata.normalize("NFKD", message.casefold())
+        if not unicodedata.combining(char)
+    )
+    text = " ".join(text.replace(",", " ").strip("¡!¿?.,;: \n\t").split())
+    if text in {
+        "si",
+        "si claro",
+        "si por favor",
+        "claro",
+        "correcto",
+        "de acuerdo",
+        "asi es",
+        "me interesa",
+        "si me interesa",
+        "por supuesto",
+        "parrilla",
+        "parrillada",
+    }:
+        return next_question(details.model_copy(update={"service_type": "parrilla"}))
+    if text in {"no", "no gracias", "no me interesa", "por ahora no", "todavia no"}:
+        return side_reply(
+            "nl_collect",
+            "Entendido. Conservé los datos de tu evento. Puedes ver el menú o hablar "
+            "con un asesor para revisar lo que necesitas.",
+        )
+    return None
+
+
 def guided_answer(step: str, incoming: IncomingText, details: EventDetails) -> FlowDecision:
     """Literal, validated fallback answers; no model is required to advance."""
     if step != "nl_collect":
@@ -237,11 +269,15 @@ def natural_language_decision(
             clarified = date_answer(incoming.body, details, data)
             if clarified is not None:
                 return clarified
-        if data.get("_nl_guided"):
-            return guided_answer(step, incoming, details)
         requested_field = next(
             (field for field in EVENT_FIELDS if getattr(details, field) is None), None
         )
+        if step == "nl_collect" and requested_field == "service_type":
+            answered = service_answer(incoming.body, details)
+            if answered is not None:
+                return answered
+        if data.get("_nl_guided"):
+            return guided_answer(step, incoming, details)
         outcome = assistant.extract(
             ExtractionRequest(
                 message=incoming.body,
