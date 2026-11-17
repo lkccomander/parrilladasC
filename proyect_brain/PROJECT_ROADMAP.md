@@ -2,13 +2,13 @@
 
 ## Documento de referencia del proyecto
 
-**Versión:** 1.5
+**Versión:** 1.6
 
 **Fecha:** 20 de octubre de 2026
 
 **Última actualización:** 16 de noviembre de 2026 (America/Costa_Rica)
 
-**Estado:** Admin y API separados en Railway; Gemini real habilitado para el piloto de WhatsApp con preferencias Admin y validación de datos. Catálogo editable y respuestas comerciales controladas operativos; recuperación vectorial e ingesta de embeddings pendientes. Beta 1.10 desplegada: un texto nuevo después de confirmar abre otra interacción sin modificar la solicitud anterior. Ver sección 26 para el estado vigente.
+**Estado:** Admin y API separados en Railway; Gemini real habilitado para el piloto de WhatsApp con preferencias Admin y validación de datos. Catálogo editable y respuestas comerciales controladas operativos; recuperación vectorial e ingesta de embeddings pendientes. Beta 1.11 desplegada: Atención y ventas lista las interacciones, con acceso Admin/Sales. Un texto nuevo después de confirmar sigue abriendo otra interacción sin modificar la solicitud anterior. Ver sección 26 para el estado vigente.
 
 **Carpeta de trabajo:** `proyect_brain`
 
@@ -1236,3 +1236,26 @@ de conexión de producción para compensar el problema local.
 5. Revisar el texto de cierre que menciona PDF y condiciones 50/50: esas funciones
    y condiciones aún necesitan implementación o validación comercial.
 6. Medir consumo operativo y límites del piloto; la alerta presupuestaria no corta gasto.
+
+
+---
+
+## 27. Atención y ventas: listado de interacciones — 16 de noviembre de 2026
+
+Beta 1.11 (`1.0.0-beta.12`), commit `2f7fe02`, desplegada en API y Admin.
+
+- [x] Activar la tarjeta y la navegación «Atención y ventas» → «Ver interacciones».
+- [x] Listar códigos, contactos WhatsApp, estados, fecha del evento, personas,
+  ubicación, servicio y fecha de creación en hora de Costa Rica.
+- [x] Buscar por código o teléfono, filtrar por estado y paginar de 25 en 25,
+  con las interacciones más recientes primero.
+- [x] Conservar separadas las interacciones de un mismo contacto; mostrar borradores
+  y datos registrados, sin editar snapshots ni estados desde el listado.
+- [x] Endpoint privado `GET /conversations/interactions`, accesible a Admin y Sales
+  con JWT. Admin consume contratos por HTTP y no abre conexiones de base de datos.
+- [x] Probar permisos, filtros, paginación, escape HTML y manejo de indisponibilidad.
+  292 pruebas locales aprobadas y [CI 43987322043](https://github.com/lkccomander/parrilladasC/actions/runs/43987322043) en verde.
+
+El listado es de consulta. El detalle de mensajes, las acciones de pausa/reanudación,
+la gestión de leads y la operación de cotizaciones siguen siendo tareas posteriores.
+No se requieren modelos ni migraciones nuevos para esta entrega.
