@@ -67,7 +67,7 @@ pytest backend/tests
 python -m pip check
 ```
 
-Las pruebas de PostgreSQL requieren `TEST_DATABASE_URL` apuntando a una base vacía y desechable. La prueba de migraciones crea y revierte las tablas y rechaza una base que ya tenga tablas. Nunca usar una base de negocio para estas pruebas. CI proporciona su propia base efímera y ejecuta esta verificación.
+Las pruebas de PostgreSQL requieren `TEST_DATABASE_URL` apuntando a una base vacía y desechable. La prueba de migraciones crea y revierte las tablas y rechaza una base que ya tenga tablas. Nunca usar una base de negocio para estas pruebas. CI proporciona su propia base efímera con pgvector y ejecuta esta verificación. Desde la migración `0007`, el servidor de pruebas debe tener pgvector instalado y el usuario de migración debe poder ejecutar `CREATE EXTENSION vector`. Una instalación PostgreSQL sin pgvector no basta.
 
 `backend/requirements.lock` fija dependencias de ejecución y construcción; `requirements-dev.lock` añade herramientas de desarrollo. Se resuelven para Python 3.12 con marcadores de plataforma, incluyendo Windows y Linux. Para actualizarlos, instalar `uv` en un entorno de herramientas y ejecutar desde la raíz:
 
@@ -78,7 +78,7 @@ uv pip compile backend/pyproject.toml backend/requirements-build.in --extra dev 
 
 Revisar los cambios, reinstalar en un entorno limpio y ejecutar CI antes de publicar. Los comandos resuelven versiones nuevas dentro de los rangos de `pyproject.toml`; las instalaciones normales usan exclusivamente los locks.
 
-La versión actual es `1.0.0-beta.10` (etiqueta del panel: **Beta 1.09**). Al publicar,
+La versión actual es `1.0.0-beta.13` (etiqueta del panel: **Beta 1.12**). Al publicar,
 actualizar `backend/pyproject.toml`, `backend/src/parrilladas/__init__.py` y la
 comprobación del pie de página. GitHub Actions valida que la versión del paquete
 coincida con la aplicación. Publicar en `main` y esperar **Checks** antes del

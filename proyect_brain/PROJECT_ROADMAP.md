@@ -1231,8 +1231,8 @@ de conexión de producción para compensar el problema local.
 1. Validar plantilla, destinatario y entrega real de la notificación al asesor.
 2. Corregir y evaluar la fidelidad de ubicaciones con tildes en extracción real.
 3. Completar leads, PDF privado y precios manuales con aprobación y envío separados.
-4. Implementar ingesta/versionado/embeddings y recuperación por tenant cuando
-   se aborde el RAG vectorial; no confundir extensión instalada con función terminada.
+4. RAG inicial implementado en la sección 28. Ampliar fuentes y medir recuperación
+   antes de incorporar documentos o condiciones comerciales adicionales.
 5. Revisar el texto de cierre que menciona PDF y condiciones 50/50: esas funciones
    y condiciones aún necesitan implementación o validación comercial.
 6. Medir consumo operativo y límites del piloto; la alerta presupuestaria no corta gasto.
@@ -1265,8 +1265,9 @@ No se requieren modelos ni migraciones nuevos para esta entrega.
 
 ## 28. Catálogo publicado en PostgreSQL y RAG para Gemini — 17 de noviembre de 2026
 
-Beta 1.12 (`1.0.0-beta.13`). Implementación terminada; 313 pruebas locales aprobadas,
-Ruff, formato, dependencias y wheel verificados. Despliegue en curso.
+Beta 1.12 (`1.0.0-beta.13`), commit `af80a07`, desplegada y activada en API y Admin.
+313 pruebas locales aprobadas, Ruff, formato, dependencias y wheel verificados.
+[CI 44202989011](https://github.com/lkccomander/parrilladasC/actions/runs/44202989011) aprobado.
 
 - [x] Migración `0007`: documentos versionados y fragmentos `vector(768)`, publicación activa
   única por tenant/fuente y conservación de versiones anteriores. Downgrade sin borrar la extensión.
@@ -1285,7 +1286,20 @@ Ruff, formato, dependencias y wheel verificados. Despliegue en curso.
 - [x] Vista de lectura Admin → Asistente → Conocimiento del negocio, mediante endpoint JWT
   Admin `GET /assistant/knowledge`, sin credenciales SQL en el dashboard.
 - [x] CI usa PostgreSQL16 con pgvector; migraciones y pruebas SQL solo en bases desechables.
-- [ ] Registrar resultado de CI, despliegue, carga inicial y evaluación con Gemini real.
+- [x] API `ffcbc6c3-6cd9-497c-bfa9-f9f5d4f94813` y Admin
+  `daa06353-aa58-4a96-8fef-44a1ed530c41` en SUCCESS, sobre el commit de aplicación `af80a07`.
+- [x] Migración `0007` verificada en Railway; catálogo v1 publicado como un documento
+  y tres fragmentos de 768 dimensiones. `RAG_ENABLED=true` solo en API.
+- [x] Ocho comprobaciones sintéticas aprobadas: cinco recorren embeddings/recuperación/
+  selección con Gemini y tres verifican restricciones locales de alergias, precios y disponibilidad.
+  Las cinco consultas RAG tardaron entre 0,93 y 1,45 segundos, sin contar la extracción inicial.
+- [x] Composición desplegada verificada: proveedor disponible, preferencia NL activa,
+  recuperación real del menú y endpoint privado que rechaza solicitudes sin JWT (401).
+  Las pruebas no iniciaron otro worker de inbox ni enviaron mensajes a clientes.
+
+Los casos evaluados incluyen carnes, Guanacaste, preparación en el lugar, sushi/salmón
+no documentados y una instrucción de inventar sushi gratis. Este conjunto pequeño
+valida el piloto; no sustituye una evaluación ampliada cuando aumenten las fuentes.
 
 Edición del conocimiento: continuar usando `knowledge/parrilladas/menu.json`, incrementar
 `content_version`, desplegar y ejecutar `python -m parrilladas.modules.assistant.knowledge_cli ingest`
