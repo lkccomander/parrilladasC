@@ -3,7 +3,7 @@ from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
@@ -18,6 +18,7 @@ from parrilladas.modules.accounts.errors import (
 )
 from parrilladas.modules.accounts.schemas import AccountCreate, AccountUpdate
 from parrilladas.modules.assistant.schemas import AdvisorSettings, AssistantPreferencesUpdate
+from parrilladas.modules.conversations.schemas import InteractionFilters
 from parrilladas.modules.dashboard.client import ApiUnavailable
 from parrilladas.modules.dashboard.cookies import clear_cookies, set_session_cookie
 from parrilladas.modules.dashboard.dependencies import (
@@ -143,6 +144,43 @@ def dashboard(request: Request, service: Service, context: Authenticated) -> HTM
         except AccessDenied as error:
             raise HTTPException(403, str(error)) from None
     return page(request, "dashboard.html", context=context, preferences=preferences)
+
+
+@router.get("/dashboard/interactions", response_class=HTMLResponse)
+def interactions(
+    request: Request,
+    service: Service,
+    context: Authenticated,
+    page_number: int = Query(default=1, alias="page", ge=1, le=100000),
+    q: str = Query(default="", max_length=100),
+    status: Literal["", "active", "submitted", "referred"] = "",
+) -> HTMLResponse:
+    filters = InteractionFilters(page=page_number, q=q, status=status or None)
+    try:
+        report = service.list_interactions(filters)
+    except AccessDenied as error:
+        raise HTTPException(403, str(error)) from None
+    except (ApiUnavailable, AccountNotFound):
+        return page(
+            request,
+            "interactions.html",
+            503,
+            context=context,
+            report=None,
+            filters=filters,
+            error="No pudimos cargar las interacciones. Intente nuevamente.",
+        )
+    local_dates = {
+        item.id: item.created_at.astimezone(ZoneInfo("America/Costa_Rica")) for item in report.items
+    }
+    return page(
+        request,
+        "interactions.html",
+        context=context,
+        report=report,
+        filters=filters,
+        local_dates=local_dates,
+    )
 
 
 def integration_page(request: Request, context, report: WhatsAppIntegrationStatus) -> HTMLResponse:

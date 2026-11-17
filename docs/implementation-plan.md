@@ -33,6 +33,7 @@ Antes del primer ingreso en producción, el operador debe crear el Admin en una 
 - [ ] Preguntas guiadas: fecha, invitados y ubicación; completar datos relevantes del demo.
 - [ ] Captura de leads y confirmación de datos.
 - [x] Derivación al WhatsApp del asesor, configuración Admin e interacciones independientes.
+- [x] Listado privado de interacciones en Atención y ventas para Admin/Sales, con búsqueda, estados y paginación.
 - [ ] Inbox privado, mensajes y pausa/reanudación manual del bot.
 - [ ] Envío manual desde dashboard con estado y errores visibles.
 

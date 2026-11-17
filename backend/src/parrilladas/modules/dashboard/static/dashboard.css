@@ -854,3 +854,13 @@ td a {
     background: var(--surface);
   }
 }
+
+.interaction-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1.5rem;
+}
+.interaction-filters label { flex: 1 1 16rem; }
+.pagination { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-top: 1.5rem; }

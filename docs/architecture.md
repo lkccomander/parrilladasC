@@ -90,3 +90,15 @@ El teléfono del asesor se edita en Admin → Asistente. Si no hay uno guardado,
 se presenta el contacto predeterminado del negocio; un contacto personalizado
 tiene prioridad. Este valor inicial no habilita las notificaciones ni modifica
 la preferencia de lenguaje natural.
+
+
+## Listado de interacciones en Admin
+
+Atención y ventas consume `GET /conversations/interactions` mediante el cliente HTTP
+con JWT. Admin y Sales pueden consultar; una sesión anónima no tiene acceso.
+El servicio de consultas de conversaciones aplica la autorización y la transacción;
+el repositorio realiza búsqueda, filtro por estado, conteo y paginación de 25 filas.
+El contrato expone únicamente campos de presentación del snapshot y el contacto,
+sin mensajes ni metadatos internos. La vista conserva las solicitudes independientes
+de un mismo número y presenta fechas operativas en America/Costa_Rica.
+El listado no altera estados, reinicia conversaciones ni envía mensajes.

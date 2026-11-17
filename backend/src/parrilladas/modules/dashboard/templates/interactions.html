@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Atención y ventas{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">ATENCIÓN Y VENTAS</p>
+      <h1>Interacciones</h1>
+      <p>Consulte las solicitudes y consultas recibidas por WhatsApp.</p>
+    </div>
+  </div>
+  <form method="get" action="/dashboard/interactions" class="card interaction-filters">
+    <label for="interaction-search">Código o número de WhatsApp
+      <input id="interaction-search" type="search" name="q" maxlength="100" value="{{ filters.q }}" placeholder="PEC-… o número de contacto">
+    </label>
+    <label for="interaction-status">Estado
+      <select id="interaction-status" name="status">
+        <option value="">Todos</option>
+        <option value="active"{% if filters.status == 'active' %} selected{% endif %}>En curso</option>
+        <option value="submitted"{% if filters.status == 'submitted' %} selected{% endif %}>Registrada</option>
+        <option value="referred"{% if filters.status == 'referred' %} selected{% endif %}>Derivada al asesor</option>
+      </select>
+    </label>
+    <button type="submit">Buscar</button>
+    <a href="/dashboard/interactions">Limpiar filtros</a>
+  </form>
+  {% if report %}
+    <p class="help" role="status">{{ report.total }} {{ 'interacción encontrada' if report.total == 1 else 'interacciones encontradas' }} · Más recientes primero · Hora de Costa Rica</p>
+    {% if report.items %}
+      <div class="card table-wrap">
+        <table>
+          <caption class="sr-only">Interacciones de WhatsApp</caption>
+          <thead><tr>
+            <th scope="col">Código</th><th scope="col">Contacto</th><th scope="col">Estado</th>
+            <th scope="col">Fecha del evento</th><th scope="col">Personas</th>
+            <th scope="col">Ubicación</th><th scope="col">Servicio</th><th scope="col">Creada</th>
+          </tr></thead>
+          <tbody>
+            {% for item in report.items %}
+              <tr>
+                <td><strong>{{ item.reference }}</strong></td>
+                <td>+{{ item.whatsapp_number.lstrip('+') }}</td>
+                <td>
+                  <span class="badge{% if item.status != 'active' %} muted{% endif %}">{{ {'active': 'En curso', 'submitted': 'Registrada', 'referred': 'Derivada al asesor'}[item.status] }}</span>
+                  {% if item.bot_paused %}<small>Bot pausado</small>{% endif %}
+                </td>
+                <td>{{ item.event_date or 'Sin indicar' }}</td>
+                <td>{{ item.guest_count if item.guest_count is not none else 'Sin indicar' }}</td>
+                <td>{{ item.location or 'Sin indicar' }}</td>
+                <td>{{ 'Parrilla' if item.service_type == 'parrilla' else (item.service_type or 'Sin indicar') }}</td>
+                <td><time datetime="{{ item.created_at.isoformat() }}">{{ local_dates[item.id].strftime('%d/%m/%Y %H:%M') }}</time></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <section class="card"><h2>No hay interacciones para mostrar</h2><p>{{ 'Pruebe otro código, contacto o estado.' if filters.q or filters.status else 'Las nuevas interacciones de WhatsApp aparecerán aquí.' }}</p></section>
+    {% endif %}
+    <nav class="pagination" aria-label="Páginas de interacciones">
+      {% if report.page > 1 %}<a class="button quiet" href="{{ request.url.include_query_params(page=report.page - 1) }}">Anterior</a>{% endif %}
+      <span>Página {{ report.page }}</span>
+      {% if report.page * report.page_size < report.total %}<a class="button quiet" href="{{ request.url.include_query_params(page=report.page + 1) }}">Siguiente</a>{% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

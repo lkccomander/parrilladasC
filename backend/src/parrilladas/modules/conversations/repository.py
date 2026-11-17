@@ -86,6 +86,30 @@ class ConversationRepository:
             conversation.flow_data = {}
         return conversation
 
+    def list_interactions(self, *, search: str, status: str | None, offset: int, limit: int):
+        conditions = []
+        if status:
+            conditions.append(Interaction.status == status)
+        if search:
+            conditions.append(
+                or_(
+                    Interaction.reference.icontains(search, autoescape=True),
+                    Conversation.whatsapp_number.contains(search, autoescape=True),
+                )
+            )
+        query = (
+            select(Interaction, Conversation)
+            .join(Conversation, Conversation.id == Interaction.conversation_id)
+            .where(*conditions)
+        )
+        total = self.session.scalar(select(func.count()).select_from(query.subquery()))
+        rows = self.session.execute(
+            query.order_by(Interaction.created_at.desc(), Interaction.id.desc())
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        return rows, total
+
     def interaction_for_reference(
         self, conversation_id: UUID, reference: str | None
     ) -> Interaction | None:

@@ -31,6 +31,7 @@ from parrilladas.modules.assistant.config import AssistantSettings
 from parrilladas.modules.assistant.errors import ExtractionUnavailable
 from parrilladas.modules.assistant.router import router as assistant_router
 from parrilladas.modules.assistant.service import AssistantService
+from parrilladas.modules.conversations.router import router as conversations_router
 from parrilladas.modules.conversations.worker import ConversationWorker
 from parrilladas.modules.health.router import router as health_router
 from parrilladas.modules.integrations.router import router as integrations_router
@@ -134,6 +135,7 @@ def create_app(
     app.include_router(health_router)
     app.include_router(accounts_router)
     app.include_router(assistant_router)
+    app.include_router(conversations_router)
     app.include_router(whatsapp_router)
     app.include_router(integrations_router)
     return app

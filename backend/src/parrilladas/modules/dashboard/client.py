@@ -23,6 +23,7 @@ from parrilladas.modules.assistant.schemas import (
     AssistantPreferencesUpdate,
     AssistantPreferencesView,
 )
+from parrilladas.modules.conversations.schemas import InteractionFilters, InteractionPage
 from parrilladas.modules.dashboard.cookies import cookie_name, refresh_cookie_name
 from parrilladas.modules.integrations.schemas import WhatsAppIntegrationStatus
 
@@ -39,7 +40,7 @@ class AdminApiClient:
         self.http: httpx.Client = request.app.state.api_http
         self.token = request.cookies.get(cookie_name(request))
 
-    def _call(self, method: str, path: str, *, data=None, allow_unauthorized=False):
+    def _call(self, method: str, path: str, *, data=None, params=None, allow_unauthorized=False):
         headers = {}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
@@ -47,7 +48,7 @@ class AdminApiClient:
         if context:
             headers["X-CSRF-Token"] = context.csrf_token
         try:
-            response = self.http.request(method, path, json=data, headers=headers)
+            response = self.http.request(method, path, json=data, headers=headers, params=params)
         except httpx.HTTPError:
             raise ApiUnavailable from None
         if response.status_code == 401 and allow_unauthorized:
@@ -99,6 +100,13 @@ class AdminApiClient:
 
     def logout(self) -> None:
         self._call("POST", "/auth/logout")
+
+    def list_interactions(self, filters: InteractionFilters) -> InteractionPage:
+        return InteractionPage.model_validate(
+            self._call(
+                "GET", "/conversations/interactions", params=filters.model_dump(exclude_none=True)
+            )
+        )
 
     def list_accounts(self) -> list[AccountView]:
         return [AccountView.model_validate(item) for item in self._call("GET", "/accounts")]

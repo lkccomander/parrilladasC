@@ -38,6 +38,8 @@
         <nav class="main-nav" aria-label="Navegación principal">
           <a href="/dashboard"
              {% if request.url.path == '/dashboard' %}aria-current="page"{% endif %}>Inicio</a>
+          <a href="/dashboard/interactions"
+             {% if request.url.path.startswith('/dashboard/interactions') %}aria-current="page"{% endif %}>Atención y ventas</a>
           {% if context.account.role == 'admin' %}
             <a href="/dashboard/accounts"
                {% if request.url.path.startswith('/dashboard/accounts') %}aria-current="page"{% endif %}>
