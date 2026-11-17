@@ -230,12 +230,17 @@ def assistant_page(request, service, context, preferences, *, saved=False, advis
     except (AccountNotFound, ApiUnavailable):
         # An older API may still serve requests during the separate rollout.
         advisor_info = None
+    try:
+        knowledge_info = service.knowledge_overview()
+    except (AccountNotFound, ApiUnavailable):
+        knowledge_info = None
     return page(
         request,
         "assistant.html",
         context=context,
         preferences=preferences,
         advisor_info=advisor_info,
+        knowledge_info=knowledge_info,
         saved=saved,
         advisor_saved=advisor_saved,
     )

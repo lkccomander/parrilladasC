@@ -457,3 +457,36 @@ def test_advisor_admin_form_round_trip_preserves_mode_and_rejects_cross_site(pre
     with Session(state.db.engine) as session:
         row = session.get(AssistantPreference, "parrilladas")
         assert row.advisor_enabled and not row.natural_language_enabled
+
+
+def test_knowledge_view_requires_admin_and_exposes_only_approved_facts(preference_client):
+    from unittest.mock import Mock
+
+    from sqlalchemy.orm import sessionmaker
+
+    from parrilladas.modules.assistant.config import AssistantSettings
+    from parrilladas.modules.assistant.knowledge import load_menu
+    from parrilladas.modules.assistant.rag import KnowledgeService
+
+    state = preference_client
+    provider = Mock(embed=Mock(return_value=[1.0] + [0.0] * 767))
+    service = KnowledgeService(
+        sessionmaker(state.db.engine), provider, AssistantSettings(_env_file=None)
+    )
+    service.ingest(load_menu())
+    assert state.api.get("/assistant/knowledge").status_code == 401
+    headers = login(state, sales=True)
+    assert state.api.get("/assistant/knowledge", headers=headers).status_code == 403
+    state.client.cookies.clear()
+    headers = login(state)
+    response = state.api.get("/assistant/knowledge", headers=headers)
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    doc = response.json()["documents"][0]
+    assert len(doc["facts"]) == 3 and doc["dimensions"] == 768
+    assert "embedding" not in doc["facts"][0]
+    page = state.client.get("/dashboard/assistant")
+    assert page.status_code == 200
+    assert "Conocimiento del negocio" in page.text
+    assert "Lomito" in page.text
+    assert "knowledge/parrilladas/menu.json" in page.text

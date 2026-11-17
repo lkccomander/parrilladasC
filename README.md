@@ -6,7 +6,7 @@ Plataforma comercial de Parrillas en su Casa: WhatsApp guiado, atención humana 
 
 ## Estado
 
-Funcionan FastAPI, PostgreSQL, health checks, login/logout, permisos Admin/Sales y gestión de cuentas desde el dashboard. WhatsApp recibe mensajes mediante un canal verificado y puede capturar solicitudes con Gemini, revisión explícita de datos y control de pausa. Las cuentas se desactivan para conservar el historial. La operación completa de leads, cotizaciones, PDF, recordatorios y RAG sigue pendiente.
+Funcionan FastAPI, PostgreSQL, health checks, login/logout, permisos Admin/Sales y gestión de cuentas desde el dashboard. WhatsApp recibe mensajes mediante un canal verificado y puede capturar solicitudes con Gemini, revisión explícita de datos y control de pausa. Las cuentas se desactivan para conservar el historial. El catálogo aprobado admite recuperación RAG con PostgreSQL/pgvector y Gemini. La operación completa de leads, cotizaciones, PDF y recordatorios sigue pendiente.
 
 Admin y API viven en servicios independientes: navegador → Admin → API con Bearer JWT → PostgreSQL. Admin no tiene acceso directo a la base ni a la clave de firma.
 
@@ -97,10 +97,10 @@ comprobar la conexión con Meta y el número de WhatsApp.
 Lenguaje natural para extraer y confirmar solicitudes de WhatsApp: [configuración y comprobación](docs/assistant.md).
 Requiere gate del API, worker persistente con fecha de activación y preferencia
 guardada por Admin en `/dashboard/assistant`. Las conversaciones guiadas en curso,
-pausadas y cerradas conservan su estado. Requiere la migración `0005` del API. RAG sigue pendiente.
+pausadas y cerradas conservan su estado. Requiere la migración `0005` del API. RAG requiere además la migración `0007`, publicar el catálogo y activar `RAG_ENABLED`.
 
-Fuentes comerciales editables para la futura ingesta RAG: [menú y cobertura](knowledge/README.md).
-El catálogo inicial tiene versión de contenido propia; todavía no se importa a pgvector.
+Fuentes comerciales editables para ingesta RAG: [menú y cobertura](knowledge/README.md).
+El catálogo tiene versión de contenido propia; la carga manual publica embeddings en pgvector y se revisa desde Admin → Asistente.
 
 ## Git y GitHub
 

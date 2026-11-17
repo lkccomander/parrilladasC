@@ -1,10 +1,10 @@
 # Conocimiento comercial de Parrilladas
 
 Contenido inicial proporcionado por el negocio el 15 de noviembre de 2026.
-El JSON alimenta las respuestas controladas de menú y cobertura desde Beta 1.03.
-Se empaqueta en el wheel; editarlo exige ejecutar pruebas y desplegar una nueva
-imagen. Todavía no se importa a PostgreSQL ni genera embeddings. La recuperación
-es por tema y las respuestas usan plantillas, sin generación comercial libre.
+El JSON es la fuente aprobada del catálogo. Se empaqueta en el wheel y se publica
+manualmente en PostgreSQL mediante `assistant.knowledge_cli ingest`. La carga genera
+embeddings Google de 768 dimensiones para menú, cobertura y preparación. Se conserva
+el archivo como respaldo ante fallos del proveedor o de la base.
 
 - [Menú legible](parrilladas/menu.md): presentación del menú y cobertura.
 - [Menú estructurado](parrilladas/menu.json): fuente editable con categorías,
@@ -39,5 +39,25 @@ manuales y la disponibilidad requiere confirmación operativa.
 Las opciones generales de guarniciones dulces, saladas, frías o calientes no
 equivalen a platos específicos ya registrados. Solo se ha nombrado ensalada verde.
 Tampoco se han especificado variedades de panes, ingredientes, origen de las carnes
-ni alérgenos. Al implementar ingesta, usar únicamente platos activos y guardar la
-fuente, versión, tenant y configuración del embedding junto con los fragmentos.
+ni alérgenos. La ingesta usa únicamente platos activos y guarda fuente, versión, tenant y
+configuración del embedding junto con los fragmentos.
+
+## Publicación y consulta
+
+1. Editar `parrilladas/menu.json` e incrementar `content_version`.
+2. Ejecutar las pruebas y desplegar la imagen actualizada del API.
+3. En el entorno del API, con las credenciales de su cuenta de servicio:
+
+   ```bash
+   python -m parrilladas.modules.assistant.knowledge_cli ingest
+   python -m parrilladas.modules.assistant.knowledge_cli show
+   ```
+
+La ingesta llama a Google y genera consumo; no contacta a clientes. Una carga idéntica
+no vuelve a generar embeddings. Si falla algún embedding, no publica nada. Una nueva
+versión sustituye atómicamente a la activa y conserva la anterior como historial.
+No ejecutar estos comandos en Admin, que no tiene acceso SQL ni credenciales Google.
+
+En Admin → Asistente → Conocimiento del negocio se ven la versión publicada, la fuente,
+el modelo y los textos exactos que puede recuperar Gemini. Esta pantalla es de consulta;
+la edición continúa en el archivo, según la preferencia acordada.

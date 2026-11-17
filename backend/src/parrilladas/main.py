@@ -29,6 +29,8 @@ from parrilladas.modules.accounts.errors import (
 from parrilladas.modules.accounts.router import router as accounts_router
 from parrilladas.modules.assistant.config import AssistantSettings
 from parrilladas.modules.assistant.errors import ExtractionUnavailable
+from parrilladas.modules.assistant.knowledge_router import router as knowledge_router
+from parrilladas.modules.assistant.rag import KnowledgeService
 from parrilladas.modules.assistant.router import router as assistant_router
 from parrilladas.modules.assistant.service import AssistantService
 from parrilladas.modules.conversations.router import router as conversations_router
@@ -94,8 +96,23 @@ def create_app(
                 logging.getLogger(__name__).warning(
                     "Assistant authentication unavailable; guided mode"
                 )
+        knowledge_provider = None
+        if assistant_settings.rag_enabled and provider is not None and extractor is None:
+            from parrilladas.integrations.vertex_ai.knowledge import VertexKnowledge
+
+            try:
+                knowledge_provider = VertexKnowledge.from_settings(assistant_settings, provider)
+            except ExtractionUnavailable:
+                logging.getLogger(__name__).warning(
+                    "RAG authentication unavailable; catalog fallback"
+                )
+        app.state.knowledge = KnowledgeService(
+            app.state.session_factory, knowledge_provider, assistant_settings
+        )
         app.state.assistant = AssistantService(
-            provider, enabled=assistant_settings.natural_language_enabled and provider is not None
+            provider,
+            enabled=assistant_settings.natural_language_enabled and provider is not None,
+            knowledge=app.state.knowledge,
         )
         worker = None
         if settings.conversation_worker_enabled:
@@ -112,6 +129,8 @@ def create_app(
         finally:
             if worker is not None:
                 await run_in_threadpool(worker.stop)
+            if knowledge_provider is not None:
+                knowledge_provider.close()
             if provider is not None and extractor is None:
                 provider.close()
             if meta_http is None:
@@ -135,6 +154,7 @@ def create_app(
     app.include_router(health_router)
     app.include_router(accounts_router)
     app.include_router(assistant_router)
+    app.include_router(knowledge_router)
     app.include_router(conversations_router)
     app.include_router(whatsapp_router)
     app.include_router(integrations_router)

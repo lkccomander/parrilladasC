@@ -102,8 +102,9 @@ no son un límite duro. El comando sin `--check-connection` conserva el gate
 
 El [catálogo editable](../knowledge/README.md) contiene platos y cobertura nacional.
 Se incluye en el wheel y la imagen de API; no se requiere una pantalla de menú en
-Admin. La recuperación inicial selecciona hechos por tema, sin embeddings ni
-consultas pgvector. Gemini clasifica la intención y el tema en un esquema cerrado;
+Admin para editarlo. La recuperación inicial seleccionaba hechos por tema; desde
+Beta 1.12 puede recuperar los hechos publicados mediante embeddings y pgvector.
+Gemini clasifica la intención y el tema en un esquema cerrado;
 Python responde mediante plantillas y hechos validados, nunca con texto comercial
 libre generado por el modelo. Cada respuesta de catálogo identifica internamente
 la fuente y su versión. El único negocio soportado es `parrilladas`; otro tenant
@@ -208,3 +209,50 @@ Los botones antiguos no reabren solicitudes. Los duplicados del webhook no crean
 otras interacciones, y una conversación pausada por atención humana o por un envío
 incierto conserva la pausa. Los mensajes descartados antes de esta corrección no
 se reproducen: el siguiente texto nuevo inicia la interacción.
+
+
+## RAG con PostgreSQL y Gemini (Beta 1.12)
+
+Migración `0007`: `knowledge_documents` conserva catálogo validado, versión, hash,
+tenant, fuente, perfil de embeddings y publicación activa; `knowledge_chunks` guarda
+los textos aprobados y vectores `vector(768)`. La migración crea la extensión si falta;
+el downgrade conserva la extensión porque puede ser compartida. Requiere permisos de
+instalación de extensión al migrar, nunca al atender mensajes. CI usa PostgreSQL16 con
+pgvector y todas las pruebas SQL se ejecutan contra bases vacías y desechables.
+
+Configuración del **API** (no Admin):
+
+```dotenv
+RAG_ENABLED=false
+EMBEDDING_MODEL=gemini-embedding-001
+EMBEDDING_LOCATION=us-central1
+RAG_MIN_SIMILARITY=0.35
+```
+
+Publicar primero el catálogo mediante el [procedimiento de carga](../knowledge/README.md)
+y después activar `RAG_ENABLED=true`. Generación y extracción conservan el modelo
+`GEMINI_MODEL` actual y `GOOGLE_CLOUD_LOCATION=global`. Los embeddings usan un cliente
+regional separado con la misma identidad de servicio. No se crea una API key.
+
+Una pregunta de menú, cobertura o preparación genera un embedding de consulta, busca
+hasta tres fragmentos con distancia coseno y filtra por tenant, fuente, versión activa,
+tema y perfil del modelo. Para este catálogo pequeño se usa búsqueda exacta, sin HNSW.
+La similitud mínima es un umbral inicial del piloto, no una garantía de corrección;
+debe medirse al ampliar el corpus.
+
+Gemini recibe pregunta y evidencia como datos, sin herramientas. Devuelve únicamente
+IDs de hechos suficientes para responder. Python valida que pertenezcan al resultado
+y envía sus textos aprobados; no acepta prosa libre ni citas inventadas. Sin evidencia
+suficiente se ofrece un asesor, sin pausar ni borrar el borrador. Precios, disponibilidad,
+alergias y políticas conservan sus respuestas restrictivas y no usan esta recuperación.
+Ante errores externos o catálogo aún no publicado se usa el respaldo validado del wheel.
+
+No se ingieren conversaciones, teléfonos, credenciales, notas locales ni documentos
+arbitrarios. La pregunta se envía a Google para consulta pero su vector no se guarda.
+Cada versión se publica en una sola transacción después de obtener todos los embeddings.
+No se hace ingesta ni se generan embeddings de documentos al iniciar la aplicación.
+El endpoint de consulta `GET /assistant/knowledge` exige JWT Admin; el dashboard consume
+solo este contrato HTTP y nunca importa modelos ni repositorios del módulo.
+
+Fuentes de integración: [embeddings Google](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/models/text-embeddings-api)
+y [pgvector para SQLAlchemy](https://github.com/pgvector/pgvector-python).

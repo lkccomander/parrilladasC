@@ -17,6 +17,7 @@ from parrilladas.modules.accounts.schemas import (
     SessionContext,
     SessionCreated,
 )
+from parrilladas.modules.assistant.rag_contracts import KnowledgeOverview
 from parrilladas.modules.assistant.schemas import (
     AdvisorPreferencesView,
     AdvisorSettings,
@@ -121,6 +122,9 @@ class AdminApiClient:
 
     def assistant_preferences(self) -> AssistantPreferencesView:
         return AssistantPreferencesView.model_validate(self._call("GET", "/assistant/preferences"))
+
+    def knowledge_overview(self) -> KnowledgeOverview:
+        return KnowledgeOverview.model_validate(self._call("GET", "/assistant/knowledge"))
 
     def advisor_settings(self) -> AdvisorPreferencesView:
         return AdvisorPreferencesView.model_validate(

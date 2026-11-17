@@ -294,7 +294,9 @@ def natural_language_decision(
     if outcome.status == "handoff":
         return FlowDecision(step=step, text=HANDOFF, handoff=True)
     if outcome.status == "knowledge":
-        answer = assistant.answer_question(outcome.topic, tenant_id="parrilladas")
+        answer = assistant.answer_question(
+            outcome.topic, tenant_id="parrilladas", question=incoming.body
+        )
         return side_reply(
             step,
             answer.text,

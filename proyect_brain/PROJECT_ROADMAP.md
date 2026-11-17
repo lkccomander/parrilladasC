@@ -2,19 +2,19 @@
 
 ## Documento de referencia del proyecto
 
-**Versión:** 1.6
+**Versión:** 1.7
 
 **Fecha:** 20 de octubre de 2026
 
-**Última actualización:** 16 de noviembre de 2026 (America/Costa_Rica)
+**Última actualización:** 17 de noviembre de 2026 (America/Costa_Rica)
 
-**Estado:** Admin y API separados en Railway; Gemini real habilitado para el piloto de WhatsApp con preferencias Admin y validación de datos. Catálogo editable y respuestas comerciales controladas operativos; recuperación vectorial e ingesta de embeddings pendientes. Beta 1.11 desplegada: Atención y ventas lista las interacciones, con acceso Admin/Sales. Un texto nuevo después de confirmar sigue abriendo otra interacción sin modificar la solicitud anterior. Ver sección 26 para el estado vigente.
+**Estado:** Admin y API separados en Railway; Gemini real habilitado para WhatsApp. Beta 1.12 (`1.0.0-beta.13`) incorpora ingesta del catálogo aprobado en PostgreSQL/pgvector, recuperación de evidencia para Gemini y consulta de los textos publicados en Admin → Asistente. Ver sección 28 para validación y despliegue. Atención y ventas conserva el listado de interacciones y los flujos de confirmación/reinicio existentes.
 
 **Carpeta de trabajo:** `proyect_brain`
 
 **Decisiones actualizadas (1 de noviembre de 2026):** consultar [TECH_STACK_MVP.md](TECH_STACK_MVP.md). Stack confirmado: Python, FastAPI, PostgreSQL, SQLAlchemy, Alembic y Admin con Jinja2; HTMX se incorporará cuando aporte interacción útil. Admin y API viven en servicios Railway separados; Admin llama al API por HTTP privado con JWT y solo el API accede a PostgreSQL. El MVP incluye CRUD de cuentas, atención humana desde el dashboard y cotizaciones PDF con precios manuales, aprobación y envío separados. Estas decisiones prevalecen sobre las propuestas iniciales de este documento.
 
-**Dirección vigente para lenguaje natural y RAG (15 de noviembre de 2026):** integrar el módulo `assistant` dentro del API Python/FastAPI existente, con Vertex AI para generación y embeddings y PostgreSQL/pgvector en Railway. Admin y API siguen separados. El stack y los requisitos consolidados están en la sección 25; el piloto usa `gemini-3.5-flash-lite` en región `global`, validado con llamadas reales. La propuesta Node.js de la sección 24 se conserva como antecedente y contradice esta dirección y `TECH_STACK_MVP.md`; no constituye autorización para migrar. La extracción y las respuestas desde catálogo están implementadas; el RAG vectorial continúa pendiente.
+**Dirección vigente para lenguaje natural y RAG (15 de noviembre de 2026):** integrar el módulo `assistant` dentro del API Python/FastAPI existente, con Vertex AI para generación y embeddings y PostgreSQL/pgvector en Railway. Admin y API siguen separados. El stack y los requisitos consolidados están en la sección 25; el piloto usa `gemini-3.5-flash-lite` en región `global`, validado con llamadas reales. La propuesta Node.js de la sección 24 se conserva como antecedente y contradice esta dirección y `TECH_STACK_MVP.md`; no constituye autorización para migrar. La extracción y las respuestas desde catálogo están implementadas; la sección 28 registra la incorporación del RAG vectorial en Python.
 
 **Alcance de lanzamiento confirmado:** roles Admin y Sales; seguimiento al día siguiente mediante recordatorio interno para Daniel, sin mensaje automático al cliente. Google Calendar se pospone hasta después del lanzamiento; sus tareas y criterios de cierre descritos abajo no son requisitos de la primera entrega.
 
@@ -1149,7 +1149,7 @@ El transporte de Vertex AI pertenece a `backend/src/parrilladas/integrations/ver
 - [x] Inspeccionar los puntos de integración del flujo actual sin cambiar sus reglas comerciales.
 - [x] Validar acceso Railway → Vertex AI, identidad de servicio, modelo y región del piloto; alerta mensual de USD 15 creada, sin tope automático de consumo.
 - [x] Añadir `google-genai` con locks y empaquetado validados.
-- [ ] Añadir el paquete Python `pgvector` al implementar recuperación vectorial; la extensión PostgreSQL instalada no equivale a esta integración.
+- [x] Añadir el paquete Python `pgvector`, migración y recuperación vectorial (sección 28).
 - [x] Diseñar contratos y migraciones de preferencias e interacciones; probarlas solo en una base vacía y desechable mediante `TEST_DATABASE_URL`.
 - [x] Implementar configuración del modo, autorización Admin y CSRF en Admin/API.
 - [x] Implementar extracción validada y preguntas aclaratorias con proveedor simulado.
@@ -1259,3 +1259,37 @@ Beta 1.11 (`1.0.0-beta.12`), commit `2f7fe02`, desplegada en API y Admin.
 El listado es de consulta. El detalle de mensajes, las acciones de pausa/reanudación,
 la gestión de leads y la operación de cotizaciones siguen siendo tareas posteriores.
 No se requieren modelos ni migraciones nuevos para esta entrega.
+
+
+---
+
+## 28. Catálogo publicado en PostgreSQL y RAG para Gemini — 17 de noviembre de 2026
+
+Beta 1.12 (`1.0.0-beta.13`). Implementación terminada; 313 pruebas locales aprobadas,
+Ruff, formato, dependencias y wheel verificados. Despliegue en curso.
+
+- [x] Migración `0007`: documentos versionados y fragmentos `vector(768)`, publicación activa
+  única por tenant/fuente y conservación de versiones anteriores. Downgrade sin borrar la extensión.
+- [x] Carga manual desde el JSON aprobado del menú; nombres de platos activos, siete provincias
+  y preparación en el lugar. No se ingieren conversaciones, notas locales ni credenciales.
+- [x] Embeddings `gemini-embedding-001` en `us-central1`; generación conserva
+  `gemini-3.5-flash-lite` en `global` y la misma cuenta de servicio, sin crear API key.
+- [x] Publicación atómica después de completar embeddings; una carga idéntica no vuelve a
+  consumir el modelo y una carga fallida no sustituye la versión activa.
+- [x] Búsqueda coseno exacta filtrada por tenant, fuente, publicación, tema y perfil de embedding;
+  máximo tres resultados y umbral inicial configurable. Requiere evaluación al ampliar el corpus.
+- [x] Gemini selecciona IDs de evidencia; Python valida esos IDs y envía únicamente textos
+  aprobados. Sin evidencia suficiente ofrece asesor. Precios, disponibilidad, alergias y políticas
+  mantienen límites humanos; ninguna respuesta autoriza reservas ni precios.
+- [x] Respaldo de catálogo empaquetado ante fallos. La pregunta lateral conserva el borrador.
+- [x] Vista de lectura Admin → Asistente → Conocimiento del negocio, mediante endpoint JWT
+  Admin `GET /assistant/knowledge`, sin credenciales SQL en el dashboard.
+- [x] CI usa PostgreSQL16 con pgvector; migraciones y pruebas SQL solo en bases desechables.
+- [ ] Registrar resultado de CI, despliegue, carga inicial y evaluación con Gemini real.
+
+Edición del conocimiento: continuar usando `knowledge/parrilladas/menu.json`, incrementar
+`content_version`, desplegar y ejecutar `python -m parrilladas.modules.assistant.knowledge_cli ingest`
+en el API. `show` permite revisar la publicación sin llamar al modelo.
+
+Este alcance es el RAG del catálogo comercial aprobado. No incluye ingesta libre de PDFs,
+conversaciones de clientes, horarios, paquetes ni políticas comerciales no validadas.

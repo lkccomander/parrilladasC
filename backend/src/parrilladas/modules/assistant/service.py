@@ -21,15 +21,20 @@ class Extractor(Protocol):
 
 
 class AssistantService:
-    def __init__(self, provider: Extractor | None = None, *, enabled: bool = False):
+    def __init__(self, provider: Extractor | None = None, *, enabled: bool = False, knowledge=None):
         self.provider = provider
         self.enabled = enabled
+        self.knowledge = knowledge
 
     @staticmethod
     def requests_human(message: str) -> bool:
         return requests_human(message)
 
-    def answer_question(self, topic: KnowledgeTopic, *, tenant_id: str) -> KnowledgeAnswer:
+    def answer_question(
+        self, topic: KnowledgeTopic, *, tenant_id: str, question: str | None = None
+    ) -> KnowledgeAnswer:
+        if self.knowledge is not None:
+            return self.knowledge.answer(topic, tenant_id=tenant_id, question=question)
         return answer_question(topic, tenant_id=tenant_id)
 
     def extract(self, request: ExtractionRequest, *, bot_paused: bool = False) -> ExtractionOutcome:

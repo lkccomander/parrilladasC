@@ -102,3 +102,15 @@ El contrato expone únicamente campos de presentación del snapshot y el contact
 sin mensajes ni metadatos internos. La vista conserva las solicitudes independientes
 de un mismo número y presenta fechas operativas en America/Costa_Rica.
 El listado no altera estados, reinicia conversaciones ni envía mensajes.
+
+
+## Conocimiento aprobado del asistente
+
+`assistant.rag.KnowledgeService` publica versiones del catálogo y recupera fragmentos.
+`rag_repository.py` posee SQL y `integrations/vertex_ai/knowledge.py` adapta embeddings
+y selección de evidencia. La composición inyecta la fábrica de sesiones y el proveedor;
+`conversations` solo llama a `AssistantService.answer_question`. El dashboard utiliza
+`rag_contracts` y HTTP. La publicación manual termina todas las llamadas externas antes
+de adquirir un bloqueo de publicación y abrir su transacción de escritura. Las lecturas
+SQL son breves y cierran la transacción antes de consultar a Gemini. El catálogo empaquetado
+sigue disponible como respaldo controlado.

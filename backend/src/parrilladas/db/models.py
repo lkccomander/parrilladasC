@@ -1,7 +1,11 @@
 """Explicit metadata registry for migrations; keep imports out of db.base."""
 
 from parrilladas.modules.accounts.models import Account, AuthSession, LoginAttempt
-from parrilladas.modules.assistant.models import AssistantPreference
+from parrilladas.modules.assistant.models import (
+    AssistantPreference,
+    KnowledgeChunk,
+    KnowledgeDocument,
+)
 from parrilladas.modules.conversations.models import (
     Conversation,
     Interaction,
@@ -16,6 +20,8 @@ __all__ = [
     "Account",
     "AuthSession",
     "AssistantPreference",
+    "KnowledgeDocument",
+    "KnowledgeChunk",
     "LoginAttempt",
     "Conversation",
     "Interaction",

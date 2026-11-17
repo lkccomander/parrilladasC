@@ -12,6 +12,10 @@ class AssistantSettings(BaseSettings):
     app_env: Literal["development", "test", "staging", "production"] = "development"
     natural_language_enabled: bool = False
     vertex_connection_enabled: bool = False
+    rag_enabled: bool = False
+    embedding_model: Literal["gemini-embedding-001"] = "gemini-embedding-001"
+    embedding_location: Literal["us-central1"] = "us-central1"
+    rag_min_similarity: float = Field(default=0.35, ge=0, le=1)
     google_cloud_project: str | None = Field(default=None, min_length=1)
     google_cloud_location: str | None = Field(default=None, min_length=1)
     gemini_model: str | None = Field(default=None, min_length=1)
@@ -21,7 +25,9 @@ class AssistantSettings(BaseSettings):
 
     @model_validator(mode="after")
     def require_explicit_pilot_configuration(self):
-        if (self.natural_language_enabled or self.vertex_connection_enabled) and not all(
+        if (
+            self.natural_language_enabled or self.vertex_connection_enabled or self.rag_enabled
+        ) and not all(
             value and value.strip()
             for value in (
                 self.google_cloud_project,

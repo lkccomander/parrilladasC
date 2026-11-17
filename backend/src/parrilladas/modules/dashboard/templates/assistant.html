@@ -1,5 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Asistente{% endblock %}
+{% block title %}Asistente  <section class="card" aria-labelledby="knowledge-heading">
+    <h2 id="knowledge-heading">Conocimiento del negocio · RAG</h2>
+    {% if knowledge_info %}
+      <p><strong>Recuperación para Gemini:</strong> {{ 'Activada' if knowledge_info.enabled else 'Desactivada' }}</p>
+      {% for document in knowledge_info.documents %}
+        <p><strong>Fuente:</strong> {{ document.source }} · Versión {{ document.content_version }}</p>
+        <p class="help">{{ document.embedding_model }} · {{ document.embedding_location }} · {{ document.dimensions }} dimensiones</p>
+        {% for fact in document.facts %}
+          <h3>{{ {'menu': 'Menú', 'coverage': 'Cobertura', 'preparation': 'Preparación'}.get(fact.topic, fact.topic) }}</h3>
+          <p>{{ fact.text }}</p>
+        {% endfor %}
+      {% else %}<p>Todavía no hay un catálogo publicado en PostgreSQL.</p>{% endfor %}
+      <p class="help">Para actualizarlo, edite el archivo de menú e incremente su versión antes de cargarlo. Los precios, las reservas y la disponibilidad se confirman con un asesor.</p>
+    {% else %}<p>El conocimiento del negocio no está disponible en este momento.</p>{% endif %}
+  </section>
+{% endblock %}
 {% block content %}
   <p class="eyebrow">CONFIGURACIÓN · ASISTENTE</p>
   <h1>Asistente</h1>
@@ -46,4 +61,19 @@
     {% else %}<p>Todavía no hay avisos al asesor.</p>{% endfor %}
   </section>
   {% else %}<p class="notice">La configuración del asesor no está disponible en este momento.</p>{% endif %}
+  <section class="card" aria-labelledby="knowledge-heading">
+    <h2 id="knowledge-heading">Conocimiento del negocio · RAG</h2>
+    {% if knowledge_info %}
+      <p><strong>Recuperación para Gemini:</strong> {{ 'Activada' if knowledge_info.enabled else 'Desactivada' }}</p>
+      {% for document in knowledge_info.documents %}
+        <p><strong>Fuente:</strong> {{ document.source }} · Versión {{ document.content_version }}</p>
+        <p class="help">{{ document.embedding_model }} · {{ document.embedding_location }} · {{ document.dimensions }} dimensiones</p>
+        {% for fact in document.facts %}
+          <h3>{{ {'menu': 'Menú', 'coverage': 'Cobertura', 'preparation': 'Preparación'}.get(fact.topic, fact.topic) }}</h3>
+          <p>{{ fact.text }}</p>
+        {% endfor %}
+      {% else %}<p>Todavía no hay un catálogo publicado en PostgreSQL.</p>{% endfor %}
+      <p class="help">Para actualizarlo, edite el archivo de menú e incremente su versión antes de cargarlo. Los precios, las reservas y la disponibilidad se confirman con un asesor.</p>
+    {% else %}<p>El conocimiento del negocio no está disponible en este momento.</p>{% endif %}
+  </section>
 {% endblock %}
