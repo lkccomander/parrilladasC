@@ -256,3 +256,42 @@ solo este contrato HTTP y nunca importa modelos ni repositorios del módulo.
 
 Fuentes de integración: [embeddings Google](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/models/text-embeddings-api)
 y [pgvector para SQLAlchemy](https://github.com/pgvector/pgvector-python).
+
+## Telemetría Gemini (Beta 1.13)
+
+Admin → Asistente → Telemetría Gemini (`/dashboard/assistant/telemetry`) consulta
+`GET /assistant/telemetry` con JWT Admin. Ofrece períodos de 24 horas, 7 y 30 días,
+filtros por operación, agregados por modelo, evolución horaria/diaria y eventos
+paginados de 50 en 50. La consulta no llama a Google. Sales no tiene acceso.
+
+La migración `0008` agrega `gemini_telemetry`, con índice por tenant y fecha. Registra
+extracción, embeddings de catálogo/consulta y selección de evidencia. Conserva
+latencia monotónica, estado, región/modelo, motivo de finalización, clase de error,
+código HTTP y los contadores que Google entregue: entrada, salida, razonamiento,
+caché, herramientas, total y caracteres facturables de embeddings. Los campos
+omitidos por Google permanecen nulos; no se convierten en cero ni se calculan totales
+sumando caché otra vez. Los errores que devuelven uso también conservan ese consumo.
+
+Los resultados de extracción y RAG son eventos internos separados: validación,
+falta de evidencia, referencias inválidas y respaldo del catálogo. No aumentan el
+contador de llamadas a Google. Una traza UUID agrupa los pasos de una consulta,
+sin usar teléfono, mensaje, conversación o identidad del cliente. El tiempo del
+recorrido RAG excluye la extracción inicial y la entrega de WhatsApp. p50/p95 son
+percentiles reales calculados en PostgreSQL sobre los eventos del período.
+
+La instrumentación empieza con esta versión: no reconstruye el consumo anterior.
+Tampoco consulta facturación o cuota restante de Google; el panel lo indica y enlaza
+a Cloud Billing para los importes reales. No estima dólares ni representa un límite
+de gasto. Las métricas corresponden a este API y a cargas ejecutadas con su CLI;
+no incluyen pruebas externas hechas directamente en Cloud Studio u otras aplicaciones.
+
+No persiste prompts, respuestas, errores crudos, credenciales ni IDs de clientes.
+El registro usa una transacción propia con límites de sentencia/bloqueo y falla sin
+interrumpir al bot. Si falla, incrementa un contador en memoria visible en el panel
+(desde el inicio del proceso); por eso el historial no es un libro de facturación.
+La retención todavía no elimina registros automáticamente. Hay que medir crecimiento
+y definir archivado antes de ampliar el volumen operativo.
+
+Referencias de los campos de uso: [respuesta GenerateContent de Google](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/rest/v1/GenerateContentResponse)
+y tipos `GenerateContentResponseUsageMetadata`, `EmbedContentMetadata` y
+`ContentEmbeddingStatistics` del SDK instalado.

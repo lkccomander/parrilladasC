@@ -114,3 +114,17 @@ y selección de evidencia. La composición inyecta la fábrica de sesiones y el 
 de adquirir un bloqueo de publicación y abrir su transacción de escritura. Las lecturas
 SQL son breves y cierran la transacción antes de consultar a Gemini. El catálogo empaquetado
 sigue disponible como respaldo controlado.
+
+## Telemetría del asistente
+
+Los adaptadores Google envían observaciones numéricas al servicio público
+`assistant.telemetry.Telemetry`. Este servicio valida un contrato cerrado y usa
+`telemetry_repository` para escribir en una transacción independiente, sin claves
+foráneas a conversaciones ni contenido del cliente. La composición conecta el
+mismo colector a extracción, RAG y adaptadores; las cargas CLI también lo usan.
+Un contexto de traza agrupa los pasos sin propagar identificadores de negocio.
+
+Las decisiones internas y las invocaciones Google se cuentan por separado. Los
+agregados se calculan en SQL con filtro del tenant activo, ventana temporal y
+paginación acotada. El Admin recibe únicamente contratos HTTP y no abre conexiones
+SQL. La telemetría es operativa y de mejor esfuerzo; no sustituye Cloud Billing.

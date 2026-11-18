@@ -67,6 +67,7 @@ Antes del primer ingreso en producción, el operador debe crear el Admin en una 
 - [x] Extracción Gemini, aclaración/confirmación explícita, correcciones y pausa.
 - [x] Respuestas controladas desde el catálogo editable, límites de intención y fallback sin pausa.
 - [x] Ingesta manual versionada, embeddings Google, recuperación pgvector y evidencia seleccionada por Gemini; vista de conocimiento en Admin.
+- [x] Telemetría Gemini persistida y panel Admin: uso, errores, latencias y resultados RAG.
 - [ ] Herramientas de revisión operativa de envíos inciertos y evaluación ampliada del piloto real.
 
 Ver [piloto de extracción](assistant.md). La activación requiere gates del API y preferencia Admin. Google Calendar continúa fuera del alcance.

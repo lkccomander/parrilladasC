@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+from time import monotonic
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -17,6 +18,7 @@ from .rag_contracts import (
     validated_vector,
 )
 from .rag_repository import KnowledgeRepository
+from .telemetry import Telemetry, telemetry_trace
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +51,11 @@ def catalog_facts(menu: ApprovedMenu):
 
 
 class KnowledgeService:
-    def __init__(self, session_factory, provider: RagProvider | None, settings):
+    def __init__(self, session_factory, provider: RagProvider | None, settings, *, telemetry=None):
         self.sessions = session_factory
         self.provider = provider
         self.settings = settings
+        self.telemetry = telemetry or Telemetry()
 
     def ingest(self, menu: ApprovedMenu) -> str:
         if self.provider is None:
@@ -112,11 +115,19 @@ class KnowledgeService:
         if active is not None and menu.content_version <= active.content_version:
             raise ValueError("Increment content_version before replacing published knowledge")
 
+    @telemetry_trace
     def answer(self, topic, *, tenant_id, question=None):
+        started = monotonic()
         fallback = answer_question(topic, tenant_id=tenant_id)
         if tenant_id != "parrilladas" or topic not in {"menu", "coverage", "preparation"}:
             return fallback
         if not self.settings.rag_enabled or self.provider is None:
+            self.telemetry.emit(
+                operation="rag_result",
+                duration_ms=max(0, int((monotonic() - started) * 1000)),
+                status="fallback",
+                reason="catalog_fallback",
+            )
             return fallback
         query = (
             question
@@ -127,6 +138,12 @@ class KnowledgeService:
             }[topic]
         )
         if not query.strip() or len(query) > 4000:
+            self.telemetry.emit(
+                operation="rag_result",
+                duration_ms=max(0, int((monotonic() - started) * 1000)),
+                status="no_evidence",
+                reason="invalid_query",
+            )
             return answer_question("policies", tenant_id=tenant_id)
         try:
             vector = validated_vector(self.provider.embed(query, document=False))
@@ -143,19 +160,51 @@ class KnowledgeService:
                     minimum=self.settings.rag_min_similarity,
                 )
             if not facts:
+                self.telemetry.emit(
+                    operation="rag_result",
+                    duration_ms=max(0, int((monotonic() - started) * 1000)),
+                    status="no_evidence",
+                    reason="no_matches",
+                    result_count=0,
+                    selected_count=0,
+                )
                 return answer_question("policies", tenant_id=tenant_id)
             selection = self.provider.select_facts(query, facts)
             ids = selection.fact_ids
             allowed = {fact.id: fact for fact in facts}
             if not ids or len(set(ids)) != len(ids) or any(i not in allowed for i in ids):
+                self.telemetry.emit(
+                    operation="rag_result",
+                    duration_ms=max(0, int((monotonic() - started) * 1000)),
+                    status="no_evidence",
+                    reason="no_selection" if not ids else "invalid_citation",
+                    result_count=len(facts),
+                    selected_count=0,
+                    similarity=max(f.similarity for f in facts),
+                )
                 return answer_question("policies", tenant_id=tenant_id)
             selected = [allowed[i] for i in ids]
+            self.telemetry.emit(
+                operation="rag_result",
+                duration_ms=max(0, int((monotonic() - started) * 1000)),
+                status="ok",
+                reason="grounded",
+                result_count=len(facts),
+                selected_count=len(selected),
+                similarity=max(f.similarity for f in selected),
+            )
             # Model prose is never sent: every claim is an approved stored fact.
             return KnowledgeAnswer(
                 "\n\n".join(f.text for f in selected),
                 "rag:" + ",".join(f"{f.source}:v{f.content_version}:{f.id}" for f in selected),
             )
         except (ExtractionUnavailable, SQLAlchemyError, ValueError):
+            self.telemetry.emit(
+                operation="rag_result",
+                duration_ms=max(0, int((monotonic() - started) * 1000)),
+                status="fallback",
+                reason="catalog_fallback",
+            )
             logger.warning("RAG unavailable; using approved catalog fallback")
             return fallback
 

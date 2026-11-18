@@ -24,6 +24,7 @@ from parrilladas.modules.assistant.schemas import (
     AssistantPreferencesUpdate,
     AssistantPreferencesView,
 )
+from parrilladas.modules.assistant.telemetry_contracts import TelemetryReport
 from parrilladas.modules.conversations.schemas import InteractionFilters, InteractionPage
 from parrilladas.modules.dashboard.cookies import cookie_name, refresh_cookie_name
 from parrilladas.modules.integrations.schemas import WhatsAppIntegrationStatus
@@ -122,6 +123,14 @@ class AdminApiClient:
 
     def assistant_preferences(self) -> AssistantPreferencesView:
         return AssistantPreferencesView.model_validate(self._call("GET", "/assistant/preferences"))
+
+    def gemini_telemetry(self, *, days=7, operation=None, page=1) -> TelemetryReport:
+        params = {"days": days, "page": page}
+        if operation:
+            params["operation"] = operation
+        return TelemetryReport.model_validate(
+            self._call("GET", "/assistant/telemetry", params=params)
+        )
 
     def knowledge_overview(self) -> KnowledgeOverview:
         return KnowledgeOverview.model_validate(self._call("GET", "/assistant/knowledge"))

@@ -3,6 +3,7 @@
 from parrilladas.modules.accounts.models import Account, AuthSession, LoginAttempt
 from parrilladas.modules.assistant.models import (
     AssistantPreference,
+    GeminiTelemetry,
     KnowledgeChunk,
     KnowledgeDocument,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "Account",
     "AuthSession",
     "AssistantPreference",
+    "GeminiTelemetry",
     "KnowledgeDocument",
     "KnowledgeChunk",
     "LoginAttempt",

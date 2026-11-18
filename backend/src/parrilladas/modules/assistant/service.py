@@ -1,4 +1,5 @@
 import re
+from time import monotonic
 from typing import Protocol
 
 from pydantic import ValidationError
@@ -14,17 +15,27 @@ from .schemas import (
     ExtractionRequest,
     KnowledgeTopic,
 )
+from .telemetry import Telemetry, telemetry_trace
 
 
 class Extractor(Protocol):
+    @telemetry_trace
     def extract(self, request: ExtractionRequest) -> str: ...
 
 
 class AssistantService:
-    def __init__(self, provider: Extractor | None = None, *, enabled: bool = False, knowledge=None):
+    def __init__(
+        self,
+        provider: Extractor | None = None,
+        *,
+        enabled: bool = False,
+        knowledge=None,
+        telemetry=None,
+    ):
         self.provider = provider
         self.enabled = enabled
         self.knowledge = knowledge
+        self.telemetry = telemetry or Telemetry()
 
     @staticmethod
     def requests_human(message: str) -> bool:
@@ -37,7 +48,27 @@ class AssistantService:
             return self.knowledge.answer(topic, tenant_id=tenant_id, question=question)
         return answer_question(topic, tenant_id=tenant_id)
 
+    @telemetry_trace
     def extract(self, request: ExtractionRequest, *, bot_paused: bool = False) -> ExtractionOutcome:
+        started = monotonic()
+        outcome = self._extract(request, bot_paused=bot_paused)
+        self.telemetry.emit(
+            operation="extraction_result",
+            duration_ms=max(0, int((monotonic() - started) * 1000)),
+            status=(
+                "invalid_output"
+                if outcome.reason == "invalid_output"
+                else "fallback"
+                if outcome.status == "fallback"
+                else "ok"
+            ),
+            reason=outcome.reason,
+        )
+        return outcome
+
+    def _extract(
+        self, request: ExtractionRequest, *, bot_paused: bool = False
+    ) -> ExtractionOutcome:
         def unchanged(status, reason, *, topic="general"):
             return ExtractionOutcome(
                 status=status,

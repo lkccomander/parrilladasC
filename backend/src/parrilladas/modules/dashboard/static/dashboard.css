@@ -864,3 +864,6 @@ td a {
 }
 .interaction-filters label { flex: 1 1 16rem; }
 .pagination { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-top: 1.5rem; }
+
+.telemetry-metrics .metric-value { font-size: 2rem; font-weight: 700; margin: .5rem 0; }
+meter { width: min(14rem, 100%); accent-color: var(--accent); }

@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from parrilladas.modules.assistant.schemas import EVENT_FIELDS, EventDetails, ExtractionRequest
 from parrilladas.modules.assistant.service import AssistantService
+from parrilladas.modules.assistant.telemetry import telemetry_trace
 
 from .contracts import ButtonReply, FlowDecision, IncomingText
 from .date_answers import MONTHS, parse_date_answer
@@ -197,6 +198,7 @@ def guided_answer(step: str, incoming: IncomingText, details: EventDetails) -> F
     return next_question(updated)
 
 
+@telemetry_trace
 def natural_language_decision(
     step: str,
     incoming: IncomingText | ButtonReply,

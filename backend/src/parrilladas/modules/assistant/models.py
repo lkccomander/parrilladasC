@@ -2,7 +2,20 @@ from datetime import datetime
 from uuid import UUID
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, false, text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    false,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -56,3 +69,33 @@ class KnowledgeChunk(Record, Base):
     topic: Mapped[str] = mapped_column(String(32))
     body: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float]] = mapped_column(Vector(768))
+
+
+class GeminiTelemetry(Record, Base):
+    __tablename__ = "gemini_telemetry"
+    __table_args__ = (
+        Index("ix_gemini_telemetry_tenant_created", "tenant_id", "created_at"),
+        CheckConstraint("duration_ms >= 0", name="duration_nonnegative"),
+    )
+    tenant_id: Mapped[str] = mapped_column(String(64))
+    trace_id: Mapped[UUID] = mapped_column()
+    operation: Mapped[str] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(24))
+    is_model_call: Mapped[bool] = mapped_column(Boolean)
+    model: Mapped[str | None] = mapped_column(String(120))
+    region: Mapped[str | None] = mapped_column(String(40))
+    duration_ms: Mapped[int] = mapped_column(Integer)
+    error_kind: Mapped[str | None] = mapped_column(String(32))
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    finish_reason: Mapped[str | None] = mapped_column(String(40))
+    input_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    output_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    thinking_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    cached_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    tool_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    total_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    billable_characters: Mapped[int | None] = mapped_column(BigInteger)
+    reason: Mapped[str | None] = mapped_column(String(32))
+    result_count: Mapped[int | None] = mapped_column(Integer)
+    selected_count: Mapped[int | None] = mapped_column(Integer)
+    similarity: Mapped[float | None] = mapped_column(Float)

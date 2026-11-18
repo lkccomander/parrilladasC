@@ -390,3 +390,42 @@ def update_account(
         "/login" if account_id == context.account.id else "/dashboard/accounts",
         status_code=303,
     )
+
+
+@router.get("/dashboard/assistant/telemetry", response_class=HTMLResponse)
+def gemini_telemetry(
+    request: Request,
+    service: Service,
+    context: Admin,
+    days: Literal["1", "7", "30"] = "7",
+    operation: Literal[
+        "",
+        "extraction",
+        "embedding_document",
+        "embedding_query",
+        "grounding",
+        "extraction_result",
+        "rag_result",
+    ] = "",
+    page_number: int = Query(default=1, ge=1, le=10000, alias="page"),
+):
+    try:
+        report = service.gemini_telemetry(
+            days=int(days), operation=operation or None, page=page_number
+        )
+    except (AccountNotFound, ApiUnavailable):
+        return page(
+            request,
+            "gemini_telemetry.html",
+            503,
+            context=context,
+            report=None,
+            error="No pudimos consultar la telemetría. Intente recargar la página.",
+        )
+    return page(
+        request,
+        "gemini_telemetry.html",
+        context=context,
+        report=report,
+        local_time=ZoneInfo("America/Costa_Rica"),
+    )

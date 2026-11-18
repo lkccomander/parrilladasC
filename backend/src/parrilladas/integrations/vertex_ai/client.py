@@ -12,13 +12,24 @@ from parrilladas.modules.assistant.config import AssistantSettings
 from parrilladas.modules.assistant.errors import ExtractionUnavailable
 from parrilladas.modules.assistant.prompts import EXTRACTION_INSTRUCTIONS
 from parrilladas.modules.assistant.schemas import ExtractionCandidate, ExtractionRequest
+from parrilladas.modules.assistant.telemetry import Telemetry
 
 
 class VertexExtractor:
-    def __init__(self, client: genai.Client, *, model: str, max_output_tokens: int = 512):
+    def __init__(
+        self,
+        client: genai.Client,
+        *,
+        model: str,
+        max_output_tokens: int = 512,
+        region: str | None = None,
+        telemetry=None,
+    ):
         self.client = client
         self.model = model
         self.max_output_tokens = max_output_tokens
+        self.region = region
+        self.telemetry = telemetry or Telemetry()
 
     @classmethod
     def from_settings(cls, settings: AssistantSettings) -> "VertexExtractor":
@@ -59,31 +70,34 @@ class VertexExtractor:
             client,
             model=settings.gemini_model,
             max_output_tokens=settings.assistant_max_output_tokens,
+            region=settings.google_cloud_location,
         )
 
     def extract(self, request: ExtractionRequest) -> str:
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=request.model_dump_json(),
-                config=types.GenerateContentConfig(
-                    system_instruction=EXTRACTION_INSTRUCTIONS,
-                    response_mime_type="application/json",
-                    response_schema=ExtractionCandidate,
-                    max_output_tokens=self.max_output_tokens,
-                    thinking_config=types.ThinkingConfig(thinking_level="MINIMAL"),
-                    tools=[],
-                ),
-            )
+            with self.telemetry.measure("extraction", model=self.model, region=self.region) as span:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=request.model_dump_json(),
+                    config=types.GenerateContentConfig(
+                        system_instruction=EXTRACTION_INSTRUCTIONS,
+                        response_mime_type="application/json",
+                        response_schema=ExtractionCandidate,
+                        max_output_tokens=self.max_output_tokens,
+                        thinking_config=types.ThinkingConfig(thinking_level="MINIMAL"),
+                        tools=[],
+                    ),
+                )
+                span.response(response)
+                if (
+                    not response.candidates
+                    or response.candidates[0].finish_reason != types.FinishReason.STOP
+                    or not response.text
+                ):
+                    raise ValueError("Model response incomplete")
+                return response.text
         except (genai.errors.APIError, GoogleAuthError, httpx2.HTTPError, OSError, ValueError):
             raise ExtractionUnavailable("Model request unavailable") from None
-        if (
-            not response.candidates
-            or response.candidates[0].finish_reason != types.FinishReason.STOP
-            or not response.text
-        ):
-            raise ExtractionUnavailable("Model response incomplete")
-        return response.text
 
     def close(self) -> None:
         self.client.close()

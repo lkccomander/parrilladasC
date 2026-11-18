@@ -2,11 +2,11 @@
 
 ## Documento de referencia del proyecto
 
-**Versión:** 1.7
+**Versión:** 1.8
 
 **Fecha:** 20 de octubre de 2026
 
-**Última actualización:** 17 de noviembre de 2026 (America/Costa_Rica)
+**Última actualización:** 18 de noviembre de 2026 (America/Costa_Rica)
 
 **Estado:** Admin y API separados en Railway; Gemini real habilitado para WhatsApp. Beta 1.12 (`1.0.0-beta.13`) incorpora ingesta del catálogo aprobado en PostgreSQL/pgvector, recuperación de evidencia para Gemini y consulta de los textos publicados en Admin → Asistente. Ver sección 28 para validación y despliegue. Atención y ventas conserva el listado de interacciones y los flujos de confirmación/reinicio existentes.
 
@@ -1307,3 +1307,27 @@ en el API. `show` permite revisar la publicación sin llamar al modelo.
 
 Este alcance es el RAG del catálogo comercial aprobado. No incluye ingesta libre de PDFs,
 conversaciones de clientes, horarios, paquetes ni políticas comerciales no validadas.
+
+
+---
+
+## 29. Telemetría Gemini en Admin — 18 de noviembre de 2026
+
+Beta 1.13 (`1.0.0-beta.14`). Implementación terminada; 326 pruebas locales aprobadas,
+Ruff, formato, dependencias y wheel verificados. CI y despliegue en curso.
+
+- [x] Migración `0008`: registro numérico `gemini_telemetry` separado de datos de clientes.
+- [x] Instrumentar extracción, embeddings de catálogo/consulta y selección de evidencia.
+- [x] Registrar aparte validación y resultados RAG, sin duplicar el conteo de llamadas Google.
+- [x] Guardar tokens informados (entrada/salida/razonamiento/caché/herramientas/total),
+  caracteres facturables, modelo/región, latencia, finalización, error y HTTP.
+- [x] Agrupar pasos mediante UUID de traza independiente de los clientes.
+- [x] Panel privado JWT Admin, filtros de 24h/7d/30d y operación, percentiles SQL,
+  evolución temporal, resultados RAG e historial paginado.
+- [x] Diferenciar contadores desconocidos, gasto no consultado y cuota restante no disponible.
+- [x] Persistencia de mejor esfuerzo: fallos de telemetría no interrumpen respuestas del bot.
+- [ ] Registrar suite completa, CI, despliegue y comprobación real de metadatos Google.
+
+La captura comienza al desplegar esta versión. No reconstruye llamadas históricas ni
+incluye llamadas externas de Studio. No almacena mensajes, respuestas, teléfonos,
+credenciales ni errores crudos. La retención no borra datos automáticamente.

@@ -16,6 +16,7 @@ from .config import AssistantSettings
 from .errors import ExtractionUnavailable
 from .knowledge import load_menu
 from .rag import KnowledgeService
+from .telemetry import Telemetry
 
 
 def main():
@@ -31,6 +32,7 @@ def main():
             if menu is None:
                 raise ValueError("Approved catalog unavailable")
             generator = VertexExtractor.from_settings(settings)
+            generator.telemetry = Telemetry(sessionmaker(engine))
             provider = VertexKnowledge.from_settings(settings, generator)
             service = KnowledgeService(sessionmaker(engine), provider, settings)
             print(service.ingest(menu))

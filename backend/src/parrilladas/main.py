@@ -33,6 +33,8 @@ from parrilladas.modules.assistant.knowledge_router import router as knowledge_r
 from parrilladas.modules.assistant.rag import KnowledgeService
 from parrilladas.modules.assistant.router import router as assistant_router
 from parrilladas.modules.assistant.service import AssistantService
+from parrilladas.modules.assistant.telemetry import Telemetry
+from parrilladas.modules.assistant.telemetry_router import router as telemetry_router
 from parrilladas.modules.conversations.router import router as conversations_router
 from parrilladas.modules.conversations.worker import ConversationWorker
 from parrilladas.modules.health.router import router as health_router
@@ -86,6 +88,8 @@ def create_app(
         engine = create_database_engine(settings)
         app.state.session_factory = sessionmaker(bind=engine, expire_on_commit=False)
         app.state.meta_http = meta_http if meta_http is not None else httpx.Client()
+        app.state.telemetry = Telemetry(app.state.session_factory)
+        app.state.assistant_settings = assistant_settings
         provider = extractor
         if assistant_settings.natural_language_enabled and provider is None:
             from parrilladas.integrations.vertex_ai.client import VertexExtractor
@@ -93,9 +97,17 @@ def create_app(
             try:
                 provider = VertexExtractor.from_settings(assistant_settings)
             except ExtractionUnavailable:
+                app.state.telemetry.emit(
+                    operation="extraction_result",
+                    status="fallback",
+                    reason="provider_unavailable",
+                    error_kind="authentication",
+                )
                 logging.getLogger(__name__).warning(
                     "Assistant authentication unavailable; guided mode"
                 )
+        if provider is not None and extractor is None:
+            provider.telemetry = app.state.telemetry
         knowledge_provider = None
         if assistant_settings.rag_enabled and provider is not None and extractor is None:
             from parrilladas.integrations.vertex_ai.knowledge import VertexKnowledge
@@ -103,16 +115,26 @@ def create_app(
             try:
                 knowledge_provider = VertexKnowledge.from_settings(assistant_settings, provider)
             except ExtractionUnavailable:
+                app.state.telemetry.emit(
+                    operation="rag_result",
+                    status="fallback",
+                    reason="catalog_fallback",
+                    error_kind="authentication",
+                )
                 logging.getLogger(__name__).warning(
                     "RAG authentication unavailable; catalog fallback"
                 )
         app.state.knowledge = KnowledgeService(
-            app.state.session_factory, knowledge_provider, assistant_settings
+            app.state.session_factory,
+            knowledge_provider,
+            assistant_settings,
+            telemetry=app.state.telemetry,
         )
         app.state.assistant = AssistantService(
             provider,
             enabled=assistant_settings.natural_language_enabled and provider is not None,
             knowledge=app.state.knowledge,
+            telemetry=app.state.telemetry,
         )
         worker = None
         if settings.conversation_worker_enabled:
@@ -155,6 +177,7 @@ def create_app(
     app.include_router(accounts_router)
     app.include_router(assistant_router)
     app.include_router(knowledge_router)
+    app.include_router(telemetry_router)
     app.include_router(conversations_router)
     app.include_router(whatsapp_router)
     app.include_router(integrations_router)
