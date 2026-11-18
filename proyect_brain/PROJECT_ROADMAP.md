@@ -8,7 +8,7 @@
 
 **Última actualización:** 18 de noviembre de 2026 (America/Costa_Rica)
 
-**Estado:** Admin y API separados en Railway; Gemini real habilitado para WhatsApp. Beta 1.12 (`1.0.0-beta.13`) incorpora ingesta del catálogo aprobado en PostgreSQL/pgvector, recuperación de evidencia para Gemini y consulta de los textos publicados en Admin → Asistente. Ver sección 28 para validación y despliegue. Atención y ventas conserva el listado de interacciones y los flujos de confirmación/reinicio existentes.
+**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.13 (`1.0.0-beta.14`) agrega telemetría operativa persistida en PostgreSQL y panel Admin → Asistente → Telemetría Gemini. Catálogo aprobado versionado y consulta de interacciones disponibles. Ver secciones 28 y 29 para despliegue y comprobaciones reales.
 
 **Carpeta de trabajo:** `proyect_brain`
 
@@ -1313,8 +1313,9 @@ conversaciones de clientes, horarios, paquetes ni políticas comerciales no vali
 
 ## 29. Telemetría Gemini en Admin — 18 de noviembre de 2026
 
-Beta 1.13 (`1.0.0-beta.14`). Implementación terminada; 326 pruebas locales aprobadas,
-Ruff, formato, dependencias y wheel verificados. CI y despliegue en curso.
+Beta 1.13 (`1.0.0-beta.14`), commit de aplicación `301f76d`, desplegada en API y Admin.
+326 pruebas locales y [CI 44423922751](https://github.com/lkccomander/parrilladasC/actions/runs/44423922751)
+aprobados; Ruff, formato, dependencias y wheel verificados.
 
 - [x] Migración `0008`: registro numérico `gemini_telemetry` separado de datos de clientes.
 - [x] Instrumentar extracción, embeddings de catálogo/consulta y selección de evidencia.
@@ -1326,7 +1327,17 @@ Ruff, formato, dependencias y wheel verificados. CI y despliegue en curso.
   evolución temporal, resultados RAG e historial paginado.
 - [x] Diferenciar contadores desconocidos, gasto no consultado y cuota restante no disponible.
 - [x] Persistencia de mejor esfuerzo: fallos de telemetría no interrumpen respuestas del bot.
-- [ ] Registrar suite completa, CI, despliegue y comprobación real de metadatos Google.
+- [x] Migración `0008` aplicada y servicios en SUCCESS: API
+  `9cfdd76c-8c29-485d-a32f-85934678ff91`, Admin `5e01d830-249d-409b-b8d0-7904b5850569`.
+- [x] Comprobación sintética real: tres llamadas (extracción, embedding de consulta y selección)
+  más dos eventos internos, todos bajo una misma traza y sin fallos de persistencia.
+- [x] Google informó 1.523 tokens totales entre las dos respuestas de generación;
+  el embedding informó cinco tokens de entrada y 18 caracteres facturables, sin total.
+  No se sumó un total inventado para ese embedding.
+- [x] Latencias observadas: mediana de llamada 860 ms; p95 1.095,8 ms. El recorrido RAG
+  medido fue 1.412 ms, sin extracción inicial ni WhatsApp. Es una muestra sintética pequeña.
+- [x] API listo (200), panel Beta 1.13 visible; endpoint sin JWT rechaza con 401 y
+  página privada redirige al login (303). No se enviaron mensajes a clientes.
 
 La captura comienza al desplegar esta versión. No reconstruye llamadas históricas ni
 incluye llamadas externas de Studio. No almacena mensajes, respuestas, teléfonos,

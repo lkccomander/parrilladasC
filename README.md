@@ -100,6 +100,8 @@ guardada por Admin en `/dashboard/assistant`. Las conversaciones guiadas en curs
 pausadas y cerradas conservan su estado. Requiere la migración `0005` del API. RAG requiere además la migración `0007`, publicar el catálogo y activar `RAG_ENABLED`.
 
 Fuentes comerciales editables para ingesta RAG: [menú y cobertura](knowledge/README.md).
+Telemetría operativa de Gemini: Admin → Asistente → Telemetría Gemini, con llamadas, tokens, latencias, errores y resultados RAG desde Beta 1.13. El gasto facturado se consulta en Google Cloud.
+
 El catálogo tiene versión de contenido propia; la carga manual publica embeddings en pgvector y se revisa desde Admin → Asistente.
 
 ## Git y GitHub
