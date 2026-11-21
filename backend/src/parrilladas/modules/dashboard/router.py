@@ -55,6 +55,7 @@ def account_form_data(form: dict[str, str], *, creating: bool):
         "email": form.get("email", ""),
         "display_name": form.get("display_name", ""),
         "roles": selected_roles(form),
+        "dev_role_key": form.get("dev_role_key") or None,
         "password": form.get("password") or None,
     }
     if creating:
@@ -335,7 +336,15 @@ def create_account(
             error=message,
         )
     except AccessDenied as error:
-        raise HTTPException(403, str(error)) from None
+        return page(
+            request,
+            "account_form.html",
+            403,
+            context=context,
+            account=None,
+            values=safe_values(form),
+            error=str(error),
+        )
     return RedirectResponse("/dashboard/accounts", status_code=303)
 
 
@@ -366,6 +375,7 @@ def update_account(
     context: Admin,
     form: CheckedForm,
 ) -> Response:
+    account = None
     try:
         account = service.get_account(account_id)
         data = account_form_data(form, creating=False)
@@ -388,7 +398,15 @@ def update_account(
     except AccountNotFound as error:
         raise HTTPException(404, str(error)) from None
     except AccessDenied as error:
-        raise HTTPException(403, str(error)) from None
+        return page(
+            request,
+            "account_form.html",
+            403,
+            context=context,
+            account=account,
+            values=safe_values(form),
+            error=str(error),
+        )
     return RedirectResponse(
         "/login" if account_id == context.account.id else "/dashboard/accounts",
         status_code=303,

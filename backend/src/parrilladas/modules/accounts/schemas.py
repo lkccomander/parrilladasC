@@ -36,6 +36,9 @@ class AccountRoles(BaseModel):
 
 
 class AccountDetails(AccountRoles):
+    model_config = ConfigDict(hide_input_in_errors=True)
+
+    dev_role_key: SecretStr | None = Field(default=None, max_length=256, repr=False)
     email: EmailStr = Field(max_length=254)
     display_name: str = Field(min_length=1, max_length=120)
 

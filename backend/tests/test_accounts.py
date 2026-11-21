@@ -8,7 +8,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 from sqlalchemy import create_engine, delete, inspect, select, text
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,7 @@ from parrilladas.modules.accounts.service import AccountService
 pytestmark = pytest.mark.postgres
 PASSWORD = "testing a long passphrase 123"
 JWT_SECRET = "test-only-signing-key-at-least-32-characters"
+DEV_KEY = "synthetic-dev-role-key-for-tests-only"
 
 
 @pytest.fixture(scope="module")
@@ -62,7 +63,13 @@ def account_client(account_database):
                 password=PASSWORD,
             )
         )
-    settings = ApiSettings(app_env="test", database_url=url, jwt_secret=JWT_SECRET, _env_file=None)
+    settings = ApiSettings(
+        app_env="test",
+        database_url=url,
+        jwt_secret=JWT_SECRET,
+        dev_role_key=DEV_KEY,
+        _env_file=None,
+    )
     with (
         TestClient(create_app(settings)) as api,
         TestClient(
@@ -628,10 +635,14 @@ def test_integration_diagnostics_enforce_api_admin_role_and_csrf(account_client)
 def test_dev_inherits_admin_and_sees_private_rag(account_client, roles):
     client, engine, admin = account_client
     with Session(engine) as session:
-        account = AccountService(session).create_account(
+        account = AccountService(session, dev_role_key=SecretStr(DEV_KEY)).create_account(
             admin.id,
             AccountCreate(
-                email="dev@example.com", display_name="Developer", roles=roles, password=PASSWORD
+                email="dev@example.com",
+                display_name="Developer",
+                roles=roles,
+                dev_role_key=DEV_KEY,
+                password=PASSWORD,
             ),
         )
     assert set(account.roles) == set(roles)
@@ -668,7 +679,7 @@ def test_checkbox_roles_add_remove_and_revoke_sessions(account_client):
     login(client)
     form = account_form(client, email="dev@example.com")
     form.pop("role")
-    form.update(role_admin="on", role_dev="on")
+    form.update(role_admin="on", role_dev="on", dev_role_key=DEV_KEY)
     assert (
         client.post("/dashboard/accounts/new", data=form, follow_redirects=False).status_code == 303
     )
@@ -694,6 +705,7 @@ def test_checkbox_roles_add_remove_and_revoke_sessions(account_client):
     # Assigning no roles must not silently fall back to Sales.
     update = dict(form, csrf_token=csrf(page), is_active="on")
     update.pop("role_admin")
+    update.pop("dev_role_key")
     update.pop("role_dev")
     assert client.post(f"/dashboard/accounts/{account_id}", data=update).status_code == 422
     update["role_admin"] = "on"
@@ -738,3 +750,171 @@ def test_checkbox_roles_add_remove_and_revoke_sessions(account_client):
 def test_invalid_role_sets_are_rejected(roles):
     with pytest.raises(ValidationError):
         AccountCreate(email="dev@example.com", display_name="Dev", roles=roles, password=PASSWORD)
+
+
+@pytest.mark.parametrize("key", [None, "incorrect-key", "llave-incorrecta-ñ"])
+def test_dev_creation_rejects_missing_wrong_keys_and_never_echoes_them(account_client, key):
+    client, engine, _ = account_client
+    login(client)
+    form = account_form(client, email="protected-dev@example.com")
+    form.pop("role")
+    form["role_dev"] = "on"
+    if key is not None:
+        form["dev_role_key"] = key
+    response = client.post("/dashboard/accounts/new", data=form)
+    assert response.status_code == 403
+    assert "llave Dev válida" in response.text
+    assert not re.search(r'name="dev_role_key"[^>]*value=', response.text)
+    if key:
+        assert key not in response.text
+    with Session(engine) as session:
+        assert session.scalar(select(Account).where(Account.email == form["email"])) is None
+
+
+def test_dev_role_key_is_required_in_api_and_can_be_unconfigured(account_client):
+    client, engine, admin = account_client
+    login(client)
+    headers = {"Authorization": "Bearer " + client.cookies.get("parrilladas_session")}
+    headers["X-CSRF-Token"] = client.api.get("/auth/me", headers=headers).json()["csrf_token"]
+    payload = {
+        "email": "guarded@example.com",
+        "display_name": "Guarded",
+        "roles": ["dev"],
+        "password": PASSWORD,
+        "dev_role_key": DEV_KEY,
+    }
+    # Infrastructure secret absent: even a supplied value cannot grant Dev.
+    client.api.app.state.settings.dev_role_key = None
+    assert client.api.post("/accounts", headers=headers, json=payload).status_code == 403
+    client.api.app.state.settings.dev_role_key = SecretStr(DEV_KEY)
+    for key in (None, "wrong"):
+        assert (
+            client.api.post(
+                "/accounts", headers=headers, json={**payload, "dev_role_key": key}
+            ).status_code
+            == 403
+        )
+    accepted = client.api.post("/accounts", headers=headers, json=payload)
+    assert accepted.status_code == 201
+    assert "dev_role_key" not in accepted.json() and DEV_KEY not in accepted.text
+    assert set(accepted.json()["roles"]) == {"dev"}
+    # The service also fails closed when called outside HTTP.
+    with Session(engine) as session, pytest.raises(AccessDenied):
+        AccountService(session).create_account(
+            admin.id, AccountCreate(**{**payload, "email": "service-guarded@example.com"})
+        )
+
+
+def test_dev_promotion_requires_key_but_preserving_or_revoking_role_does_not(account_client):
+    client, engine, admin = account_client
+    with Session(engine) as session:
+        target = AccountService(session).create_account(
+            admin.id,
+            AccountCreate(
+                email="promotion@example.com",
+                display_name="Promotion",
+                roles=[Role.SALES],
+                password=PASSWORD,
+            ),
+        )
+    login(client)
+    headers = {"Authorization": "Bearer " + client.cookies.get("parrilladas_session")}
+    headers["X-CSRF-Token"] = client.api.get("/auth/me", headers=headers).json()["csrf_token"]
+    payload = {
+        "email": target.email,
+        "display_name": target.display_name,
+        "roles": ["admin", "dev"],
+        "is_active": True,
+    }
+    endpoint = f"/accounts/{target.id}"
+    assert client.api.patch(endpoint, headers=headers, json=payload).status_code == 403
+    assert (
+        client.api.patch(
+            endpoint, headers=headers, json={**payload, "dev_role_key": "wrong"}
+        ).status_code
+        == 403
+    )
+    with Session(engine) as session:
+        assert session.get(Account, target.id).roles == [Role.SALES]
+    granted = client.api.patch(endpoint, headers=headers, json={**payload, "dev_role_key": DEV_KEY})
+    assert granted.status_code == 200 and "dev_role_key" not in granted.json()
+    assert client.api.patch(endpoint, headers=headers, json=payload).status_code == 200
+    assert (
+        client.api.patch(
+            endpoint, headers=headers, json={**payload, "roles": ["admin"]}
+        ).status_code
+        == 200
+    )
+
+
+@pytest.mark.parametrize("change", ["email", "password", "reactivate"])
+def test_dev_credentials_and_reactivation_cannot_bypass_the_key(account_client, change):
+    client, engine, admin = account_client
+    with Session(engine) as session:
+        service = AccountService(session, dev_role_key=SecretStr(DEV_KEY))
+        target = service.create_account(
+            admin.id,
+            AccountCreate(
+                email="existing-dev@example.com",
+                display_name="Existing Dev",
+                roles=[Role.DEV],
+                dev_role_key=DEV_KEY,
+                password=PASSWORD,
+            ),
+        )
+        if change == "reactivate":
+            service.update_account(
+                admin.id,
+                target.id,
+                AccountUpdate(
+                    email=target.email,
+                    display_name=target.display_name,
+                    roles=target.roles,
+                    is_active=False,
+                ),
+            )
+        update = {
+            "email": target.email,
+            "display_name": target.display_name,
+            "roles": target.roles,
+            "is_active": True,
+        }
+        if change == "email":
+            update["email"] = "replacement-owner@example.com"
+        elif change == "password":
+            update["password"] = "replacement passphrase for test only"
+        with pytest.raises(AccessDenied):
+            service.update_account(admin.id, target.id, AccountUpdate(**update))
+        accepted = service.update_account(
+            admin.id, target.id, AccountUpdate(**update, dev_role_key=DEV_KEY)
+        )
+        assert accepted.is_dev and accepted.is_active
+
+
+def test_sales_cannot_grant_dev_even_with_the_correct_key(account_client):
+    client, engine, admin = account_client
+    with Session(engine) as session:
+        target = AccountService(session).create_account(
+            admin.id,
+            AccountCreate(
+                email="sales-key@example.com",
+                display_name="Sales",
+                role=Role.SALES,
+                password=PASSWORD,
+            ),
+        )
+    login(client, target.email)
+    headers = {"Authorization": "Bearer " + client.cookies.get("parrilladas_session")}
+    headers["X-CSRF-Token"] = client.api.get("/auth/me", headers=headers).json()["csrf_token"]
+    response = client.api.patch(
+        f"/accounts/{target.id}",
+        headers=headers,
+        json={
+            "email": target.email,
+            "display_name": target.display_name,
+            "roles": ["dev"],
+            "dev_role_key": DEV_KEY,
+            "is_active": True,
+        },
+    )
+    assert response.status_code == 403

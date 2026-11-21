@@ -143,3 +143,10 @@ la navegación y los permisos sin añadir un servicio desplegable.
 Admin sin Dev no accede al área técnica. Las dependencias HTTP y los servicios
 usan la misma semántica de permisos. La migración `0009` conserva el acceso previo
 sin otorgar Dev automáticamente. Las ediciones revocan las sesiones existentes.
+
+
+La concesión de Dev exige además `DEV_ROLE_KEY`, un secreto del API en Railway.
+`accounts.service` valida la llave antes de crear o modificar privilegios y protege
+reactivación/cambios de credenciales de cuentas Dev. Admin solo transmite la entrada
+transitoria por HTTP; no recibe el secreto de referencia. La ausencia de configuración
+bloquea concesiones. No hay cambio de schema ni persistencia de la llave en PostgreSQL.

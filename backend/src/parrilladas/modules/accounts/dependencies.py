@@ -14,8 +14,10 @@ from parrilladas.modules.accounts.service import AccountService
 bearer = HTTPBearer(auto_error=False)
 
 
-def account_service(session: Annotated[Session, Depends(get_session)]) -> AccountService:
-    return AccountService(session)
+def account_service(
+    request: Request, session: Annotated[Session, Depends(get_session)]
+) -> AccountService:
+    return AccountService(session, dev_role_key=request.app.state.settings.dev_role_key)
 
 
 Service = Annotated[AccountService, Depends(account_service)]

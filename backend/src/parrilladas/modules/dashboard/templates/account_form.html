@@ -26,6 +26,12 @@
         {% endfor %}
       </fieldset>
       <label>
+        Llave Dev
+        <input name="dev_role_key" type="password" autocomplete="off" maxlength="256"
+               aria-describedby="dev-key-help">
+      </label>
+      <p class="help" id="dev-key-help">Necesaria al asignar Dev, reactivar una cuenta Dev o cambiar su correo o contraseña. Se valida al guardar y no se conserva en la cuenta.</p>
+      <label>
         {{ 'Nueva contraseña (opcional)' if account else 'Contraseña inicial' }}
         <input name="password" type="password" autocomplete="new-password"
                minlength="15" maxlength="128" aria-describedby="password-help"

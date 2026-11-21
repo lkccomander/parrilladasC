@@ -87,3 +87,24 @@ def test_live_model_processing_requires_a_durable_worker():
                 _env_file=None,
             ),
         )
+
+
+def test_dev_role_key_is_optional_private_api_configuration(monkeypatch):
+    from parrilladas.core.config import AdminSettings, ApiSettings
+
+    monkeypatch.delenv("DEV_ROLE_KEY", raising=False)
+    kwargs = {
+        "database_url": "postgresql://test:test@localhost/disposable",
+        "jwt_secret": "synthetic-signing-secret-for-tests-only",
+        "_env_file": None,
+    }
+    assert ApiSettings(**kwargs).dev_role_key is None
+    key = "synthetic-dev-role-key-for-tests-only"
+    monkeypatch.setenv("DEV_ROLE_KEY", key)
+    configured = ApiSettings(**kwargs)
+    assert configured.dev_role_key.get_secret_value() == key
+    assert key not in repr(configured)
+    assert not hasattr(AdminSettings(_env_file=None), "dev_role_key")
+    with pytest.raises(ValidationError) as error:
+        ApiSettings(**kwargs, dev_role_key="too-short-private-key")
+    assert "too-short-private-key" not in str(error.value)

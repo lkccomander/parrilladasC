@@ -31,6 +31,7 @@ class ApiSettings(Settings):
     model_config = SettingsConfigDict(hide_input_in_errors=True)
 
     jwt_secret: SecretStr = Field(min_length=32)
+    dev_role_key: SecretStr | None = Field(default=None, min_length=32, max_length=256, repr=False)
     jwt_issuer: str = "parrilladas-auth"
     jwt_audience: str = "parrilladas-api"
     whatsapp_app_secret: SecretStr | None = Field(default=None, min_length=1)

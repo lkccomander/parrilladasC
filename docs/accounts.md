@@ -74,7 +74,7 @@ solo se aceptan Admin, Sales y Dev, y las solicitudes rechazan duplicados.
 
 Dev hereda todos los permisos administrativos. Admin y Dev se pueden asignar juntos.
 Admin puede asignar/desasignar los roles desde Cuentas; cada cambio revoca las sesiones
-de la cuenta editada. Para habilitar RAG en una cuenta actual, marcar Dev, guardar
+de la cuenta editada. Para habilitar RAG en una cuenta actual, marcar Dev, introducir la llave de autorización, guardar
 cambios y volver a iniciar sesión si se editó la cuenta propia.
 
 RAG está en `/dashboard/rag`, con telemetría en `/dashboard/rag/telemetry`.
@@ -86,3 +86,25 @@ pero no puede consultar conocimiento ni telemetría RAG.
 
 La degradación a `0008` conserva un único rol: Dev se convierte en Admin, dado que
 esa versión no conoce el rol Dev ni la sección exclusiva RAG.
+
+
+## Llave para conceder Dev (Beta 1.15)
+
+Railway → servicio `api` → Variables: crear `DEV_ROLE_KEY` con un secreto aleatorio
+entre 32 y 256 caracteres, guardar una copia en un gestor de contraseñas y sellarlo
+(`sealed`), y aplicar los cambios para desplegar el API. No configurarlo en el servicio Admin/web ni compartirlo en mensajes.
+Si falta, el API bloquea nuevas asignaciones Dev; los roles existentes se conservan.
+No usar una variable vacía: dejarla ausente hasta tener un valor válido.
+
+En Cuentas, marcar Dev e introducir la llave en el campo de contraseña «Llave Dev».
+La llave autoriza la concesión y no sustituye una sesión Admin/Dev ni el token CSRF.
+Se valida en el servicio de cuentas, también al llamar directamente al API.
+No se almacena en la cuenta, no se devuelve en respuestas y no se rellena al editar
+ni después de errores. Solo el API conoce el valor de referencia.
+
+Se exige al crear Dev, agregarlo a una cuenta, reactivar una cuenta Dev o modificar
+su correo/contraseña mientras conserva Dev. No hace falta para editar el nombre,
+conservar sus roles o quitar Dev. El comando privado de recuperación de contraseña
+sigue siendo una operación del administrador de infraestructura con acceso al API.
+No se exige en cada login. Rotar el secreto afecta futuras autorizaciones, no
+revoca automáticamente los roles concedidos; para revocarlos usar Cuentas.

@@ -1,6 +1,8 @@
+import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from pydantic import SecretStr
 from sqlalchemy.orm import Session
 
 from parrilladas.modules.accounts.errors import (
@@ -33,9 +35,10 @@ SESSION_LIFETIME = timedelta(hours=8)
 
 
 class AccountService:
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, *, dev_role_key: SecretStr | None = None):
         self.session = session
         self.repo = AccountRepository(session)
+        self.dev_role_key = dev_role_key
 
     def _view(self, account: Account) -> AccountView:
         return AccountView.model_validate(account)
@@ -46,7 +49,19 @@ class AccountService:
             raise AccessDenied("Se requiere una cuenta Admin activa.")
         return actor
 
+    def _require_dev_key(self, supplied: SecretStr | None) -> None:
+        if (
+            self.dev_role_key is None
+            or supplied is None
+            or not secrets.compare_digest(
+                self.dev_role_key.get_secret_value().encode(), supplied.get_secret_value().encode()
+            )
+        ):
+            raise AccessDenied("Se requiere una llave Dev válida para autorizar este cambio.")
+
     def _create(self, data: AccountCreate) -> AccountView:
+        if Role.DEV in data.roles:
+            self._require_dev_key(data.dev_role_key)
         if self.repo.by_email(str(data.email)):
             raise AccountConflict("Ya existe una cuenta con ese correo.")
         account = Account(
@@ -99,6 +114,13 @@ class AccountService:
                 not data.is_active or not {Role.ADMIN, Role.DEV}.intersection(data.roles)
             ):
                 raise AccountConflict("No puede desactivar ni quitar su propio rol Admin.")
+            if Role.DEV in data.roles and (
+                not account.is_dev
+                or (not account.is_active and data.is_active)
+                or data.password is not None
+                or account.email != str(data.email)
+            ):
+                self._require_dev_key(data.dev_role_key)
             existing = self.repo.by_email(str(data.email))
             if existing and existing.id != account_id:
                 raise AccountConflict("Ya existe una cuenta con ese correo.")

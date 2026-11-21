@@ -8,6 +8,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy import create_engine, delete, inspect, select, text
 from sqlalchemy.orm import Session
 
@@ -63,12 +64,15 @@ def preference_database():
                     ),
                 )
             with Session(engine) as session:
-                dev = AccountService(session).create_account(
+                dev = AccountService(
+                    session, dev_role_key=SecretStr("synthetic-dev-role-key-for-tests-only")
+                ).create_account(
                     admin.id,
                     AccountCreate(
                         email="assistant-dev@example.com",
                         display_name="Developer",
                         roles=[Role.DEV],
+                        dev_role_key="synthetic-dev-role-key-for-tests-only",
                         password=PASSWORD,
                     ),
                 )

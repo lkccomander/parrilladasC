@@ -79,3 +79,5 @@ Ver [piloto de extracción](assistant.md). La activación requiere gates del API
 - [x] Dev hereda Admin; sección RAG y endpoints técnicos exclusivos de Dev.
 - [x] Conocimiento y telemetría trasladados desde Asistente a RAG.
 - [ ] Evidencia recuperada/seleccionada persistida por cada respuesta.
+
+- [x] Llave privada del API para conceder Dev y proteger reactivación/cambios de credenciales.

@@ -158,6 +158,8 @@ class AdminApiClient:
         payload = data.model_dump(mode="json")
         if data.password:
             payload["password"] = data.password.get_secret_value()
+        if data.dev_role_key:
+            payload["dev_role_key"] = data.dev_role_key.get_secret_value()
         return payload
 
     def create_account(self, data: AccountCreate) -> AccountView:

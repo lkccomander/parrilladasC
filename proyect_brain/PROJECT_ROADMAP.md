@@ -8,7 +8,7 @@
 
 **Última actualización:** 21 de noviembre de 2026 (America/Costa_Rica)
 
-**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.14 (`1.0.0-beta.15`) incorpora roles múltiples y una sección RAG exclusiva de Dev, con conocimiento publicado y telemetría Gemini. Ver sección 30 para validación y estado de publicación.
+**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.15 (`1.0.0-beta.16`) exige una llave privada del API para conceder Dev. RAG sigue exclusivo de Dev, con conocimiento publicado y telemetría Gemini. Ver secciones 30 y 31.
 
 **Carpeta de trabajo:** `proyect_brain`
 
@@ -1370,3 +1370,17 @@ Publicado el commit de aplicación `bf3df27` en Railway:
 
 Para habilitar RAG en una cuenta existente, asignar Dev en Cuentas y volver a ingresar
 si se editó la cuenta propia. No se otorgaron privilegios Dev automáticamente.
+
+
+## 31. Llave de autorización Dev · 21 de noviembre de 2026
+
+Beta 1.15 (`1.0.0-beta.16`).
+
+- [x] Configuración opcional `DEV_ROLE_KEY` en API; si falta, nuevas concesiones bloqueadas.
+- [x] Campo transitorio «Llave Dev» en Cuentas y validación en el servicio/API con comparación constante.
+- [x] Protege creación, promoción, reactivación y cambios de credenciales de cuentas Dev.
+- [x] Conservar/quitar Dev y editar nombres no requiere llave; permisos y CSRF siguen vigentes.
+- [x] La llave no se almacena en PostgreSQL ni se devuelve o rellena en formularios.
+- [ ] Configurar el secreto elegido por el operador como variable sellada en Railway `api`.
+
+No cambia el esquema ni se modifican cuentas existentes. Validación local: 344 pruebas aprobadas, Ruff/formato, `pip check` y wheel verificados. Publicación CI/CD en curso.
