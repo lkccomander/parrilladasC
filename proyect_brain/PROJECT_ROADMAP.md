@@ -1357,4 +1357,16 @@ Implementación Beta 1.14 (`1.0.0-beta.15`).
 - [ ] Persistir fuentes recuperadas/seleccionadas por respuesta y presentar su detalle.
 
 No se agregan dependencias, servicios ni una base de datos. Los precios siguen manuales.
-Validación local: 334 pruebas aprobadas con PostgreSQL vacío y desechable; Ruff, formato, `pip check` y wheel con catálogo y plantilla RAG verificados. Publicación CI/CD en curso.
+Validación local: 334 pruebas aprobadas con PostgreSQL vacío y desechable; Ruff, formato, `pip check` y wheel con catálogo y plantilla RAG verificados. [CI 44955558316](https://github.com/lkccomander/parrilladasC/actions/runs/44955558316) aprobó las mismas 334 pruebas, dependencias y empaquetado.
+
+Publicado el commit de aplicación `bf3df27` en Railway:
+
+- API `0fda425b-1f6f-414b-8c4b-2993fc984ee6`: SUCCESS.
+- Admin `3a7b2a47-9ac2-4902-9894-b4a4344bab07`: SUCCESS.
+- Migración `0009` comprobada en lectura; catálogo real renderizado en las vistas aisladas.
+- Verificación con roles sintéticos y conexiones de solo lectura: Admin/Sales reciben 403; Dev/Admin+Dev reciben 200 para conocimiento, telemetría y sus alias.
+- API ready 200; endpoints RAG anónimos 401; Admin muestra Beta 1.14; RAG anónimo redirige a login.
+- Sin llamadas de IA, mensajes de WhatsApp ni cambios de cuentas durante la comprobación.
+
+Para habilitar RAG en una cuenta existente, asignar Dev en Cuentas y volver a ingresar
+si se editó la cuenta propia. No se otorgaron privilegios Dev automáticamente.
