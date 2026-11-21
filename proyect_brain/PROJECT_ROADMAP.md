@@ -1394,3 +1394,11 @@ aún no está configurada en el API: nuevas concesiones Dev bloqueadas hasta que
 operador guarde y aplique esa variable sellada. No se leyó ni mostró su valor;
 solo se comprobó presencia. API ready 200, Admin muestra Beta 1.15 y RAG anónimo 401.
 Sin modificaciones de cuentas, llamadas IA ni mensajes de WhatsApp en la verificación.
+
+
+Actualización de configuración (21 de noviembre): el operador creó `DEV_ROLE_KEY`
+en el servicio API. Se aplicó el único cambio pendiente del entorno. La validación
+rechazó su longitud mínima y el despliegue `a7eb3e42-3d42-42cc-a985-128d68b3be9d`
+falló; Railway mantiene la versión anterior activa con ready 200. La variable aún
+figura sin sellar. Pendiente: reemplazar por un secreto aleatorio de 32–256 caracteres,
+sellarlo y aplicar cambios. No se registró el valor ni se modificaron cuentas.
