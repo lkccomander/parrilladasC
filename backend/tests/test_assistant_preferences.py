@@ -62,7 +62,17 @@ def preference_database():
                         password=PASSWORD,
                     ),
                 )
-            yield SimpleNamespace(engine=engine, url=url, admin=admin, sales=sales)
+            with Session(engine) as session:
+                dev = AccountService(session).create_account(
+                    admin.id,
+                    AccountCreate(
+                        email="assistant-dev@example.com",
+                        display_name="Developer",
+                        roles=[Role.DEV],
+                        password=PASSWORD,
+                    ),
+                )
+            yield SimpleNamespace(engine=engine, url=url, admin=admin, sales=sales, dev=dev)
         finally:
             command.downgrade(config, "base")
             with engine.begin() as connection:
@@ -90,12 +100,14 @@ def preference_client(preference_database):
         yield SimpleNamespace(api=api, client=client, db=db)
 
 
-def login(state, *, sales=False):
+def login(state, *, sales=False, dev=False):
     response = state.client.post(
         "/login",
         data={
             "csrf_token": csrf(state.client.get("/login")),
-            "email": state.db.sales.email if sales else state.db.admin.email,
+            "email": state.db.dev.email
+            if dev
+            else (state.db.sales.email if sales else state.db.admin.email),
             "password": PASSWORD,
         },
         follow_redirects=False,
@@ -459,7 +471,7 @@ def test_advisor_admin_form_round_trip_preserves_mode_and_rejects_cross_site(pre
         assert row.advisor_enabled and not row.natural_language_enabled
 
 
-def test_knowledge_view_requires_admin_and_exposes_only_approved_facts(preference_client):
+def test_knowledge_view_requires_dev_and_exposes_only_approved_facts(preference_client):
     from unittest.mock import Mock
 
     from sqlalchemy.orm import sessionmaker
@@ -479,20 +491,30 @@ def test_knowledge_view_requires_admin_and_exposes_only_approved_facts(preferenc
     assert state.api.get("/assistant/knowledge", headers=headers).status_code == 403
     state.client.cookies.clear()
     headers = login(state)
+    assert state.api.get("/rag/knowledge", headers=headers).status_code == 403
+    assert state.api.get("/assistant/knowledge", headers=headers).status_code == 403
+    assert state.api.get("/rag/telemetry", headers=headers).status_code == 403
+    assert state.api.get("/assistant/telemetry", headers=headers).status_code == 403
+    assert state.client.get("/dashboard/rag").status_code == 403
+    assert state.client.get("/dashboard/rag/telemetry").status_code == 403
+    assert state.client.get("/dashboard/assistant/telemetry").status_code == 403
+    assert 'href="/dashboard/rag"' not in state.client.get("/dashboard").text
+    state.client.cookies.clear()
+    headers = login(state, dev=True)
     response = state.api.get("/assistant/knowledge", headers=headers)
     assert response.status_code == 200
     assert response.headers["Cache-Control"] == "no-store"
     doc = response.json()["documents"][0]
     assert len(doc["facts"]) == 3 and doc["dimensions"] == 768
     assert "embedding" not in doc["facts"][0]
-    page = state.client.get("/dashboard/assistant")
+    page = state.client.get("/dashboard/rag")
     assert page.status_code == 200
     assert "Conocimiento del negocio" in page.text
     assert "Lomito" in page.text
     assert "knowledge/parrilladas/menu.json" in page.text
 
 
-def test_gemini_telemetry_permissions_filters_and_admin_rendering(preference_client):
+def test_gemini_telemetry_permissions_filters_and_dev_rendering(preference_client):
     from sqlalchemy.orm import sessionmaker
 
     from parrilladas.modules.assistant.telemetry import Telemetry
@@ -508,6 +530,16 @@ def test_gemini_telemetry_permissions_filters_and_admin_rendering(preference_cli
     assert state.client.get("/dashboard/assistant/telemetry").status_code == 403
     state.client.cookies.clear()
     headers = login(state)
+    assert state.api.get("/rag/knowledge", headers=headers).status_code == 403
+    assert state.api.get("/assistant/knowledge", headers=headers).status_code == 403
+    assert state.api.get("/rag/telemetry", headers=headers).status_code == 403
+    assert state.api.get("/assistant/telemetry", headers=headers).status_code == 403
+    assert state.client.get("/dashboard/rag").status_code == 403
+    assert state.client.get("/dashboard/rag/telemetry").status_code == 403
+    assert state.client.get("/dashboard/assistant/telemetry").status_code == 403
+    assert 'href="/dashboard/rag"' not in state.client.get("/dashboard").text
+    state.client.cookies.clear()
+    headers = login(state, dev=True)
     Telemetry(sessionmaker(state.db.engine)).emit(
         operation="extraction",
         is_model_call=True,
@@ -525,7 +557,7 @@ def test_gemini_telemetry_permissions_filters_and_admin_rendering(preference_cli
     assert data["recent"][0]["duration_ms"] == 125
     for query in ("days=2", "page=0", "operation=invalid"):
         assert state.api.get("/assistant/telemetry?" + query, headers=headers).status_code == 422
-    page = state.client.get("/dashboard/assistant/telemetry?days=1&operation=")
+    page = state.client.get("/dashboard/rag/telemetry?days=1&operation=")
     assert page.status_code == 200
     assert "Telemetría Gemini" in page.text and "Caracteres facturables" in page.text
     assert "&lt;script&gt;" in page.text and "<script>alert(1)</script>" not in page.text

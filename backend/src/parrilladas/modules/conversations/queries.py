@@ -27,7 +27,7 @@ class InteractionQueryService:
         self.repository = ConversationRepository(session)
 
     def list_interactions(self, actor: AccountView, filters: InteractionFilters) -> InteractionPage:
-        if not actor.is_active or actor.role not in {Role.ADMIN, Role.SALES}:
+        if not actor.is_active or not (actor.is_admin or Role.SALES in actor.roles):
             raise AccessDenied("Se requiere acceso de Admin o Sales.")
         search = filters.q.strip()
         if search and re.fullmatch(r"[+\d\s()-]+", search):

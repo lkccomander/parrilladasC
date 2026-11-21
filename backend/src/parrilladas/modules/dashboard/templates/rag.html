@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}RAG{% endblock %}
+{% block content %}
+<p class="eyebrow">DESARROLLO · CONOCIMIENTO Y OBSERVABILIDAD</p>
+<h1>RAG</h1>
+<p class="lead">Revise el conocimiento aprobado que consulta Gemini y su funcionamiento.</p>
+<p><a class="button" href="/dashboard/rag/telemetry">Telemetría Gemini</a></p>
+  <section class="card" aria-labelledby="knowledge-heading">
+    <h2 id="knowledge-heading">Conocimiento del negocio · RAG</h2>
+    {% if knowledge_info %}
+      <p><strong>Recuperación para Gemini:</strong> {{ 'Activada' if knowledge_info.enabled else 'Desactivada' }}</p>
+      {% for document in knowledge_info.documents %}
+        <p><strong>Fuente:</strong> {{ document.source }} · Versión {{ document.content_version }}</p>
+        <p class="help">{{ document.embedding_model }} · {{ document.embedding_location }} · {{ document.dimensions }} dimensiones</p>
+        {% for fact in document.facts %}
+          <h3>{{ {'menu': 'Menú', 'coverage': 'Cobertura', 'preparation': 'Preparación'}.get(fact.topic, fact.topic) }}</h3>
+          <p>{{ fact.text }}</p>
+        {% endfor %}
+      {% else %}<p>Todavía no hay un catálogo publicado en PostgreSQL.</p>{% endfor %}
+      <p class="help">Para actualizarlo, edite el archivo de menú e incremente su versión antes de cargarlo. Los precios, las reservas y la disponibilidad se confirman con un asesor.</p>
+    {% else %}<p>El conocimiento del negocio no está disponible en este momento.</p>{% endif %}
+  </section>
+
+<section class="card">
+<h2>Flujo de recuperación</h2>
+<p>Pregunta → intención → embedding → búsqueda por similitud → selección de evidencia → respuesta con texto aprobado.</p>
+<p>PostgreSQL conserva knowledge_documents y knowledge_chunks; gemini_telemetry registra uso, latencias y resultados. Los mensajes de clientes no se incorporan al catálogo.</p>
+<p class="help">La telemetría actual muestra cantidades y similitud. Todavía no conserva el detalle de fragmentos elegidos por cada respuesta.</p>
+</section>
+{% endblock %}

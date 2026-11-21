@@ -1,15 +1,43 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 
-from parrilladas.modules.accounts.contracts import Role
+from parrilladas.modules.accounts.contracts import AccountPermissions, Role
 
 
-class AccountDetails(BaseModel):
+class AccountRoles(BaseModel):
+    role: Role | None = None
+    roles: list[Role] | None = Field(default=None, min_length=1, max_length=3)
+
+    @model_validator(mode="after")
+    def normalize_roles(self):
+        if self.roles is None:
+            if self.role is None:
+                raise ValueError("Seleccione al menos un rol")
+            object.__setattr__(self, "roles", [self.role])
+        elif self.role is not None and self.role not in self.roles:
+            raise ValueError("El rol principal debe pertenecer a los roles asignados")
+        if len(set(self.roles)) != len(self.roles):
+            raise ValueError("Roles duplicados")
+        object.__setattr__(self, "roles", sorted(self.roles))
+        object.__setattr__(
+            self, "role", next(r for r in (Role.ADMIN, Role.DEV, Role.SALES) if r in self.roles)
+        )
+        return self
+
+
+class AccountDetails(AccountRoles):
     email: EmailStr = Field(max_length=254)
     display_name: str = Field(min_length=1, max_length=120)
-    role: Role
 
     @field_validator("display_name")
     @classmethod
@@ -44,13 +72,12 @@ class PasswordReset(BaseModel):
         return value.strip().lower() if isinstance(value, str) else value
 
 
-class AccountView(BaseModel):
+class AccountView(AccountPermissions, AccountRoles):
     model_config = ConfigDict(from_attributes=True, frozen=True)
 
     id: UUID
     email: str
     display_name: str
-    role: Role
     is_active: bool
 
 

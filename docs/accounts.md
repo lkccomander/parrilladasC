@@ -24,11 +24,11 @@ Si la llave está en otra ubicación, ajustar `--identity-file`. El comando soli
 
 ## Gestión desde el panel
 
-- Crear cuentas con correo único, nombre y rol Admin/Sales.
+- Crear cuentas con correo único, nombre y roles mediante casillas Admin/Sales/Dev.
 - Editar los datos y cambiar la contraseña de forma opcional.
 - Desactivar/reactivar cuentas. No se borran: se conserva el historial comercial y sus claves foráneas.
 - Cada edición revoca las sesiones de la cuenta afectada. Si se edita la cuenta propia, debe volver a ingresar.
-- Un Admin no puede desactivar su propia cuenta ni quitarse el rol Admin. Otra cuenta Admin puede realizar esos cambios, conservando siempre un administrador activo mediante operaciones serializadas.
+- Una cuenta no puede desactivarse a sí misma ni quitarse todos los roles con acceso administrativo (Admin o Dev). Otra cuenta Admin puede realizar esos cambios, conservando siempre un administrador activo mediante operaciones serializadas.
 
 Para recuperar una contraseña desde una sesión privada del operador:
 
@@ -63,3 +63,26 @@ Las pruebas de cuentas usan exclusivamente `TEST_DATABASE_URL` con PostgreSQL va
 La migración `0002` agrega sesiones y contadores; no modifica ni elimina las cuentas o el historial comercial. En Railway se aplica antes del despliegue mediante `alembic upgrade head`.
 
 Referencias: [OWASP Password Storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html), [OWASP Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html), [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html), [argon2-cffi](https://argon2-cffi.readthedocs.io/en/stable/howto.html).
+
+
+## Roles múltiples y acceso Dev (Beta 1.14)
+
+La migración `0009` copia el rol existente a `accounts.roles`, sin asignar Dev a ninguna
+cuenta existente. El campo `role` se conserva como rol principal de compatibilidad;
+los permisos se calculan desde la colección validada. Se exige al menos un rol,
+solo se aceptan Admin, Sales y Dev, y las solicitudes rechazan duplicados.
+
+Dev hereda todos los permisos administrativos. Admin y Dev se pueden asignar juntos.
+Admin puede asignar/desasignar los roles desde Cuentas; cada cambio revoca las sesiones
+de la cuenta editada. Para habilitar RAG en una cuenta actual, marcar Dev, guardar
+cambios y volver a iniciar sesión si se editó la cuenta propia.
+
+RAG está en `/dashboard/rag`, con telemetría en `/dashboard/rag/telemetry`.
+El API expone `/rag/knowledge` y `/rag/telemetry`; ambos exigen Dev. Las rutas antiguas
+`/assistant/knowledge`, `/assistant/telemetry` y `/dashboard/assistant/telemetry`
+conservan el mismo requisito Dev. Ocultar enlaces no sustituye la autorización.
+Admin sin Dev conserva Asistente, configuración comercial, integraciones y cuentas,
+pero no puede consultar conocimiento ni telemetría RAG.
+
+La degradación a `0008` conserva un único rol: Dev se convierte en Admin, dado que
+esa versión no conoce el rol Dev ni la sección exclusiva RAG.

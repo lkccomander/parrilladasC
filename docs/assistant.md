@@ -295,3 +295,12 @@ y definir archivado antes de ampliar el volumen operativo.
 Referencias de los campos de uso: [respuesta GenerateContent de Google](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/rest/v1/GenerateContentResponse)
 y tipos `GenerateContentResponseUsageMetadata`, `EmbedContentMetadata` y
 `ContentEmbeddingStatistics` del SDK instalado.
+
+
+### Acceso técnico desde Beta 1.14
+
+El conocimiento publicado y la telemetría se consultan en Admin → RAG, exclusivamente
+con Dev. Dev incluye los permisos Admin; Admin sin Dev conserva la configuración de
+modo y asesor. Las rutas API canónicas son `/rag/knowledge` y `/rag/telemetry`.
+Los enlaces anteriores de este documento describen la publicación inicial; sus
+alias técnicos también requieren Dev a partir de la migración `0009`.

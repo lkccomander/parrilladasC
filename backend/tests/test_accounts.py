@@ -622,3 +622,119 @@ def test_integration_diagnostics_enforce_api_admin_role_and_csrf(account_client)
     }
     assert client.api.get(path, headers=headers).status_code == 403
     assert client.api.post(f"{path}/check", headers=headers).status_code == 403
+
+
+@pytest.mark.parametrize("roles", [[Role.DEV], [Role.ADMIN, Role.DEV], [Role.SALES, Role.DEV]])
+def test_dev_inherits_admin_and_sees_private_rag(account_client, roles):
+    client, engine, admin = account_client
+    with Session(engine) as session:
+        account = AccountService(session).create_account(
+            admin.id,
+            AccountCreate(
+                email="dev@example.com", display_name="Developer", roles=roles, password=PASSWORD
+            ),
+        )
+    assert set(account.roles) == set(roles)
+    assert account.is_admin and account.is_dev
+    assert login(client, "dev@example.com").status_code == 303
+    token = client.cookies.get("parrilladas_session")
+    headers = {"Authorization": f"Bearer {token}"}
+    for path in (
+        "/accounts",
+        "/assistant/preferences",
+        "/assistant/preferences/advisor",
+        "/conversations/interactions",
+        "/rag/knowledge",
+        "/rag/telemetry",
+        "/assistant/knowledge",
+        "/assistant/telemetry",
+    ):
+        assert client.api.get(path, headers=headers).status_code == 200, path
+    for path in (
+        "/dashboard/accounts",
+        "/dashboard/assistant",
+        "/dashboard/integrations",
+        "/dashboard/interactions",
+        "/dashboard/rag",
+        "/dashboard/rag/telemetry",
+    ):
+        assert client.get(path).status_code == 200, path
+    assert 'href="/dashboard/rag"' in client.get("/dashboard").text
+    assert "Conocimiento del negocio" not in client.get("/dashboard/assistant").text
+
+
+def test_checkbox_roles_add_remove_and_revoke_sessions(account_client):
+    client, engine, admin = account_client
+    login(client)
+    form = account_form(client, email="dev@example.com")
+    form.pop("role")
+    form.update(role_admin="on", role_dev="on")
+    assert (
+        client.post("/dashboard/accounts/new", data=form, follow_redirects=False).status_code == 303
+    )
+    with Session(engine) as session:
+        account = session.scalar(select(Account).where(Account.email == "dev@example.com"))
+        account_id = account.id
+        assert set(account.roles) == {Role.ADMIN, Role.DEV}
+    page = client.get(f"/dashboard/accounts/{account_id}")
+    assert re.search(r'name="role_admin"[^>]*checked', page.text)
+    assert re.search(r'name="role_dev"[^>]*checked', page.text)
+    token = client.cookies.get("parrilladas_session")
+    headers = {"Authorization": f"Bearer {token}"}
+    own_context = client.api.get("/auth/me", headers=headers).json()
+    with Session(engine) as session:
+        service = AccountService(session)
+        anon = service.anonymous_session()
+        live = service.login("dev@example.com", PASSWORD, anon.context.id)
+    from parrilladas.modules.accounts.jwt_tokens import issue_credentials
+
+    dev_token = issue_credentials(live, client.api_settings).token
+    dev_headers = {"Authorization": f"Bearer {dev_token}"}
+    assert client.api.get("/rag/knowledge", headers=dev_headers).status_code == 200
+    # Assigning no roles must not silently fall back to Sales.
+    update = dict(form, csrf_token=csrf(page), is_active="on")
+    update.pop("role_admin")
+    update.pop("role_dev")
+    assert client.post(f"/dashboard/accounts/{account_id}", data=update).status_code == 422
+    update["role_admin"] = "on"
+    assert (
+        client.post(
+            f"/dashboard/accounts/{account_id}", data=update, follow_redirects=False
+        ).status_code
+        == 303
+    )
+    with Session(engine) as session:
+        assert AccountService(session).context_by_id(live.context.id) is None
+        assert session.get(Account, account_id).roles == [Role.ADMIN]
+    assert client.api.get("/rag/knowledge", headers=dev_headers).status_code == 401
+    # Logging in again without Dev must not recover RAG access.
+    with Session(engine) as session:
+        service = AccountService(session)
+        anon = service.anonymous_session()
+        reduced = service.login("dev@example.com", PASSWORD, anon.context.id)
+    reduced_token = issue_credentials(reduced, client.api_settings).token
+    assert (
+        client.api.get(
+            "/rag/knowledge", headers={"Authorization": f"Bearer {reduced_token}"}
+        ).status_code
+        == 403
+    )
+    # Role changes require CSRF at the API boundary too.
+    denied = client.api.patch(
+        f"/accounts/{account_id}",
+        headers=headers,
+        json={
+            "email": "dev@example.com",
+            "display_name": "Developer",
+            "roles": ["dev"],
+            "is_active": True,
+        },
+    )
+    assert denied.status_code == 403
+    assert own_context["account"]["roles"] == ["admin"]
+
+
+@pytest.mark.parametrize("roles", [[], ["unknown"], ["dev", "dev"]])
+def test_invalid_role_sets_are_rejected(roles):
+    with pytest.raises(ValidationError):
+        AccountCreate(email="dev@example.com", display_name="Dev", roles=roles, password=PASSWORD)

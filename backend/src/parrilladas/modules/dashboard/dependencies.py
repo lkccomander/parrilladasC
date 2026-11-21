@@ -4,7 +4,6 @@ from urllib.parse import parse_qs
 
 from fastapi import Depends, HTTPException, Request
 
-from parrilladas.modules.accounts.contracts import Role
 from parrilladas.modules.accounts.schemas import SessionContext
 from parrilladas.modules.dashboard.client import AdminApiClient
 
@@ -35,12 +34,21 @@ Authenticated = Annotated[SessionContext, Depends(require_account)]
 
 
 def require_admin(context: Authenticated) -> SessionContext:
-    if context.account.role != Role.ADMIN:
+    if not context.account.is_admin:
         raise HTTPException(403, "Se requiere una cuenta Admin.")
     return context
 
 
 Admin = Annotated[SessionContext, Depends(require_admin)]
+
+
+def require_dev(context: Authenticated) -> SessionContext:
+    if not context.account.is_dev:
+        raise HTTPException(403, "Se requiere el rol Dev.")
+    return context
+
+
+Dev = Annotated[SessionContext, Depends(require_dev)]
 
 
 async def read_form(request: Request) -> dict[str, str]:

@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from parrilladas.modules.accounts.contracts import Role
 from parrilladas.modules.accounts.errors import AccessDenied
 from parrilladas.modules.accounts.schemas import AccountView
 from parrilladas.modules.conversations.handoffs import HandoffStatusService
@@ -29,7 +28,7 @@ class AssistantPreferenceService:
 
     @staticmethod
     def _require_admin(actor: AccountView) -> None:
-        if not actor.is_active or actor.role != Role.ADMIN:
+        if not actor.is_active or not actor.is_admin:
             raise AccessDenied("Se requiere una cuenta Admin activa.")
 
     def _view(self, row) -> AssistantPreferencesView:

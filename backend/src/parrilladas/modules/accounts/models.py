@@ -1,20 +1,33 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from parrilladas.db.base import Base, Record
-from parrilladas.modules.accounts.contracts import Role
+from parrilladas.modules.accounts.contracts import AccountPermissions, Role
 
 
-class Account(Record, Base):
+class Account(AccountPermissions, Record, Base):
     __tablename__ = "accounts"
+    __table_args__ = (
+        CheckConstraint(
+            "cardinality(roles) BETWEEN 1 AND 3 AND "
+            "roles <@ ARRAY['admin','sales','dev']::varchar[] AND "
+            "array_position(roles, NULL) IS NULL AND role = ANY(roles)",
+            name="valid_account_roles",
+        ),
+    )
 
     email: Mapped[str] = mapped_column(String(254), unique=True)
     display_name: Mapped[str] = mapped_column(String(120))
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default=Role.SALES)
+    roles: Mapped[list[str]] = mapped_column(
+        ARRAY(String(20)),
+        default=lambda context: [context.get_current_parameters().get("role", Role.SALES)],
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

@@ -71,3 +71,11 @@ Antes del primer ingreso en producción, el operador debe crear el Admin en una 
 - [ ] Herramientas de revisión operativa de envíos inciertos y evaluación ampliada del piloto real.
 
 Ver [piloto de extracción](assistant.md). La activación requiere gates del API y preferencia Admin. Google Calendar continúa fuera del alcance.
+
+
+## Área técnica RAG y Dev
+
+- [x] Roles múltiples Admin/Sales/Dev, migración conservadora `0009` y casillas en Cuentas.
+- [x] Dev hereda Admin; sección RAG y endpoints técnicos exclusivos de Dev.
+- [x] Conocimiento y telemetría trasladados desde Asistente a RAG.
+- [ ] Evidencia recuperada/seleccionada persistida por cada respuesta.

@@ -4,7 +4,7 @@
   <p class="eyebrow">PANEL COMERCIAL</p>
   <h1>Hola, {{ context.account.display_name }}</h1>
   <p class="lead">Su espacio para organizar la atención de Parrillas en su Casa.</p>
-  {% if context.account.role == "admin" %}
+  {% if context.account.is_admin %}
     <h2>Modo de atención</h2>
     {% if not preferences %}
       <p class="notice" role="status">No pudimos consultar el modo actual. Intente recargar la página.</p>
@@ -26,8 +26,8 @@
     <h2>Gestión del negocio</h2>
   {% endif %}
   <div class="grid">
-    {% if context.account.role == "admin" %}<section class="card"><span class="badge">Disponible</span><h2>Cuentas de acceso</h2><p>Administre el equipo, sus permisos y el acceso al panel.</p><a class="button" href="/dashboard/accounts">Administrar cuentas</a></section>{% endif %}
-    {% if context.account.role == "admin" %}
+    {% if context.account.is_admin %}<section class="card"><span class="badge">Disponible</span><h2>Cuentas de acceso</h2><p>Administre el equipo, sus permisos y el acceso al panel.</p><a class="button" href="/dashboard/accounts">Administrar cuentas</a></section>{% endif %}
+    {% if context.account.is_admin %}
       <section class="card">
         <span class="badge">Disponible</span>
         <h2>Meta y WhatsApp</h2>
@@ -35,14 +35,19 @@
         <a class="button" href="/dashboard/integrations">Ver integraciones</a>
       </section>
     {% endif %}
-    {% if context.account.role == "admin" %}
+    {% if context.account.is_admin %}
       <section class="card">
         <span class="badge">Disponible</span>
         <h2>Asistente</h2>
         <p>Guarde su preferencia de lenguaje natural y consulte el modo de atención actual.</p>
         <a class="button" href="/dashboard/assistant">Configurar asistente</a>
-        <a class="button quiet" href="/dashboard/assistant/telemetry">Telemetría Gemini</a>
       </section>
+    {% endif %}
+    {% if context.account.is_dev %}
+    <section class="card"><span class="badge">Dev</span><h2>RAG</h2>
+      <p>Conocimiento publicado, recuperación y telemetría Gemini.</p>
+      <a class="button" href="/dashboard/rag">Ver RAG</a>
+    </section>
     {% endif %}
     <section class="card">
       <span class="badge">Disponible</span>

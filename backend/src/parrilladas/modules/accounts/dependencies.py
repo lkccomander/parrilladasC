@@ -7,7 +7,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from parrilladas.db.session import get_session
-from parrilladas.modules.accounts.contracts import Role
 from parrilladas.modules.accounts.jwt_tokens import matches_context, verify_access
 from parrilladas.modules.accounts.schemas import SessionContext
 from parrilladas.modules.accounts.service import AccountService
@@ -51,12 +50,21 @@ Authenticated = Annotated[SessionContext, Depends(require_account)]
 
 
 def require_admin(context: Authenticated) -> SessionContext:
-    if context.account.role != Role.ADMIN:
+    if not context.account.is_admin:
         raise HTTPException(403, "Se requiere una cuenta Admin.")
     return context
 
 
 Admin = Annotated[SessionContext, Depends(require_admin)]
+
+
+def require_dev(context: Authenticated) -> SessionContext:
+    if not context.account.is_dev:
+        raise HTTPException(403, "Se requiere el rol Dev.")
+    return context
+
+
+Dev = Annotated[SessionContext, Depends(require_dev)]
 
 
 def check_csrf(request: Request, context: Context) -> None:

@@ -18,17 +18,13 @@
         <input name="email" type="email" value="{{ values.get('email', '') }}"
                maxlength="254" required autocomplete="off">
       </label>
-      <label>
-        Rol
-        <select name="role" required>
-          <option value="sales" {% if values.get('role') == 'sales' %}selected{% endif %}>
-            Sales · Atención y ventas
-          </option>
-          <option value="admin" {% if values.get('role') == 'admin' %}selected{% endif %}>
-            Admin · Acceso completo y cuentas
-          </option>
-        </select>
-      </label>
+      <fieldset>
+        <legend>Roles</legend>
+        <p class="help">Seleccione al menos uno. Dev incluye los permisos de Admin y acceso exclusivo a RAG.</p>
+        {% for role, label in [('sales', 'Sales · Atención y ventas'), ('admin', 'Admin · Administración y cuentas'), ('dev', 'Dev · Administración y RAG')] %}
+        <label class="checkbox"><input type="checkbox" name="role_{{ role }}" {% if role in values.get('roles', []) %}checked{% endif %}> {{ label }}</label>
+        {% endfor %}
+      </fieldset>
       <label>
         {{ 'Nueva contraseña (opcional)' if account else 'Contraseña inicial' }}
         <input name="password" type="password" autocomplete="new-password"

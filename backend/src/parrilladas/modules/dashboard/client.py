@@ -128,12 +128,10 @@ class AdminApiClient:
         params = {"days": days, "page": page}
         if operation:
             params["operation"] = operation
-        return TelemetryReport.model_validate(
-            self._call("GET", "/assistant/telemetry", params=params)
-        )
+        return TelemetryReport.model_validate(self._call("GET", "/rag/telemetry", params=params))
 
     def knowledge_overview(self) -> KnowledgeOverview:
-        return KnowledgeOverview.model_validate(self._call("GET", "/assistant/knowledge"))
+        return KnowledgeOverview.model_validate(self._call("GET", "/rag/knowledge"))
 
     def advisor_settings(self) -> AdvisorPreferencesView:
         return AdvisorPreferencesView.model_validate(

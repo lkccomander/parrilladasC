@@ -2,16 +2,17 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, Request
 
-from parrilladas.modules.accounts.dependencies import Admin
+from parrilladas.modules.accounts.dependencies import Dev
 
 from .telemetry_contracts import Operation, TelemetryReport
 
-router = APIRouter(prefix="/assistant/telemetry", tags=["assistant"])
+router = APIRouter(tags=["rag"])
 
 
-@router.get("", response_model=TelemetryReport)
+@router.get("/assistant/telemetry", response_model=TelemetryReport, include_in_schema=False)
+@router.get("/rag/telemetry", response_model=TelemetryReport)
 def telemetry(
-    context: Admin,
+    context: Dev,
     request: Request,
     days: Literal["1", "7", "30"] = "7",
     operation: Operation | None = None,

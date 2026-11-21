@@ -26,6 +26,7 @@ from parrilladas.modules.dashboard.dependencies import (
     Authenticated,
     CheckedForm,
     Context,
+    Dev,
     Service,
 )
 from parrilladas.modules.integrations.schemas import WhatsAppIntegrationStatus
@@ -42,11 +43,18 @@ def page(request: Request, name: str, status_code: int = 200, **context) -> HTML
     )
 
 
+def selected_roles(form):
+    # Legacy single-role forms remain accepted during the independent service rollout.
+    if "role" in form and not any(key.startswith("role_") for key in form):
+        return [form["role"]]
+    return [role for role in ("admin", "sales", "dev") if form.get("role_" + role) == "on"]
+
+
 def account_form_data(form: dict[str, str], *, creating: bool):
     values = {
         "email": form.get("email", ""),
         "display_name": form.get("display_name", ""),
-        "role": form.get("role", ""),
+        "roles": selected_roles(form),
         "password": form.get("password") or None,
     }
     if creating:
@@ -54,11 +62,11 @@ def account_form_data(form: dict[str, str], *, creating: bool):
     return AccountUpdate.model_validate({**values, "is_active": form.get("is_active") == "on"})
 
 
-def safe_values(form: dict[str, str]) -> dict[str, str | bool]:
+def safe_values(form: dict[str, str]) -> dict[str, object]:
     return {
         "email": form.get("email", ""),
         "display_name": form.get("display_name", ""),
-        "role": form.get("role", "sales"),
+        "roles": selected_roles(form),
         "is_active": form.get("is_active") == "on",
     }
 
@@ -136,7 +144,7 @@ def logout(
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, service: Service, context: Authenticated) -> HTMLResponse:
     preferences = None
-    if context.account.role == "admin":
+    if context.account.is_admin:
         try:
             preferences = service.assistant_preferences()
         except ApiUnavailable:
@@ -230,17 +238,12 @@ def assistant_page(request, service, context, preferences, *, saved=False, advis
     except (AccountNotFound, ApiUnavailable):
         # An older API may still serve requests during the separate rollout.
         advisor_info = None
-    try:
-        knowledge_info = service.knowledge_overview()
-    except (AccountNotFound, ApiUnavailable):
-        knowledge_info = None
     return page(
         request,
         "assistant.html",
         context=context,
         preferences=preferences,
         advisor_info=advisor_info,
-        knowledge_info=knowledge_info,
         saved=saved,
         advisor_saved=advisor_saved,
     )
@@ -302,7 +305,7 @@ def update_assistant_preferences(
 @router.get("/dashboard/accounts/new", response_class=HTMLResponse)
 def new_account(request: Request, context: Admin) -> HTMLResponse:
     return page(
-        request, "account_form.html", context=context, account=None, values={"role": "sales"}
+        request, "account_form.html", context=context, account=None, values={"roles": ["sales"]}
     )
 
 
@@ -318,7 +321,7 @@ def create_account(
         service.create_account(data)
     except (ValidationError, AccountConflict) as error:
         message = (
-            "Revise el correo, nombre, rol y contraseña (15–128 caracteres)."
+            "Revise el correo, nombre, roles y contraseña (15–128 caracteres)."
             if isinstance(error, ValidationError)
             else str(error)
         )
@@ -369,7 +372,7 @@ def update_account(
         service.update_account(account_id, data)
     except (ValidationError, AccountConflict) as error:
         message = (
-            "Revise el correo, nombre, rol y contraseña (15–128 caracteres)."
+            "Revise el correo, nombre, roles y contraseña (15–128 caracteres)."
             if isinstance(error, ValidationError)
             else str(error)
         )
@@ -393,10 +396,11 @@ def update_account(
 
 
 @router.get("/dashboard/assistant/telemetry", response_class=HTMLResponse)
+@router.get("/dashboard/rag/telemetry", response_class=HTMLResponse)
 def gemini_telemetry(
     request: Request,
     service: Service,
-    context: Admin,
+    context: Dev,
     days: Literal["1", "7", "30"] = "7",
     operation: Literal[
         "",
@@ -429,3 +433,19 @@ def gemini_telemetry(
         report=report,
         local_time=ZoneInfo("America/Costa_Rica"),
     )
+
+
+@router.get("/dashboard/rag", response_class=HTMLResponse)
+def rag_dashboard(request: Request, service: Service, context: Dev):
+    try:
+        knowledge_info = service.knowledge_overview()
+    except (AccountNotFound, ApiUnavailable):
+        return page(
+            request,
+            "rag.html",
+            503,
+            context=context,
+            knowledge_info=None,
+            error="No pudimos consultar el conocimiento publicado. Intente nuevamente.",
+        )
+    return page(request, "rag.html", context=context, knowledge_info=knowledge_info)

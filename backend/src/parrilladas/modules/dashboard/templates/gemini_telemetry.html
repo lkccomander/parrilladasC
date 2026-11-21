@@ -5,10 +5,10 @@
 {% set labels = {'extraction':'Extracción', 'embedding_document':'Embedding de catálogo', 'embedding_query':'Embedding de consulta', 'grounding':'Selección de evidencia', 'extraction_result':'Resultado de extracción', 'rag_result':'Resultado RAG'} %}
 {% set statuses = {'ok':'Correcto','error':'Error','invalid_output':'Salida inválida','no_evidence':'Sin evidencia','fallback':'Respaldo'} %}
 {% block content %}
-<p class="eyebrow">ASISTENTE · OBSERVABILIDAD</p>
+<p class="eyebrow">RAG · OBSERVABILIDAD</p>
 <h1>Telemetría Gemini</h1>
 <p class="lead">Consumo y funcionamiento de Gemini y del conocimiento del negocio.</p>
-<p><a href="/dashboard/assistant">Volver al asistente</a></p>
+<p><a href="/dashboard/rag">Volver a RAG</a></p>
 {% if report %}
 <form class="interaction-filters" method="get">
   <label>Período<select name="days">{% for value,label in [(1,'Últimas 24 horas'),(7,'Últimos 7 días'),(30,'Últimos 30 días')] %}<option value="{{ value }}" {% if report.days == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>

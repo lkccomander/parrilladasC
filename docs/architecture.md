@@ -128,3 +128,18 @@ Las decisiones internas y las invocaciones Google se cuentan por separado. Los
 agregados se calculan en SQL con filtro del tenant activo, ventana temporal y
 paginación acotada. El Admin recibe únicamente contratos HTTP y no abre conexiones
 SQL. La telemetría es operativa y de mejor esfuerzo; no sustituye Cloud Billing.
+
+
+## Área RAG y roles múltiples
+
+El Admin agrupa conocimiento publicado y telemetría Gemini en la sección RAG,
+exclusiva de Dev. Las rutas JSON correspondientes también exigen Dev y tienen
+prefijo `/rag`; los alias anteriores conservan la misma autorización. Asistente
+mantiene preferencias del modo y derivación comercial. Los servicios RAG siguen
+en `modules/assistant`, junto a sus contratos y repositorios: el cambio organiza
+la navegación y los permisos sin añadir un servicio desplegable.
+
+`accounts.roles` permite varios roles por cuenta. Dev hereda Admin y añade RAG;
+Admin sin Dev no accede al área técnica. Las dependencias HTTP y los servicios
+usan la misma semántica de permisos. La migración `0009` conserva el acceso previo
+sin otorgar Dev automáticamente. Las ediciones revocan las sesiones existentes.

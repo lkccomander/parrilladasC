@@ -2,13 +2,13 @@
 
 ## Documento de referencia del proyecto
 
-**Versión:** 1.8
+**Versión:** 1.9
 
 **Fecha:** 20 de octubre de 2026
 
-**Última actualización:** 18 de noviembre de 2026 (America/Costa_Rica)
+**Última actualización:** 21 de noviembre de 2026 (America/Costa_Rica)
 
-**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.13 (`1.0.0-beta.14`) agrega telemetría operativa persistida en PostgreSQL y panel Admin → Asistente → Telemetría Gemini. Catálogo aprobado versionado y consulta de interacciones disponibles. Ver secciones 28 y 29 para despliegue y comprobaciones reales.
+**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.14 (`1.0.0-beta.15`) incorpora roles múltiples y una sección RAG exclusiva de Dev, con conocimiento publicado y telemetría Gemini. Ver sección 30 para validación y estado de publicación.
 
 **Carpeta de trabajo:** `proyect_brain`
 
@@ -1342,3 +1342,19 @@ aprobados; Ruff, formato, dependencias y wheel verificados.
 La captura comienza al desplegar esta versión. No reconstruye llamadas históricas ni
 incluye llamadas externas de Studio. No almacena mensajes, respuestas, teléfonos,
 credenciales ni errores crudos. La retención no borra datos automáticamente.
+
+
+## 30. Roles múltiples y área RAG exclusiva de Dev · 21 de noviembre de 2026
+
+Implementación Beta 1.14 (`1.0.0-beta.15`).
+
+- [x] Migración `0009`: colección de roles por cuenta, conservando roles anteriores sin promoción a Dev.
+- [x] Casillas Admin, Sales y Dev; combinaciones permitidas y mínimo un rol.
+- [x] Dev hereda Admin; cambios de permisos revocan sesiones.
+- [x] Área `/dashboard/rag`: conocimiento publicado y acceso a telemetría Gemini.
+- [x] API `/rag/knowledge` y `/rag/telemetry` exclusivo de Dev; alias anteriores igualmente protegidos.
+- [x] Asistente conserva modo de atención y configuración del asesor.
+- [ ] Persistir fuentes recuperadas/seleccionadas por respuesta y presentar su detalle.
+
+No se agregan dependencias, servicios ni una base de datos. Los precios siguen manuales.
+Validación local: 334 pruebas aprobadas con PostgreSQL vacío y desechable; Ruff, formato, `pip check` y wheel con catálogo y plantilla RAG verificados. Publicación CI/CD en curso.

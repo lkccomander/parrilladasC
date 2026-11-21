@@ -115,3 +115,52 @@ def test_advisor_upgrade_preserves_existing_conversation_and_message(monkeypatch
                     connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
         finally:
             engine.dispose()
+
+
+@pytest.mark.postgres
+def test_multiple_roles_migration_preserves_access_without_granting_dev(monkeypatch):
+    from uuid import uuid4
+
+    url = os.environ.get("TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("Use an empty, disposable PostgreSQL database")
+    monkeypatch.setenv("DATABASE_URL", url)
+    config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
+    engine = create_engine(url)
+    owns_empty_database = False
+    try:
+        assert not inspect(engine).get_table_names(), "Use an empty, disposable test database"
+        owns_empty_database = True
+        command.upgrade(config, "0008")
+        admin_id, sales_id = uuid4(), uuid4()
+        with engine.begin() as connection:
+            for account_id, role in ((admin_id, "admin"), (sales_id, "sales")):
+                connection.execute(
+                    text(
+                        "INSERT INTO accounts "
+                        "(id,created_at,email,display_name,password_hash,role,is_active) "
+                        "VALUES (:id,now(),:email,'Migration fixture',"
+                        "'not-a-live-password',:role,true)"
+                    ),
+                    {"id": account_id, "email": role + "@example.com", "role": role},
+                )
+        command.upgrade(config, "head")
+        with engine.begin() as connection:
+            rows = connection.execute(text("SELECT role,roles FROM accounts ORDER BY role")).all()
+            assert rows == [("admin", ["admin"]), ("sales", ["sales"])]
+            connection.execute(
+                text("UPDATE accounts SET role='dev',roles=ARRAY['dev'] WHERE id=:id"),
+                {"id": sales_id},
+            )
+        command.downgrade(config, "0008")
+        with engine.connect() as connection:
+            assert (
+                connection.scalar(text("SELECT role FROM accounts WHERE id=:id"), {"id": sales_id})
+                == "admin"
+            )
+    finally:
+        if owns_empty_database:
+            command.downgrade(config, "base")
+            with engine.begin() as connection:
+                connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
+        engine.dispose()

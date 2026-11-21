@@ -20,12 +20,12 @@
         </a>
         {% if context and context.account %}
           <div class="identity">
-            {% if context.account.role == 'admin' and preferences is defined %}
+            {% if context.account.is_admin and preferences is defined %}
               {% include "assistant_mode_badge.html" %}
             {% endif %}
             <span>
               {{ context.account.display_name }}
-              <small>{{ 'Admin' if context.account.role == 'admin' else 'Sales' }}</small>
+              <small>{{ context.account.roles | join(' · ') }}</small>
             </span>
             <form method="post" action="/logout">
               <input type="hidden" name="csrf_token" value="{{ context.csrf_token }}">
@@ -40,7 +40,7 @@
              {% if request.url.path == '/dashboard' %}aria-current="page"{% endif %}>Inicio</a>
           <a href="/dashboard/interactions"
              {% if request.url.path.startswith('/dashboard/interactions') %}aria-current="page"{% endif %}>Atención y ventas</a>
-          {% if context.account.role == 'admin' %}
+          {% if context.account.is_admin %}
             <a href="/dashboard/accounts"
                {% if request.url.path.startswith('/dashboard/accounts') %}aria-current="page"{% endif %}>
               Cuentas
@@ -53,6 +53,9 @@
                {% if request.url.path.startswith('/dashboard/assistant') %}aria-current="page"{% endif %}>
               Asistente
             </a>
+          {% endif %}
+          {% if context.account.is_dev %}
+          <a href="/dashboard/rag" {% if request.url.path.startswith('/dashboard/rag') or request.url.path == '/dashboard/assistant/telemetry' %}aria-current="page"{% endif %}>RAG</a>
           {% endif %}
         </nav>
       {% endif %}

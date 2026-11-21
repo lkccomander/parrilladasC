@@ -42,7 +42,7 @@ class AccountService:
 
     def _require_admin(self, actor_id: UUID) -> Account:
         actor = self.repo.by_id(actor_id)
-        if actor is None or not actor.is_active or actor.role != Role.ADMIN:
+        if actor is None or not actor.is_active or not actor.is_admin:
             raise AccessDenied("Se requiere una cuenta Admin activa.")
         return actor
 
@@ -54,6 +54,7 @@ class AccountService:
             display_name=data.display_name,
             password_hash=hash_password(data.password.get_secret_value()),
             role=data.role,
+            roles=data.roles,
             is_active=True,
         )
         self.repo.add(account)
@@ -94,7 +95,9 @@ class AccountService:
             account = self.repo.by_id(account_id)
             if account is None:
                 raise AccountNotFound("Cuenta no encontrada.")
-            if account_id == actor_id and (not data.is_active or data.role != Role.ADMIN):
+            if account_id == actor_id and (
+                not data.is_active or not {Role.ADMIN, Role.DEV}.intersection(data.roles)
+            ):
                 raise AccountConflict("No puede desactivar ni quitar su propio rol Admin.")
             existing = self.repo.by_email(str(data.email))
             if existing and existing.id != account_id:
@@ -102,6 +105,7 @@ class AccountService:
             account.email = str(data.email)
             account.display_name = data.display_name
             account.role = data.role
+            account.roles = data.roles
             account.is_active = data.is_active
             if data.password:
                 account.password_hash = hash_password(data.password.get_secret_value())

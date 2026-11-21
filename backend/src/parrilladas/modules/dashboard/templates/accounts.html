@@ -16,7 +16,7 @@
         <tr>
           <th scope="col">Nombre</th>
           <th scope="col">Correo</th>
-          <th scope="col">Rol</th>
+          <th scope="col">Roles</th>
           <th scope="col">Estado</th>
           <th scope="col"><span class="sr-only">Acciones</span></th>
         </tr>
@@ -29,7 +29,7 @@
               {% if account.id == context.account.id %}<small>(usted)</small>{% endif %}
             </td>
             <td>{{ account.email }}</td>
-            <td>{{ 'Admin' if account.role == 'admin' else 'Sales' }}</td>
+            <td>{{ account.roles | join(' · ') }}</td>
             <td>
               <span class="badge {{ 'muted' if not account.is_active else '' }}">
                 {{ 'Activa' if account.is_active else 'Inactiva' }}
@@ -46,6 +46,6 @@
   </div>
   <p class="help">
     Las cuentas se desactivan para conservar su historial.
-    Admin administra cuentas; Sales accede a las funciones comerciales.
+    Admin administra cuentas; Sales accede a las funciones comerciales. Dev incluye Admin y acceso exclusivo a RAG.
   </p>
 {% endblock %}
