@@ -1399,6 +1399,8 @@ Sin modificaciones de cuentas, llamadas IA ni mensajes de WhatsApp en la verific
 Actualización de configuración (21 de noviembre): el operador creó `DEV_ROLE_KEY`
 en el servicio API. Se aplicó el único cambio pendiente del entorno. La validación
 rechazó su longitud mínima y el despliegue `a7eb3e42-3d42-42cc-a985-128d68b3be9d`
-falló; Railway mantiene la versión anterior activa con ready 200. La variable aún
-figura sin sellar. Pendiente: reemplazar por un secreto aleatorio de 32–256 caracteres,
-sellarlo y aplicar cambios. No se registró el valor ni se modificaron cuentas.
+falló; Railway mantiene la versión anterior activa con ready 200. El sellado quedó aplicado después, mediante el patch
+`e84f84af-7efa-4fcf-9c1d-c580e6fb2a23`. Un redespliegue del API
+`2a78ee49-e4c4-455f-bde8-6ca730e0d549` vuelve a rechazar la longitud mínima al arrancar.
+Pendiente: reemplazar el secreto sellado por uno aleatorio de 32–256 caracteres
+y aplicar cambios. No se registró el valor ni se modificaron cuentas.
