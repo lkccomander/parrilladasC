@@ -1381,7 +1381,7 @@ Beta 1.15 (`1.0.0-beta.16`).
 - [x] Protege creación, promoción, reactivación y cambios de credenciales de cuentas Dev.
 - [x] Conservar/quitar Dev y editar nombres no requiere llave; permisos y CSRF siguen vigentes.
 - [x] La llave no se almacena en PostgreSQL ni se devuelve o rellena en formularios.
-- [ ] Configurar el secreto elegido por el operador como variable sellada en Railway `api`.
+- [x] Configurar el secreto elegido por el operador como variable sellada en Railway `api`.
 
 No cambia el esquema ni se modifican cuentas existentes. Validación local: 344 pruebas aprobadas, Ruff/formato, `pip check` y wheel verificados.
 [CI 44957314432](https://github.com/lkccomander/parrilladasC/actions/runs/44957314432) aprobó las mismas 344 pruebas y empaquetado.
@@ -1402,5 +1402,14 @@ rechazó su longitud mínima y el despliegue `a7eb3e42-3d42-42cc-a985-128d68b3be
 falló; Railway mantiene la versión anterior activa con ready 200. El sellado quedó aplicado después, mediante el patch
 `e84f84af-7efa-4fcf-9c1d-c580e6fb2a23`. Un redespliegue del API
 `2a78ee49-e4c4-455f-bde8-6ca730e0d549` vuelve a rechazar la longitud mínima al arrancar.
-Pendiente: reemplazar el secreto sellado por uno aleatorio de 32–256 caracteres
-y aplicar cambios. No se registró el valor ni se modificaron cuentas.
+En ese intento quedó pendiente reemplazar el secreto sellado por uno aleatorio de
+32–256 caracteres y aplicar cambios. No se registró el valor ni se modificaron cuentas.
+
+Configuración resuelta (21 de noviembre): el operador reemplazó la llave sellada.
+Se aplicó el patch `d4c3435b-6fa6-4c53-a47e-e0eae03a38e3`, limitado a
+`DEV_ROLE_KEY` del API. Despliegue `e7046a2d-aefe-448d-9c3f-a03b20bf3816`:
+SUCCESS, versión `1.0.0-beta.16`, migración `0009`, ready 200.
+La comprobación dentro del servicio confirmó referencia configurada, comparación
+correcta y rechazo cuando falta la llave. La variable está sellada en API y ausente
+en Admin. No se mostró el secreto, modificaron cuentas ni realizaron llamadas de
+IA o envíos de WhatsApp. El operador ya puede asignar Dev desde Cuentas con su llave.
