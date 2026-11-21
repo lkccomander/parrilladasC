@@ -1383,4 +1383,14 @@ Beta 1.15 (`1.0.0-beta.16`).
 - [x] La llave no se almacena en PostgreSQL ni se devuelve o rellena en formularios.
 - [ ] Configurar el secreto elegido por el operador como variable sellada en Railway `api`.
 
-No cambia el esquema ni se modifican cuentas existentes. Validación local: 344 pruebas aprobadas, Ruff/formato, `pip check` y wheel verificados. Publicación CI/CD en curso.
+No cambia el esquema ni se modifican cuentas existentes. Validación local: 344 pruebas aprobadas, Ruff/formato, `pip check` y wheel verificados.
+[CI 44957314432](https://github.com/lkccomander/parrilladasC/actions/runs/44957314432) aprobó las mismas 344 pruebas y empaquetado.
+
+Desplegado el commit `7176777` en API `648e963e-3d10-43dc-9e5c-6854c60e691c`
+y Admin `b9e1ee6b-8062-4b3b-b7db-fbabbd3c7f98`, ambos SUCCESS.
+Comprobación de solo lectura: versión `1.0.0-beta.16`, migración sin cambios `0009`,
+formulario privado empaquetado y autorización sin llave rechazada. `DEV_ROLE_KEY`
+aún no está configurada en el API: nuevas concesiones Dev bloqueadas hasta que el
+operador guarde y aplique esa variable sellada. No se leyó ni mostró su valor;
+solo se comprobó presencia. API ready 200, Admin muestra Beta 1.15 y RAG anónimo 401.
+Sin modificaciones de cuentas, llamadas IA ni mensajes de WhatsApp en la verificación.
