@@ -32,11 +32,15 @@ class ConversationWorker:
                 self.sender,
                 assistant=self.assistant,
                 quote_flow_id=self.settings.whatsapp_quote_flow_id,
-                notification_whatsapp_numbers=parse_recipients(
-                    self.settings.notification_whatsapp_numbers
+                notification_whatsapp_numbers=(
+                    parse_recipients(self.settings.notification_whatsapp_numbers)
+                    if self.settings.app_env != "test"
+                    else ()
                 ),
-                notification_email_recipients=parse_recipients(
-                    self.settings.notification_email_recipients
+                notification_email_recipients=(
+                    parse_recipients(self.settings.notification_email_recipients)
+                    if self.settings.app_env != "test"
+                    else ()
                 ),
             )
             processed = service.process_next(

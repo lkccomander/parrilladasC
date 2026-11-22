@@ -107,11 +107,15 @@ async def receive_webhook(
                         session,
                         sender,
                         quote_flow_id=settings.whatsapp_quote_flow_id,
-                        notification_whatsapp_numbers=parse_recipients(
-                            settings.notification_whatsapp_numbers
+                        notification_whatsapp_numbers=(
+                            parse_recipients(settings.notification_whatsapp_numbers)
+                            if settings.app_env != "test"
+                            else ()
                         ),
-                        notification_email_recipients=parse_recipients(
-                            settings.notification_email_recipients
+                        notification_email_recipients=(
+                            parse_recipients(settings.notification_email_recipients)
+                            if settings.app_env != "test"
+                            else ()
                         ),
                     ).receive,
                     events,
