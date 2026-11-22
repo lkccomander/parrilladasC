@@ -1437,3 +1437,8 @@ Se reutilizan `knowledge_documents`, `knowledge_chunks` y `gemini_telemetry`.
 No se creó un contador paralelo de llamadas ni se hicieron llamadas Gemini,
 mensajes de WhatsApp o cambios de cuentas durante las pruebas locales.
 El plan y las decisiones de adaptación están en [docs/rag-monitoring-plan.md](../docs/rag-monitoring-plan.md).
+
+Validación y despliegue: CI `44989008170` pasó pruebas, migraciones PostgreSQL/pgvector,
+empaquetado y catálogo. El commit `f015f01` está activo en API
+`402a9386-1e76-4aee-897a-9c72b0507522` y Admin
+`21e4266e-8def-40fc-8fcf-9d2fa32720ac`, ambos `SUCCESS`; API y Admin ready 200.

@@ -1,6 +1,6 @@
 # Plan de implementación: RAG → Monitoreo
 
-Estado: implementado en Beta 1.16; pendiente de despliegue posterior a CI.
+Estado: implementado y desplegado en Beta 1.16.
 Fecha: 21 de noviembre de 2026.
 Especificación: `logs/rag-dashboard-implementation-spec.md`.
 
@@ -112,4 +112,5 @@ como cero. El mapa de conocimiento, SSE y nuevas dependencias pesadas quedan fue
 
 La especificación exigía confirmar el plan antes de programar (regla 0.1).
 La confirmación del operador fue recibida; las fases descritas ya están integradas
-en el árbol de aplicación y la validación local pasó sin una base comercial.
+en el árbol de aplicación. CI `44989008170` pasó con PostgreSQL/pgvector
+desechable y el despliegue de `f015f01` quedó activo en API y Admin.
