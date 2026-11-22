@@ -38,7 +38,7 @@ from parrilladas.modules.conversations.models import (
     Message,
     WhatsAppInboxEvent,
 )
-from parrilladas.modules.conversations.repository import InboxRepository
+from parrilladas.modules.conversations.repository import ConversationRepository, InboxRepository
 from parrilladas.modules.conversations.service import ConversationService, InboxService
 from parrilladas.modules.conversations.worker import ConversationWorker
 
@@ -1223,6 +1223,31 @@ def test_advisor_delivery_webhooks_update_status_without_regression(natural_work
         report = AssistantPreferenceService(session).get_advisor(state.actor)
         assert report.notifications[0].status == "read"
     assert len(state.outbound) == 3
+
+
+@pytest.mark.postgres
+def test_confirmation_delivery_webhooks_update_status(natural_worker):
+    state = natural_worker
+    with Session(state.engine) as session, session.begin():
+        conversation = session.scalar(select(Conversation))
+        repository = ConversationRepository(session)
+        notice = repository.add_outbound(
+            conversation_id=conversation.id,
+            event_key="confirmation-status-test",
+            content=json.dumps({"channel": "whatsapp"}),
+            recipient="15550000009",
+            purpose="confirmation_notification",
+            delivery_status="sent",
+        )
+        notice.external_message_id = "wamid.confirmation-status"
+        repository.update_advisor_status(notice.external_message_id, "delivered")
+        repository.update_advisor_status(notice.external_message_id, "read")
+        repository.update_advisor_status(notice.external_message_id, "sent")
+    with Session(state.engine) as session:
+        notice = session.scalar(
+            select(Message).where(Message.event_key == "confirmation-status-test")
+        )
+        assert notice.delivery_status == "read"
 
 
 @pytest.mark.postgres

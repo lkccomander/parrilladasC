@@ -326,7 +326,13 @@ class ConversationRepository:
 
     def update_advisor_status(self, external_id: str, status: str) -> None:
         row = self.outbound_context(external_id)
-        if row is None or row.purpose != "advisor_notification":
+        # Meta sends delivery callbacks for every outbound WhatsApp message.
+        # Confirmation notices use a different purpose, but need the same
+        # delivery lifecycle as advisor handoffs.
+        if row is None or row.purpose not in {
+            "advisor_notification",
+            "confirmation_notification",
+        }:
             return
         ranks = {"sent": 1, "delivered": 2, "read": 3}
         if (
