@@ -867,3 +867,41 @@ td a {
 
 .telemetry-metrics .metric-value { font-size: 2rem; font-weight: 700; margin: .5rem 0; }
 meter { width: min(14rem, 100%); accent-color: var(--accent); }
+
+/* Dev-only RAG monitoring, matching the existing Admin palette. */
+.rag-subnav, .rag-range, .rag-steps { display: flex; flex-wrap: wrap; gap: .75rem; }
+.rag-subnav { margin: 1rem 0 2rem; align-items: center; }
+.rag-subnav a { min-height: 44px; display: inline-flex; align-items: center; }
+.rag-monitoring-header { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.rag-range { align-items: center; }
+.rag-range button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 3px; }
+.rag-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
+.rag-kpi h2 { font: inherit; font-weight: 650; margin: 0; }
+.rag-kpi-value { font: 1.8rem var(--mono); margin: 1rem 0; }
+.rag-status { display: inline-block; border-radius: 1rem; padding: .2rem .65rem; font-size: .8rem; font-weight: 650; }
+.rag-status-ok { background: #e3f4ea; color: #17653f; }
+.rag-status-healthy { background: #e3f4ea; color: #17653f; }
+.rag-status-watch { background: #fff1d6; color: #7a4b00; }
+.rag-status-breach { background: #fbe4e1; color: #9b2c20; }
+.rag-status-not_measured { background: #3c3e3a; color: #f2f1ee; }
+.rag-two-columns, .rag-health-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.rag-metric-row { border-bottom: 1px solid var(--line); padding: 1rem 0; }
+.rag-metric-row > div { display: flex; justify-content: space-between; gap: 1rem; }
+.rag-metric-row progress { width: 100%; height: .5rem; accent-color: var(--accent); }
+.rag-metric-row .help { margin: .5rem 0; }
+.rag-table-scroll { overflow-x: auto; }
+.rag-table-scroll table { width: 100%; border-collapse: collapse; }
+.rag-table-scroll caption { text-align: left; padding: .75rem 0; color: var(--muted); }
+.rag-table-scroll th, .rag-table-scroll td { text-align: left; padding: .8rem; border-bottom: 1px solid var(--line); }
+.rag-definition-list { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .5rem 1rem; }
+.rag-definition-list dd { margin: 0; overflow-wrap: anywhere; }
+.rag-sparkline { max-width: 600px; width: 100%; height: 90px; color: var(--accent); }
+.rag-alert { border-top: 1px solid var(--line); padding: 1rem 0; }
+.rag-steps { padding-left: 1.5rem; gap: 1.5rem; }
+#rag-monitoring-content section { margin-top: 1rem; }
+#rag-trace-detail { overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  .rag-two-columns, .rag-health-grid { grid-template-columns: 1fr; }
+  .rag-monitoring-header { display: block; }
+  .rag-range { margin-bottom: 1rem; }
+}

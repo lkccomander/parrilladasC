@@ -30,6 +30,11 @@ from parrilladas.modules.accounts.router import router as accounts_router
 from parrilladas.modules.assistant.config import AssistantSettings
 from parrilladas.modules.assistant.errors import ExtractionUnavailable
 from parrilladas.modules.assistant.knowledge_router import router as knowledge_router
+from parrilladas.modules.assistant.monitoring.evaluation import EvaluationService
+from parrilladas.modules.assistant.monitoring.instrumentation import TraceRecorder
+from parrilladas.modules.assistant.monitoring.router import router as monitoring_router
+from parrilladas.modules.assistant.monitoring.service import MonitoringService
+from parrilladas.modules.assistant.monitoring.worker import MonitoringWorker
 from parrilladas.modules.assistant.rag import KnowledgeService
 from parrilladas.modules.assistant.router import router as assistant_router
 from parrilladas.modules.assistant.service import AssistantService
@@ -89,6 +94,11 @@ def create_app(
         app.state.session_factory = sessionmaker(bind=engine, expire_on_commit=False)
         app.state.meta_http = meta_http if meta_http is not None else httpx.Client()
         app.state.telemetry = Telemetry(app.state.session_factory)
+        app.state.trace_recorder = TraceRecorder(
+            app.state.session_factory,
+            settings.jwt_secret,
+            retention_days=assistant_settings.rag_trace_retention_days,
+        )
         app.state.assistant_settings = assistant_settings
         provider = extractor
         if assistant_settings.natural_language_enabled and provider is None:
@@ -129,7 +139,21 @@ def create_app(
             knowledge_provider,
             assistant_settings,
             telemetry=app.state.telemetry,
+            recorder=app.state.trace_recorder,
         )
+        app.state.evaluations = EvaluationService(
+            app.state.session_factory, app.state.knowledge, assistant_settings
+        )
+        app.state.monitoring = MonitoringService(
+            app.state.session_factory, assistant_settings, evaluations=app.state.evaluations
+        )
+        monitoring_worker = None
+        if assistant_settings.rag_monitoring_enabled:
+            monitoring_worker = MonitoringWorker(
+                app.state.monitoring,
+                interval_seconds=assistant_settings.rag_monitoring_interval_seconds,
+            )
+            monitoring_worker.start()
         app.state.assistant = AssistantService(
             provider,
             enabled=assistant_settings.natural_language_enabled and provider is not None,
@@ -151,6 +175,8 @@ def create_app(
         finally:
             if worker is not None:
                 await run_in_threadpool(worker.stop)
+            if monitoring_worker is not None:
+                await run_in_threadpool(monitoring_worker.stop)
             if knowledge_provider is not None:
                 knowledge_provider.close()
             if provider is not None and extractor is None:
@@ -178,6 +204,7 @@ def create_app(
     app.include_router(assistant_router)
     app.include_router(knowledge_router)
     app.include_router(telemetry_router)
+    app.include_router(monitoring_router)
     app.include_router(conversations_router)
     app.include_router(whatsapp_router)
     app.include_router(integrations_router)

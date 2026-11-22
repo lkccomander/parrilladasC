@@ -1,0 +1,5 @@
+HTMX 2.0.11 (BSD-2-Clause), vendored without modification.
+Upstream: https://github.com/bigskysoftware/htmx/tree/v2.0.11
+Asset: https://raw.githubusercontent.com/bigskysoftware/htmx/v2.0.11/dist/htmx.min.js
+License: htmx.LICENSE
+Used only by the Dev RAG monitoring page; no runtime CDN dependency.

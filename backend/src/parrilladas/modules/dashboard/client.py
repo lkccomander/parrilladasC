@@ -17,6 +17,11 @@ from parrilladas.modules.accounts.schemas import (
     SessionContext,
     SessionCreated,
 )
+from parrilladas.modules.assistant.monitoring.schemas import (
+    EvalRunView,
+    MonitoringReport,
+    TraceDetail,
+)
 from parrilladas.modules.assistant.rag_contracts import KnowledgeOverview
 from parrilladas.modules.assistant.schemas import (
     AdvisorPreferencesView,
@@ -169,3 +174,19 @@ class AdminApiClient:
         return AccountView.model_validate(
             self._call("PATCH", f"/accounts/{account_id}", data=self._payload(data))
         )
+
+    def monitoring_report(self, *, days: int = 7) -> MonitoringReport:
+        return MonitoringReport.model_validate(
+            self._call("GET", "/rag/monitoring/summary", params={"days": days})
+        )
+
+    def monitoring_trace(self, trace_id: UUID) -> TraceDetail:
+        return TraceDetail.model_validate(self._call("GET", f"/rag/monitoring/traces/{trace_id}"))
+
+    def monitoring_start_eval(self, set_id: UUID) -> EvalRunView:
+        return EvalRunView.model_validate(
+            self._call("POST", "/rag/monitoring/eval-runs", data={"set_id": str(set_id)})
+        )
+
+    def monitoring_eval(self, run_id: UUID) -> EvalRunView:
+        return EvalRunView.model_validate(self._call("GET", f"/rag/monitoring/eval-runs/{run_id}"))

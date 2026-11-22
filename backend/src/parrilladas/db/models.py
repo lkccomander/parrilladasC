@@ -7,6 +7,18 @@ from parrilladas.modules.assistant.models import (
     KnowledgeChunk,
     KnowledgeDocument,
 )
+from parrilladas.modules.assistant.monitoring.eval_models import (
+    RagEvalCase,
+    RagEvalCaseResult,
+    RagEvalRun,
+    RagEvalSet,
+)
+from parrilladas.modules.assistant.monitoring.ops_models import (
+    RagAlert,
+    RagIndexCheck,
+    RagProbeRun,
+)
+from parrilladas.modules.assistant.monitoring.trace_models import RagQueryTrace
 from parrilladas.modules.conversations.models import (
     Conversation,
     Interaction,
@@ -32,4 +44,12 @@ __all__ = [
     "Quote",
     "Reminder",
     "WhatsAppInboxEvent",
+    "RagQueryTrace",
+    "RagEvalSet",
+    "RagEvalCase",
+    "RagEvalRun",
+    "RagEvalCaseResult",
+    "RagAlert",
+    "RagProbeRun",
+    "RagIndexCheck",
 ]

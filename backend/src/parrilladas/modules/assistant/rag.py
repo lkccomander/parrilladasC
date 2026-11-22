@@ -51,11 +51,20 @@ def catalog_facts(menu: ApprovedMenu):
 
 
 class KnowledgeService:
-    def __init__(self, session_factory, provider: RagProvider | None, settings, *, telemetry=None):
+    def __init__(
+        self,
+        session_factory,
+        provider: RagProvider | None,
+        settings,
+        *,
+        telemetry=None,
+        recorder=None,
+    ):
         self.sessions = session_factory
         self.provider = provider
         self.settings = settings
         self.telemetry = telemetry or Telemetry()
+        self.recorder = recorder
 
     def ingest(self, menu: ApprovedMenu) -> str:
         if self.provider is None:
@@ -116,12 +125,55 @@ class KnowledgeService:
             raise ValueError("Increment content_version before replacing published knowledge")
 
     @telemetry_trace
-    def answer(self, topic, *, tenant_id, question=None):
+    def answer(self, topic, *, tenant_id, question=None, kind="online"):
+        started = monotonic()
+        observation = {
+            "decision": "error",
+            "decision_reason": "internal_error",
+            "results": [],
+            "embed_ms": None,
+            "search_ms": None,
+            "used_count": 0,
+            "index_mode": "unknown",
+            "unsupported_amounts": None,
+        }
+        query = question or {
+            "menu": "¿Cuál es el menú?",
+            "coverage": "¿Dónde atienden?",
+            "preparation": "¿Cocinan en el lugar del evento?",
+        }.get(topic, "")
+        try:
+            return self._answer(topic, tenant_id=tenant_id, query=query, observation=observation)
+        finally:
+            if self.recorder is not None:
+                try:
+                    self.recorder.record(
+                        query=query,
+                        tenant_id=tenant_id,
+                        kind=kind,
+                        embedding_model=self.settings.embedding_model,
+                        embedding_dim=768,
+                        top_k=3,
+                        score_threshold=self.settings.rag_min_similarity,
+                        total_ms=max(0, int((monotonic() - started) * 1000)),
+                        **observation,
+                    )
+                except Exception:
+                    logger.warning("RAG trace recorder unavailable")
+
+    def _answer(self, topic, *, tenant_id, query, observation):
         started = monotonic()
         fallback = answer_question(topic, tenant_id=tenant_id)
         if tenant_id != "parrilladas" or topic not in {"menu", "coverage", "preparation"}:
+            observation.update(decision="bypassed", decision_reason="unsupported")
             return fallback
         if not self.settings.rag_enabled or self.provider is None:
+            observation.update(
+                decision="catalog_fallback",
+                decision_reason="disabled"
+                if not self.settings.rag_enabled
+                else "provider_unavailable",
+            )
             self.telemetry.emit(
                 operation="rag_result",
                 duration_ms=max(0, int((monotonic() - started) * 1000)),
@@ -129,15 +181,8 @@ class KnowledgeService:
                 reason="catalog_fallback",
             )
             return fallback
-        query = (
-            question
-            or {
-                "menu": "¿Cuál es el menú?",
-                "coverage": "¿Dónde atienden?",
-                "preparation": "¿Cocinan en el lugar del evento?",
-            }[topic]
-        )
         if not query.strip() or len(query) > 4000:
+            observation.update(decision="no_evidence", decision_reason="invalid_query")
             self.telemetry.emit(
                 operation="rag_result",
                 duration_ms=max(0, int((monotonic() - started) * 1000)),
@@ -146,20 +191,33 @@ class KnowledgeService:
             )
             return answer_question("policies", tenant_id=tenant_id)
         try:
-            vector = validated_vector(self.provider.embed(query, document=False))
-            with self.sessions() as session, session.begin():
-                repository = KnowledgeRepository(session)
-                if repository.active(tenant_id) is None:
-                    raise ExtractionUnavailable("Knowledge not published")
-                facts = repository.retrieve(
-                    tenant_id,
-                    topic,
-                    vector,
-                    model=self.settings.embedding_model,
-                    location=self.settings.embedding_location,
-                    minimum=self.settings.rag_min_similarity,
-                )
+            embedding_started = monotonic()
+            try:
+                vector = validated_vector(self.provider.embed(query, document=False))
+            finally:
+                observation["embed_ms"] = max(0, int((monotonic() - embedding_started) * 1000))
+            search_started = monotonic()
+            try:
+                with self.sessions() as session, session.begin():
+                    repository = KnowledgeRepository(session)
+                    if repository.active(tenant_id) is None:
+                        raise ExtractionUnavailable("Knowledge not published")
+                    facts = repository.retrieve(
+                        tenant_id,
+                        topic,
+                        vector,
+                        model=self.settings.embedding_model,
+                        location=self.settings.embedding_location,
+                        minimum=self.settings.rag_min_similarity,
+                    )
+            finally:
+                observation["search_ms"] = max(0, int((monotonic() - search_started) * 1000))
+            observation["results"] = [
+                {"chunk_id": fact.id, "rank": rank, "score": fact.similarity, "used": False}
+                for rank, fact in enumerate(facts, 1)
+            ]
             if not facts:
+                observation.update(decision="no_evidence", decision_reason="no_matches")
                 self.telemetry.emit(
                     operation="rag_result",
                     duration_ms=max(0, int((monotonic() - started) * 1000)),
@@ -173,6 +231,10 @@ class KnowledgeService:
             ids = selection.fact_ids
             allowed = {fact.id: fact for fact in facts}
             if not ids or len(set(ids)) != len(ids) or any(i not in allowed for i in ids):
+                observation.update(
+                    decision="no_evidence",
+                    decision_reason="no_selection" if not ids else "invalid_citation",
+                )
                 self.telemetry.emit(
                     operation="rag_result",
                     duration_ms=max(0, int((monotonic() - started) * 1000)),
@@ -184,6 +246,14 @@ class KnowledgeService:
                 )
                 return answer_question("policies", tenant_id=tenant_id)
             selected = [allowed[i] for i in ids]
+            observation.update(
+                decision="grounded",
+                decision_reason="grounded",
+                used_count=len(selected),
+                unsupported_amounts=0,
+            )
+            for result in observation["results"]:
+                result["used"] = result["chunk_id"] in ids
             self.telemetry.emit(
                 operation="rag_result",
                 duration_ms=max(0, int((monotonic() - started) * 1000)),
@@ -199,6 +269,7 @@ class KnowledgeService:
                 "rag:" + ",".join(f"{f.source}:v{f.content_version}:{f.id}" for f in selected),
             )
         except (ExtractionUnavailable, SQLAlchemyError, ValueError):
+            observation.update(decision="catalog_fallback", decision_reason="catalog_fallback")
             self.telemetry.emit(
                 operation="rag_result",
                 duration_ms=max(0, int((monotonic() - started) * 1000)),
@@ -207,6 +278,18 @@ class KnowledgeService:
             )
             logger.warning("RAG unavailable; using approved catalog fallback")
             return fallback
+
+    def isolation_probe(self, tenant_id, vectors):
+        """Read-only check using production retrieval filters, without model calls."""
+        samples = [(topic, validated_vector(vector)) for topic, vector in vectors[:5]]
+        with self.sessions() as session, session.begin():
+            return KnowledgeRepository(session).isolation_probe(
+                tenant_id,
+                samples,
+                model=self.settings.embedding_model,
+                location=self.settings.embedding_location,
+                minimum=self.settings.rag_min_similarity,
+            )
 
     def overview(self, *, tenant_id):
         documents = []

@@ -1,0 +1,16 @@
+{% macro status_pill(status) -%}
+<span class="rag-status rag-status-{{ status if status in ['ok', 'watch', 'breach', 'not_measured', 'healthy'] else 'not_measured' }}">{{ {'ok':'En objetivo', 'watch':'Revisar', 'breach':'Incumplimiento', 'not_measured':'No medido', 'healthy':'Saludable'}.get(status, status) }}</span>
+{%- endmacro %}
+{% macro metric_row(metric) -%}
+<div class="rag-metric-row"><div><strong>{{ metric.label }}</strong><span>{{ metric.display if metric.value is not none else 'No medido' }}</span></div>
+{% if metric.value is not none and metric.value >= 0 and metric.value <= 1 %}<progress aria-hidden="true" max="1" value="{{ metric.value }}"></progress>{% endif %}
+<p class="help">{{ metric.target_text }} {{ metric.note }}</p>{{ status_pill(metric.status) }}</div>
+{%- endmacro %}
+{% macro sparkline(values) -%}
+{% if values|length > 1 %}
+{% set high = values|max %}{% set low = values|min %}
+<svg class="rag-sparkline" viewBox="0 0 300 64" role="img" aria-label="Latencia de las últimas {{ values|length }} consultas, entre {{ low|round(1) }} y {{ high|round(1) }} milisegundos">
+<title>Latencias registradas en milisegundos</title><polyline fill="none" stroke="currentColor" stroke-width="2" points="{% for value in values %}{{ (loop.index0 * 296 / (values|length - 1) + 2)|round(2) }},{{ (60 - (value - low) / (high-low if high > low else 1) * 56)|round(2) }} {% endfor %}"/>
+</svg><p class="help">Latencia observada: {{ low|round(1) }}–{{ high|round(1) }} ms.</p>
+{% else %}<p class="help">Todavía no hay suficientes consultas para mostrar una tendencia.</p>{% endif %}
+{%- endmacro %}

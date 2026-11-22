@@ -4,7 +4,7 @@
 <p class="eyebrow">DESARROLLO · CONOCIMIENTO Y OBSERVABILIDAD</p>
 <h1>RAG</h1>
 <p class="lead">Revise el conocimiento aprobado que consulta Gemini y su funcionamiento.</p>
-<p><a class="button" href="/dashboard/rag/telemetry">Telemetría Gemini</a></p>
+<nav class="rag-subnav" aria-label="Secciones RAG"><a class="button" href="/dashboard/rag/monitoring">Monitoreo RAG</a><a class="button quiet" href="/dashboard/rag/telemetry">Telemetría Gemini</a></nav>
   <section class="card" aria-labelledby="knowledge-heading">
     <h2 id="knowledge-heading">Conocimiento del negocio · RAG</h2>
     {% if knowledge_info %}
@@ -25,6 +25,6 @@
 <h2>Flujo de recuperación</h2>
 <p>Pregunta → intención → embedding → búsqueda por similitud → selección de evidencia → respuesta con texto aprobado.</p>
 <p>PostgreSQL conserva knowledge_documents y knowledge_chunks; gemini_telemetry registra uso, latencias y resultados. Los mensajes de clientes no se incorporan al catálogo.</p>
-<p class="help">La telemetría actual muestra cantidades y similitud. Todavía no conserva el detalle de fragmentos elegidos por cada respuesta.</p>
+<p class="help">Consulte Monitoreo RAG para ver trazas recientes, evidencia seleccionada y salud de la recuperación.</p>
 </section>
 {% endblock %}

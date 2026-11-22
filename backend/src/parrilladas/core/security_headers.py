@@ -22,6 +22,7 @@ class SecurityHeadersMiddleware:
                 if scope["path"] != "/docs":
                     headers["Content-Security-Policy"] = (
                         "default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; "
+                        "script-src 'self'; connect-src 'self'; "
                         "form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
                     )
             await send(message)

@@ -467,3 +467,92 @@ def rag_dashboard(request: Request, service: Service, context: Dev):
             error="No pudimos consultar el conocimiento publicado. Intente nuevamente.",
         )
     return page(request, "rag.html", context=context, knowledge_info=knowledge_info)
+
+
+@router.get("/dashboard/rag/monitoring", response_class=HTMLResponse)
+@router.get("/dashboard/rag/monitoring/content", response_class=HTMLResponse)
+def rag_monitoring(
+    request: Request, service: Service, context: Dev, days: Literal["1", "7", "30"] = "7"
+):
+    partial = request.url.path.endswith("/content")
+    name = "rag_monitoring/_content.html" if partial else "rag_monitoring/dashboard.html"
+    try:
+        report = service.monitoring_report(days=int(days))
+    except (AccountNotFound, ApiUnavailable):
+        return page(
+            request,
+            name,
+            503,
+            context=context,
+            report=None,
+            days=int(days),
+            error="No pudimos consultar el monitoreo. Intente actualizar en un momento.",
+        )
+    return page(request, name, context=context, report=report, days=int(days))
+
+
+@router.get("/dashboard/rag/monitoring/traces/{trace_id}", response_class=HTMLResponse)
+def rag_monitoring_trace(request: Request, trace_id: UUID, service: Service, context: Dev):
+    try:
+        trace = service.monitoring_trace(trace_id)
+    except AccountNotFound:
+        raise HTTPException(404, "Traza no disponible.") from None
+    except ApiUnavailable:
+        return page(
+            request,
+            "rag_monitoring/_trace_detail.html",
+            503,
+            context=context,
+            trace=None,
+            error="No pudimos consultar esta traza.",
+        )
+    return page(request, "rag_monitoring/_trace_detail.html", context=context, trace=trace)
+
+
+@router.post("/dashboard/rag/monitoring/eval-runs", response_class=HTMLResponse)
+def rag_monitoring_start_eval(request: Request, service: Service, context: Dev, form: CheckedForm):
+    if set(form) - {"csrf_token", "set_id"}:
+        raise HTTPException(400, "Formulario inválido.")
+    try:
+        set_id = UUID(form.get("set_id", ""))
+    except ValueError:
+        raise HTTPException(400, "Seleccione un conjunto válido.") from None
+    try:
+        run = service.monitoring_start_eval(set_id)
+    except (AccountConflict, LoginThrottled):
+        return page(
+            request,
+            "rag_monitoring/_eval.html",
+            409,
+            context=context,
+            run=None,
+            error="Ya hay una evaluación activa o se alcanzó el límite de ejecuciones.",
+        )
+    except ApiUnavailable:
+        return page(
+            request,
+            "rag_monitoring/_eval.html",
+            503,
+            context=context,
+            run=None,
+            error="No pudimos iniciar la evaluación.",
+        )
+    return page(request, "rag_monitoring/_eval.html", context=context, run=run)
+
+
+@router.get("/dashboard/rag/monitoring/eval-runs/{run_id}", response_class=HTMLResponse)
+def rag_monitoring_eval(request: Request, run_id: UUID, service: Service, context: Dev):
+    try:
+        run = service.monitoring_eval(run_id)
+    except AccountNotFound:
+        raise HTTPException(404, "Evaluación no disponible.") from None
+    except ApiUnavailable:
+        return page(
+            request,
+            "rag_monitoring/_eval.html",
+            503,
+            context=context,
+            run=None,
+            error="No pudimos consultar la evaluación.",
+        )
+    return page(request, "rag_monitoring/_eval.html", context=context, run=run)

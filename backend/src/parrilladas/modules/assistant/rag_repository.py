@@ -75,3 +75,26 @@ class KnowledgeRepository:
             content_version=document.content_version,
             similarity=similarity,
         )
+
+    def isolation_probe(self, tenant_id, vectors, *, model, location, minimum):
+        """Exercise the real retrieval filter with foreign vectors; read-only and bounded."""
+        self.session.execute(text("SET LOCAL statement_timeout = '2s'"))
+        probes = violations = 0
+        for topic, vector in list(vectors)[:5]:
+            facts = self.retrieve(
+                tenant_id, topic, vector, model=model, location=location, minimum=minimum
+            )
+            probes += 1
+            ids = [fact.id for fact in facts]
+            if ids:
+                ownership = (
+                    self.session.execute(
+                        select(KnowledgeDocument.tenant_id)
+                        .join(KnowledgeChunk, KnowledgeChunk.document_id == KnowledgeDocument.id)
+                        .where(KnowledgeChunk.id.in_(ids))
+                    )
+                    .scalars()
+                    .all()
+                )
+                violations += sum(owner != tenant_id for owner in ownership)
+        return {"probes": probes, "violations": violations}

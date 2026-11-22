@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 _trace = ContextVar("gemini_telemetry_trace", default=None)
 
 
+def current_trace_id():
+    """Current technical trace, without customer identifiers."""
+    return _trace.get()
+
+
 def telemetry_trace(function):
     @wraps(function)
     def traced(*args, **kwargs):

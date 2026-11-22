@@ -8,7 +8,7 @@
 
 **Última actualización:** 21 de noviembre de 2026 (America/Costa_Rica)
 
-**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.15 (`1.0.0-beta.16`) exige una llave privada del API para conceder Dev. RAG sigue exclusivo de Dev, con conocimiento publicado y telemetría Gemini. Ver secciones 30 y 31.
+**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.16 (`1.0.0-beta.17`) añade monitoreo RAG exclusivo de Dev. Ver secciones 30, 31 y 32.
 
 **Carpeta de trabajo:** `proyect_brain`
 
@@ -1413,3 +1413,27 @@ La comprobación dentro del servicio confirmó referencia configurada, comparaci
 correcta y rechazo cuando falta la llave. La variable está sellada en API y ausente
 en Admin. No se mostró el secreto, modificaron cuentas ni realizaron llamadas de
 IA o envíos de WhatsApp. El operador ya puede asignar Dev desde Cuentas con su llave.
+
+
+## 32. Monitoreo RAG para Dev · 21 de noviembre de 2026
+
+Implementación Beta 1.16 (`1.0.0-beta.17`). La pantalla vive en **RAG → Monitoreo**
+y conserva la separación Admin/API; únicamente Dev puede consultar estos datos.
+
+- [x] Migración `0010`: trazas de recuperación con hash HMAC de consulta, IDs,
+  puntuaciones, decisiones y tiempos; no guarda texto de clientes.
+- [x] Migración `0011`: conjuntos y ejecuciones de evaluación sintética curada,
+  con presupuesto, exclusión mutua y métricas deterministas.
+- [x] Migración `0012`: alertas deduplicadas, pruebas de aislamiento y comprobaciones
+  de índice; mantenimiento periódico y purga acotada de trazas.
+- [x] Métricas de recuperación, generación, salud vectorial, índice, cobertura,
+  alertas y detalle de trazas en `/dashboard/rag/monitoring`.
+- [x] Búsqueda exacta se reporta como exacta; HNSW/IVFFlat solo aparece si existe
+  en el catálogo PostgreSQL. Valores ausentes se muestran como «No medido».
+- [x] Evaluación explícita desactivada por defecto (`RAG_EVAL_ENABLED=false`);
+  no cambia la preferencia de lenguaje natural ni el flujo comercial.
+
+Se reutilizan `knowledge_documents`, `knowledge_chunks` y `gemini_telemetry`.
+No se creó un contador paralelo de llamadas ni se hicieron llamadas Gemini,
+mensajes de WhatsApp o cambios de cuentas durante las pruebas locales.
+El plan y las decisiones de adaptación están en [docs/rag-monitoring-plan.md](../docs/rag-monitoring-plan.md).
