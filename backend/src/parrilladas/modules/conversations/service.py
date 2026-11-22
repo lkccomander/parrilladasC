@@ -245,6 +245,7 @@ class ConversationService:
                 event_key=event.event_key,
                 snapshot=dict(conversation.flow_data or {}),
                 reference=interaction.reference,
+                customer_number=recipient,
                 whatsapp_numbers=self.notification_whatsapp_numbers,
                 email_recipients=self.notification_email_recipients,
             )

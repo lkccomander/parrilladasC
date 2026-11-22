@@ -21,7 +21,7 @@ def parse_recipients(value: str | Iterable[str] | None) -> tuple[str, ...]:
     return tuple(dict.fromkeys(item.strip() for item in values if item and item.strip()))
 
 
-def _body(snapshot: dict[str, object], reference: str) -> str:
+def _body(snapshot: dict[str, object], reference: str, customer_number: str) -> str:
     labels = (
         ("contact_name", "Contacto"),
         ("event_date", "Fecha"),
@@ -29,7 +29,12 @@ def _body(snapshot: dict[str, object], reference: str) -> str:
         ("location", "Lugar"),
         ("service_type", "Servicio"),
     )
-    lines = ["Nueva solicitud confirmada", f"Código: {reference}"]
+    lines = [
+        "✨✨ *-- NOTIFICACIÓN --* ✨✨",
+        "*Nueva solicitud confirmada*",
+        f"*Código:* {reference}",
+        f"📲 *Cliente:* +{customer_number.lstrip('+')}",
+    ]
     lines.extend(f"{label}: {snapshot.get(key) or 'Pendiente'}" for key, label in labels)
     return "\n".join(lines)[:4000]
 
@@ -42,10 +47,11 @@ def enqueue_confirmation_notifications(
     event_key: str,
     snapshot: dict[str, object],
     reference: str,
+    customer_number: str,
     whatsapp_numbers: Iterable[str],
     email_recipients: Iterable[str],
 ) -> None:
-    body = _body(snapshot, reference)
+    body = _body(snapshot, reference, customer_number)
     for index, number in enumerate(parse_recipients(whatsapp_numbers)):
         repository.add_outbound(
             conversation_id=conversation_id,

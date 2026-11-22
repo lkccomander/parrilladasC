@@ -32,6 +32,7 @@ def test_confirmation_notifications_create_whatsapp_and_email_rows():
         event_key="incoming-1",
         snapshot={"event_date": "2026-12-20", "guest_count": "20", "location": "Alajuela"},
         reference="PEC-ABC123",
+        customer_number="15550000001",
         whatsapp_numbers=("+50687200700", "+50683383928"),
         email_recipients=("info@parrillasensucasa.com",),
     )
@@ -42,6 +43,7 @@ def test_confirmation_notifications_create_whatsapp_and_email_rows():
     ]
     assert repository.rows[0]["recipient"] == "50687200700"
     assert json.loads(repository.rows[1]["content"])["channel"] == "whatsapp"
+    assert "+15550000001" in json.loads(repository.rows[1]["content"])["text"]
     email = json.loads(repository.rows[2]["content"])
     assert email["channel"] == "email"
     assert email["subject"].endswith("PEC-ABC123")
