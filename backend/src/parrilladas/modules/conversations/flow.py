@@ -29,6 +29,7 @@ INVALID_ATTEMPTS_KEY = "_invalid_attempts"
 
 _PROMPTS = {
     "event_type": "¿Qué tipo de evento estás organizando?",
+    "contact_name": "¿Cuál es el nombre de la persona de contacto?",
     "event_date": "¿Para qué fecha necesitas el servicio?",
     "location": "¿En qué lugar se realizará el evento?",
     "guest_count": "¿Para cuántas personas?",
@@ -37,6 +38,7 @@ _PROMPTS = {
 
 _INVALID_PROMPTS = {
     "event_type": "Indícanos qué tipo de evento estás organizando, por favor.",
+    "contact_name": "Indícanos el nombre de la persona de contacto, por favor.",
     "event_date": "Indícanos la fecha del evento, por favor.",
     "location": "Indícanos el lugar del evento, por favor.",
     "guest_count": "Indícanos la cantidad aproximada de personas, por favor.",
@@ -53,6 +55,7 @@ def _summary_text(flow_data: Mapping[str, object]) -> str:
     return (
         "¡Listo! Así queda tu solicitud:\n\n"
         f"Tipo de evento: {value('event_type')}\n"
+        f"Punto de contacto: {value('contact_name')}\n"
         f"Fecha: {value('event_date')}\n"
         f"Ubicación: {value('location')}\n"
         f"Personas: {value('guest_count')}\n"
@@ -149,7 +152,9 @@ def decide(
         button_id = incoming.id.strip().casefold()
         if button_id in {"request_quote", "quote"}:
             return _decision(
-                "event_type", _PROMPTS["event_type"], updates={INVALID_ATTEMPTS_KEY: 0}
+                "event_type",
+                _PROMPTS["event_type"],
+                updates={INVALID_ATTEMPTS_KEY: 0, "_require_contact_name": True},
             )
         if button_id in {"view_services", "services"}:
             return _decision(
@@ -164,12 +169,15 @@ def decide(
             )
 
     transitions = {
-        "event_type": ("event_date", "event_type"),
+        "event_type": ("contact_name", "event_type"),
+        "contact_name": ("event_date", "contact_name"),
         "event_date": ("location", "event_date"),
         "location": ("guest_count", "location"),
         "guest_count": ("service_type", "guest_count"),
         "service_type": ("summary", "service_type"),
     }
+    if step == "event_type" and not flow_data.get("_require_contact_name"):
+        transitions = {**transitions, "event_type": ("event_date", "event_type")}
     if step in transitions and isinstance(incoming, IncomingText):
         body = incoming.body.strip()
         valid = bool(body)

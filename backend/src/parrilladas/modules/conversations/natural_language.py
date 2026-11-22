@@ -21,6 +21,7 @@ CHANGE_BUTTONS = (
     ("nl_advisor", "Hablar con asesor"),
 )
 QUESTIONS = {
+    "contact_name": "¿Cuál es el nombre de la persona de contacto?",
     "event_date": "¿Cuál es la fecha del evento? Incluye día, mes y año, por favor.",
     "guest_count": "¿Para cuántas personas necesitas el servicio?",
     "location": "¿En qué lugar se realizará el evento?",
@@ -44,11 +45,13 @@ FALLBACK_BUTTONS = (
 HANDOFF = "Dejaré tu consulta para un asesor. El bot queda en pausa para que pueda atenderte."
 
 
-def review(details: EventDetails) -> FlowDecision:
+def review(details: EventDetails, contact_name: str | None = None) -> FlowDecision:
+    contact = " ".join(str(contact_name or "").split())[:120] or "Pendiente"
     return FlowDecision(
         step="nl_review",
         text=(
             "Revisa los datos de tu solicitud:\n\n"
+            f"Punto de contacto: {contact}\n"
             f"Fecha: {details.event_date}\n"
             f"Personas: {details.guest_count}\n"
             f"Ubicación: {details.location}\n"
@@ -61,17 +64,33 @@ def review(details: EventDetails) -> FlowDecision:
             "_nl_draft": details.model_dump(mode="json"),
             "_nl_changes": None,
             "_nl_date_parts": None,
+            "_nl_contact_name": contact,
         },
     )
 
 
-def next_question(details: EventDetails, date_parts: dict | None = None) -> FlowDecision:
+def next_question(
+    details: EventDetails,
+    date_parts: dict | None = None,
+    contact_name: str | None = None,
+    require_contact_name: bool = False,
+) -> FlowDecision:
+    if require_contact_name and not (contact_name or "").strip():
+        return FlowDecision(
+            step="nl_collect",
+            text=QUESTIONS["contact_name"],
+            updates={
+                "_nl_contact_name": None,
+                "_nl_date_parts": None,
+                "_require_contact_name": True,
+            },
+        )
     today = ExtractionRequest(message="date validation").reference_date
     if details.event_date is not None and details.event_date < today:
         details = details.model_copy(update={"event_date": None})
     missing = [field for field in EVENT_FIELDS if getattr(details, field) is None]
     if not missing:
-        return review(details)
+        return review(details, contact_name)
     question = QUESTIONS[missing[0]]
     if missing[0] == "event_date" and date_parts:
         question = f"¿De qué año sería el {date_parts['day']} de {MONTHS[date_parts['month'] - 1]}?"
@@ -101,7 +120,10 @@ def continue_request(step: str, data: dict) -> FlowDecision:
             buttons=CHANGE_BUTTONS,
         )
     return next_question(
-        EventDetails.model_validate(data.get("_nl_draft") or {}), data.get("_nl_date_parts")
+        EventDetails.model_validate(data.get("_nl_draft") or {}),
+        data.get("_nl_date_parts"),
+        data.get("_nl_contact_name"),
+        bool(data.get("_require_contact_name")),
     )
 
 
@@ -122,7 +144,12 @@ def date_answer(message: str, details: EventDetails, data: dict) -> FlowDecision
         )
     parts = {"day": day, "month": month}
     if year is None:
-        return next_question(details, parts)
+        return next_question(
+            details,
+            parts,
+            data.get("_nl_contact_name"),
+            bool(data.get("_require_contact_name")),
+        )
     if value < ExtractionRequest(message="date validation").reference_date:
         return FlowDecision(
             step="nl_collect",
@@ -130,10 +157,16 @@ def date_answer(message: str, details: EventDetails, data: dict) -> FlowDecision
             "¿Cuál es la nueva fecha del evento? Incluye el año, por favor.",
             updates={"_nl_date_parts": None},
         )
-    return next_question(details.model_copy(update={"event_date": value}))
+    return next_question(
+        details.model_copy(update={"event_date": value}),
+        contact_name=data.get("_nl_contact_name"),
+        require_contact_name=bool(data.get("_require_contact_name")),
+    )
 
 
-def service_answer(message: str, details: EventDetails) -> FlowDecision | None:
+def service_answer(
+    message: str, details: EventDetails, contact_name: str | None = None
+) -> FlowDecision | None:
     text = "".join(
         char
         for char in unicodedata.normalize("NFKD", message.casefold())
@@ -154,7 +187,10 @@ def service_answer(message: str, details: EventDetails) -> FlowDecision | None:
         "parrilla",
         "parrillada",
     }:
-        return next_question(details.model_copy(update={"service_type": "parrilla"}))
+        return next_question(
+            details.model_copy(update={"service_type": "parrilla"}),
+            contact_name=contact_name,
+        )
     if text in {"no", "no gracias", "no me interesa", "por ahora no", "todavia no"}:
         return side_reply(
             "nl_collect",
@@ -217,6 +253,28 @@ def natural_language_decision(
         return FlowDecision(step=step, text="Escribe brevemente los datos de tu evento, por favor.")
     if isinstance(incoming, IncomingText) and assistant.requests_human(incoming.body):
         return FlowDecision(step=step, text=HANDOFF, handoff=True)
+    if (
+        step == "nl_collect"
+        and isinstance(incoming, IncomingText)
+        and data.get("_require_contact_name")
+        and "_nl_contact_name" in data
+        and not (data.get("_nl_contact_name") or "").strip()
+    ):
+        contact_name = " ".join(incoming.body.split())[:120]
+        if len(contact_name) < 2:
+            return FlowDecision(step=step, text=QUESTIONS["contact_name"])
+        details = EventDetails.model_validate(data.get("_nl_draft") or {})
+        decision = next_question(
+            details,
+            data.get("_nl_date_parts"),
+            contact_name,
+        )
+        return FlowDecision(
+            step=decision.step,
+            text=decision.text,
+            buttons=decision.buttons,
+            updates={**decision.updates, "_nl_contact_name": contact_name},
+        )
     if isinstance(incoming, ButtonReply):
         if incoming.id in {"nl_advisor", "talk_to_agent", "advisor"}:
             return FlowDecision(step=step, text=HANDOFF, handoff=True)
@@ -239,7 +297,7 @@ def natural_language_decision(
                 )
             return decision
         if step == "menu" and incoming.id in {"quote", "request_quote"}:
-            return next_question(EventDetails())
+            return next_question(EventDetails(), require_contact_name=True)
         if step not in NL_STEPS:
             return None
         details = EventDetails.model_validate(data.get("_nl_draft") or {})
@@ -248,7 +306,10 @@ def natural_language_decision(
             if any(getattr(details, field) is None for field in EVENT_FIELDS) or (
                 details.event_date is not None and details.event_date < today
             ):
-                return next_question(details)
+                return next_question(
+                    details,
+                    require_contact_name=bool(data.get("_require_contact_name")),
+                )
             closing = decide("summary", ButtonReply("confirm"), flow_data=data)
             return FlowDecision(
                 step="submitted",
@@ -275,7 +336,7 @@ def natural_language_decision(
             (field for field in EVENT_FIELDS if getattr(details, field) is None), None
         )
         if step == "nl_collect" and requested_field == "service_type":
-            answered = service_answer(incoming.body, details)
+            answered = service_answer(incoming.body, details, data.get("_nl_contact_name"))
             if answered is not None:
                 return answered
         if data.get("_nl_guided"):
@@ -319,7 +380,14 @@ def natural_language_decision(
         )
     if not any(getattr(outcome.details, field) is not None for field in EVENT_FIELDS):
         return (
-            next_question(outcome.details, data.get("_nl_date_parts")) if step in NL_STEPS else None
+            next_question(
+                outcome.details,
+                data.get("_nl_date_parts"),
+                data.get("_nl_contact_name"),
+                bool(data.get("_require_contact_name")),
+            )
+            if step in NL_STEPS
+            else None
         )
     if outcome.changed_fields:
         proposed = outcome.details.model_dump(mode="json")
@@ -346,4 +414,9 @@ def natural_language_decision(
         )
     if step == "nl_changes":
         return continue_request(step, data)
-    return next_question(outcome.details, data.get("_nl_date_parts"))
+    return next_question(
+        outcome.details,
+        data.get("_nl_date_parts"),
+        data.get("_nl_contact_name"),
+        bool(data.get("_require_contact_name")),
+    )

@@ -218,9 +218,18 @@ class ConversationService:
         interaction.closed_at = datetime.now(UTC)
         self.session.flush()
         details = interaction.snapshot.get("_nl_draft") or interaction.snapshot
+
+        def detail_value(key: str) -> object:
+            if key == "contact_name":
+                return interaction.snapshot.get("contact_name") or interaction.snapshot.get(
+                    "_nl_contact_name"
+                )
+            return details.get(key)
+
         summary = "; ".join(
-            f"{label}: {details.get(key) or 'Pendiente'}"
+            f"{label}: {detail_value(key) or 'Pendiente'}"
             for key, label in [
+                ("contact_name", "Contacto"),
                 ("event_date", "Fecha"),
                 ("guest_count", "Personas"),
                 ("location", "Lugar"),

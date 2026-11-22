@@ -30,9 +30,9 @@
         <table>
           <caption class="sr-only">Interacciones de WhatsApp</caption>
           <thead><tr>
-            <th scope="col">Código</th><th scope="col">Contacto</th><th scope="col">Estado</th>
+            <th scope="col">Código</th><th scope="col">WhatsApp</th><th scope="col">Estado</th>
             <th scope="col">Fecha del evento</th><th scope="col">Personas</th>
-            <th scope="col">Ubicación</th><th scope="col">Servicio</th><th scope="col">Creada</th>
+            <th scope="col">Punto de contacto</th><th scope="col">Ubicación</th><th scope="col">Servicio</th><th scope="col">Creada</th>
           </tr></thead>
           <tbody>
             {% for item in report.items %}
@@ -45,6 +45,7 @@
                 </td>
                 <td>{{ item.event_date or 'Sin indicar' }}</td>
                 <td>{{ item.guest_count if item.guest_count is not none else 'Sin indicar' }}</td>
+                <td>{{ item.contact_name or 'Sin indicar' }}</td>
                 <td>{{ item.location or 'Sin indicar' }}</td>
                 <td>{{ 'Parrilla' if item.service_type == 'parrilla' else (item.service_type or 'Sin indicar') }}</td>
                 <td><time datetime="{{ item.created_at.isoformat() }}">{{ local_dates[item.id].strftime('%d/%m/%Y %H:%M') }}</time></td>

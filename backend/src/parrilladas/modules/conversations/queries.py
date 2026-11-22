@@ -66,6 +66,9 @@ class InteractionQueryService:
                         else False,
                         created_at=interaction.created_at,
                         closed_at=interaction.closed_at,
+                        contact_name=display_text(
+                            details.get("contact_name") or details.get("_nl_contact_name")
+                        ),
                         event_date=display_text(details.get("event_date")),
                         guest_count=guests,
                         location=display_text(details.get("location")),

@@ -22,6 +22,7 @@ class InteractionView(BaseModel):
     bot_paused: bool
     created_at: AwareDatetime
     closed_at: AwareDatetime | None
+    contact_name: str | None
     event_date: str | None
     guest_count: int | None
     location: str | None

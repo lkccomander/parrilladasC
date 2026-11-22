@@ -24,6 +24,14 @@ def test_menu_buttons_have_the_beta_placeholder_responses():
     )
 
 
+def test_quote_flow_asks_for_contact_name_before_event_details():
+    start = decide("menu", ButtonReply("quote"))
+    assert start.updates["_require_contact_name"] is True
+    contact = decide("contact_name", IncomingText("María Pérez"), flow_data=start.updates)
+    assert contact.step == "event_date"
+    assert contact.updates["contact_name"] == "María Pérez"
+
+
 def test_quote_questions_advance_in_order_and_capture_answers():
     decisions = [
         decide("event_type", IncomingText("corporativo")),

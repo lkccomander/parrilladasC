@@ -51,6 +51,16 @@ def test_complete_request_is_reviewed_before_customer_confirmation_and_remains_t
     assert model.extract.call_count == 1
 
 
+def test_natural_language_quote_button_requests_contact_name():
+    assistant = AssistantService(provider(), enabled=True)
+    opening = natural_language_decision("menu", ButtonReply("request_quote"), {}, assistant)
+    assert opening.text == "¿Cuál es el nombre de la persona de contacto?"
+    data = dict(opening.updates)
+    answer = natural_language_decision("nl_collect", IncomingText("María Pérez"), data, assistant)
+    assert answer.updates["_nl_contact_name"] == "María Pérez"
+    assert "fecha" in answer.text.casefold()
+
+
 def test_short_answers_include_the_requested_field_and_keep_previous_data():
     model = provider({"guest_count": 20}, date_evidence=None)
     assistant = AssistantService(model, enabled=True)
