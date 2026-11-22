@@ -1251,6 +1251,41 @@ def test_confirmation_delivery_webhooks_update_status(natural_worker):
 
 
 @pytest.mark.postgres
+def test_confirmation_failure_persists_meta_reason(natural_worker):
+    state = natural_worker
+    with Session(state.engine) as session, session.begin():
+        conversation = session.scalar(select(Conversation))
+        repository = ConversationRepository(session)
+        notice = repository.add_outbound(
+            conversation_id=conversation.id,
+            event_key="confirmation-failure-test",
+            content=json.dumps({"channel": "whatsapp"}),
+            recipient="15550000009",
+            purpose="confirmation_notification",
+            delivery_status="sent",
+        )
+        notice.external_message_id = "wamid.confirmation-failure"
+        repository.update_advisor_status(
+            notice.external_message_id,
+            "failed",
+            [
+                {
+                    "code": 131047,
+                    "title": "Re-engagement message",
+                    "error_data": {"details": "outside customer service window"},
+                }
+            ],
+        )
+    with Session(state.engine) as session:
+        notice = session.scalar(
+            select(Message).where(Message.event_key == "confirmation-failure-test")
+        )
+        payload = json.loads(notice.content)
+        assert notice.delivery_status == "failed"
+        assert payload["meta_error_code"] == 131047
+
+
+@pytest.mark.postgres
 def test_reply_to_internal_advisor_notice_never_creates_a_customer_request(natural_worker):
     state = natural_worker
     configure_advisor(state)

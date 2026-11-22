@@ -122,7 +122,9 @@ class ConversationService:
         if event.kind != "message":
             if event.kind == "status":
                 for status in event.payload.get("value", {}).get("statuses", []):
-                    self.repository.update_advisor_status(status["id"], status["status"])
+                    self.repository.update_advisor_status(
+                        status["id"], status["status"], status.get("errors")
+                    )
             self.inbox.mark_processed(inbox_event)
             return None
 

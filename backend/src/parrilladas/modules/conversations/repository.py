@@ -1,3 +1,4 @@
+import json
 import secrets
 from datetime import UTC, datetime
 from uuid import UUID
@@ -324,7 +325,9 @@ class ConversationRepository:
             .values(delivery_status="uncertain")
         )
 
-    def update_advisor_status(self, external_id: str, status: str) -> None:
+    def update_advisor_status(
+        self, external_id: str, status: str, errors: list[dict] | None = None
+    ) -> None:
         row = self.outbound_context(external_id)
         # Meta sends delivery callbacks for every outbound WhatsApp message.
         # Confirmation notices use a different purpose, but need the same
@@ -343,6 +346,16 @@ class ConversationRepository:
             row.delivery_status = status
         elif status == "failed" and row.delivery_status not in {"delivered", "read"}:
             row.delivery_status = "failed"
+            if errors:
+                error = errors[0]
+                payload = json.loads(row.content)
+                payload["failure_reason"] = "meta_delivery_failed"
+                payload["meta_error_code"] = error.get("code")
+                payload["meta_error_title"] = str(error.get("title", ""))[:120]
+                payload["meta_error_details"] = str(
+                    (error.get("error_data") or {}).get("details", "")
+                )[:240]
+                row.content = json.dumps(payload, ensure_ascii=False)
 
     def mark_uncertain(self, message_id: UUID) -> None:
         self.session.execute(
