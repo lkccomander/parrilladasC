@@ -38,31 +38,19 @@ def test_quote_questions_advance_in_order_and_capture_answers():
         decide("event_date", IncomingText("15 de diciembre")),
         decide("location", IncomingText("Zona 10")),
         decide("guest_count", IncomingText("80")),
-        decide(
-            "service_type",
-            ButtonReply("service_parrilla"),
-            flow_data={
-                "event_type": "corporativo",
-                "event_date": "15 de diciembre",
-                "location": "Zona 10",
-                "guest_count": "80",
-            },
-        ),
     ]
 
     assert [decision.step for decision in decisions] == [
         "event_date",
         "location",
         "guest_count",
-        "service_type",
         "summary",
     ]
     assert [decision.updates for decision in decisions] == [
         {"event_type": "corporativo", "_invalid_attempts": 0},
         {"event_date": "15 de diciembre", "_invalid_attempts": 0},
         {"location": "Zona 10", "_invalid_attempts": 0},
-        {"guest_count": "80", "_invalid_attempts": 0},
-        {"service_type": "parrilla", "_invalid_attempts": 0},
+        {"guest_count": "80", "service_type": "parrilla", "_invalid_attempts": 0},
     ]
     assert "Servicio: Parrilla" in decisions[-1].text
     assert "Personas: 80" in decisions[-1].text
@@ -99,11 +87,15 @@ def test_invalid_input_keeps_the_current_step_and_returns_a_safe_prompt():
     assert decision.text == "Indícanos la cantidad aproximada de personas, por favor."
 
 
-def test_service_step_shows_only_the_parrilla_button():
+def test_guest_count_defaults_to_parrilla_and_shows_summary():
     decision = decide("guest_count", IncomingText("80"))
 
-    assert decision.step == "service_type"
-    assert decision.buttons == (("service_parrilla", "Parrilla"),)
+    assert decision.step == "summary"
+    assert decision.buttons == (
+        ("confirm", "Confirmar solicitud"),
+        ("advisor", "Hablar con asesor"),
+    )
+    assert decision.updates["service_type"] == "parrilla"
 
 
 def test_parrilla_button_captures_service_and_advances_to_summary():

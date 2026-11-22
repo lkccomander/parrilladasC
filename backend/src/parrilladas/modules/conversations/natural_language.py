@@ -94,6 +94,10 @@ def next_question(
     today = ExtractionRequest(message="date validation").reference_date
     if details.event_date is not None and details.event_date < today:
         details = details.model_copy(update={"event_date": None})
+    # Parrillada is the only service currently offered. Capture it as a
+    # default instead of asking a redundant yes/no question.
+    if details.service_type is None:
+        details = details.model_copy(update={"service_type": "parrilla"})
     missing = [field for field in EVENT_FIELDS if getattr(details, field) is None]
     if not missing:
         return review(details, contact_name)

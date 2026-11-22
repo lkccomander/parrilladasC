@@ -173,7 +173,7 @@ def decide(
         "contact_name": ("event_date", "contact_name"),
         "event_date": ("location", "event_date"),
         "location": ("guest_count", "location"),
-        "guest_count": ("service_type", "guest_count"),
+        "guest_count": ("summary", "guest_count"),
         "service_type": ("summary", "service_type"),
     }
     if step == "event_type" and not flow_data.get("_require_contact_name"):
@@ -187,11 +187,19 @@ def decide(
             valid = False
         if valid:
             next_step, field = transitions[step]
+            updates = {field: body, INVALID_ATTEMPTS_KEY: 0}
+            if step == "guest_count":
+                next_step = "summary"
+                updates["service_type"] = "parrilla"
+                summary_data = {**flow_data, field: body, "service_type": "parrilla"}
+                text = _summary_text(summary_data)
+            else:
+                text = _PROMPTS.get(next_step, "")
             return _decision(
                 next_step,
-                _PROMPTS.get(next_step, ""),
-                buttons=SERVICE_BUTTONS if next_step == "service_type" else (),
-                updates={field: body, INVALID_ATTEMPTS_KEY: 0},
+                text,
+                buttons=SUMMARY_BUTTONS if next_step == "summary" else (),
+                updates=updates,
             )
         return invalid()
 

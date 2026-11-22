@@ -265,7 +265,7 @@ def test_explicit_complete_date_replaces_pending_parts_without_merging_old_day()
     assert decision.updates["_nl_date_parts"] is None
 
 
-def test_yes_to_parrillada_question_advances_to_review_without_submitting():
+def test_complete_natural_language_draft_defaults_to_parrilla_without_question():
     model = provider({"service_type": None}, date_evidence=None)
     assistant = AssistantService(model, enabled=True)
     draft = {
@@ -275,13 +275,10 @@ def test_yes_to_parrillada_question_advances_to_review_without_submitting():
         "service_type": None,
     }
     data = {"_nl_draft": draft, "request_reference": "PEC-SYNTHETIC"}
-    question = natural_language_decision("nl_collect", ButtonReply("nl_continue"), data, assistant)
-    assert question.text == "¿Te interesa nuestro servicio de parrillada?"
-    decision = natural_language_decision("nl_collect", IncomingText("Si"), data, assistant)
+    decision = natural_language_decision("nl_collect", ButtonReply("nl_continue"), data, assistant)
     assert decision.step == "nl_review"
     assert decision.updates["_nl_draft"] == {**draft, "service_type": "parrilla"}
-    assert not decision.updates.get("_nl_confirmed")
-    assert not decision.handoff
+    assert "¿Te interesa nuestro servicio" not in decision.text
 
 
 @pytest.mark.parametrize("answer", ["Sí", "SI", "sí, claro", "Claro", "De acuerdo", "Así es"])
@@ -293,7 +290,7 @@ def test_contextual_service_acceptance_works_with_or_without_ai(answer, guided):
         "nl_collect", IncomingText(answer), data, AssistantService(model, enabled=True)
     )
     assert decision.step == "nl_review"
-    assert decision.updates["_nl_draft"] == DETAILS
+    assert decision.updates["_nl_draft"] == {**DETAILS, "service_type": "parrilla"}
     assert not decision.updates.get("_nl_confirmed")
     model.extract.assert_not_called()
 
@@ -329,7 +326,7 @@ def test_yes_does_not_accept_other_fields_pending_corrections_or_final_submissio
     assert decision.step == step
     assert not decision.updates.get("_nl_confirmed")
     if step == "nl_collect":
-        assert decision.updates["_nl_draft"]["service_type"] is None
+        assert decision.updates["_nl_draft"]["service_type"] == "parrilla"
         assert decision.updates["_nl_draft"]["guest_count"] is None
     if step == "nl_changes":
         assert not decision.updates
