@@ -1028,6 +1028,14 @@ def test_natural_language_sends_shared_branded_welcome_then_accepts_intake(
         assert signed(state.client, encode(data)).status_code == 200
         state.worker.tick()
         state.model.extract.assert_not_called()
+        assert (
+            signed(
+                state.client, encode(natural_payload("contact-name", body="María Pérez"))
+            ).status_code
+            == 200
+        )
+        state.worker.tick()
+        state.model.extract.assert_not_called()
     assert signed(state.client, encode(natural_payload("after-welcome"))).status_code == 200
     state.worker.tick()
     assert state.model.extract.call_count == 1
