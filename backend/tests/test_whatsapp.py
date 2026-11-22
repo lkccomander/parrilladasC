@@ -1316,7 +1316,7 @@ def test_partial_date_and_year_follow_up_survive_separate_worker_ticks(natural_w
 
 
 @pytest.mark.postgres
-def test_natural_intake_accepts_yes_for_service_then_requires_final_confirmation(natural_worker):
+def test_natural_intake_defaults_service_then_requires_final_confirmation(natural_worker):
     state = natural_worker
     state.model.extract.side_effect = [
         json.dumps({"intent": "quote", "details": {"guest_count": 7}}),
@@ -1328,7 +1328,7 @@ def test_natural_intake_accepts_yes_for_service_then_requires_final_confirmation
     message.update(type="interactive", interactive={"button_reply": {"id": "nl_continue"}})
     assert signed(state.client, encode(data)).status_code == 200
     state.worker.tick()
-    for index, body in enumerate(["3 de junio", "2027", "Siete", "Guachipelín", "Si"]):
+    for index, body in enumerate(["3 de junio", "2027", "Siete", "Guachipelín"]):
         data = natural_payload(f"service-yes-{index}", body=body)
         assert signed(state.client, encode(data)).status_code == 200
         state.worker.tick()
@@ -1346,4 +1346,4 @@ def test_natural_intake_accepts_yes_for_service_then_requires_final_confirmation
         assert not saved.flow_data.get("_nl_confirmed")
     assert signed(state.client, encode(data)).status_code == 200
     assert not state.worker.tick()
-    assert len(state.outbound) == 6
+    assert len(state.outbound) == 5
