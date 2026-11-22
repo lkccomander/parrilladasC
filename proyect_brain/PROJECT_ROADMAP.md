@@ -8,7 +8,7 @@
 
 **Última actualización:** 21 de noviembre de 2026 (America/Costa_Rica)
 
-**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.16 (`1.0.0-beta.17`) añade monitoreo RAG exclusivo de Dev. Ver secciones 30, 31 y 32.
+**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.17 (`1.0.0-beta.18`) añade fechas relativas seguras al asistente. Ver secciones 30, 31, 32 y 34.
 
 **Carpeta de trabajo:** `proyect_brain`
 
@@ -1453,3 +1453,9 @@ empaquetado y catálogo. El commit `f015f01` está activo en API
 - [x] Snapshot protegido `/rag/monitoring/health` y stream SSE `/rag/monitoring/stream`;
   Admin usa polling acotado de 10 segundos como fallback visible.
 - [x] Valores no verificables se muestran como «No medido»; no se guarda texto de clientes.
+
+## 34. Fechas relativas en lenguaje natural · 22 de noviembre de 2026
+
+- [x] Resolver expresiones claras como «mañana», «en 10 días» y «el martes dentro de 3 semanas» usando la fecha de referencia del mensaje.
+- [x] Mantener validación determinista, evidencia de la frase original y confirmación del cliente antes de continuar.
+- [x] Mantener ambiguas las fechas incompletas o numéricas sin contexto suficiente.

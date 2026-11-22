@@ -4,6 +4,7 @@ from typing import Protocol
 
 from pydantic import ValidationError
 
+from .date_parsing import parse_relative_event_date
 from .errors import ExtractionUnavailable
 from .knowledge import KnowledgeAnswer, answer_question
 from .policies import requests_human
@@ -96,6 +97,15 @@ class AssistantService:
         except ValidationError:
             return unchanged("fallback", "invalid_output")
 
+        relative_date = parse_relative_event_date(request.message, request.reference_date)
+        candidate_details = candidate.details
+        if relative_date is not None:
+            # Relative expressions are resolved locally; the model cannot change the
+            # result by inventing a different calendar date.
+            candidate_details = candidate_details.model_copy(
+                update={"event_date": relative_date.value}
+            )
+
         if candidate.intent == "human_handoff":
             if requests_human(request.message):
                 return unchanged("handoff", "requested_handoff")
@@ -106,13 +116,22 @@ class AssistantService:
             return unchanged("fallback", "unsupported")
 
         ambiguities = set(candidate.ambiguities)
-        event_date = candidate.details.event_date
+        if relative_date is not None:
+            ambiguities.discard("event_date")
+        event_date = candidate_details.event_date
         if event_date is not None:
-            evidence = candidate.date_evidence or ""
+            evidence = (
+                relative_date.evidence
+                if relative_date is not None
+                else candidate.date_evidence or ""
+            )
             if (
                 not evidence
                 or evidence not in request.message
-                or not re.search(rf"(?<![0-9]){event_date.year}(?![0-9])", evidence)
+                or (
+                    relative_date is None
+                    and not re.search(rf"(?<![0-9]){event_date.year}(?![0-9])", evidence)
+                )
                 or event_date < request.reference_date
             ):
                 ambiguities.add("event_date")
@@ -120,7 +139,7 @@ class AssistantService:
         details = request.confirmed.model_dump()
         proposals = {}
         for field in EVENT_FIELDS:
-            value = getattr(candidate.details, field)
+            value = getattr(candidate_details, field)
             if field in ambiguities or value is None:
                 continue
             if details[field] is None:

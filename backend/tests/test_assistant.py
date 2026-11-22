@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from parrilladas.integrations.vertex_ai.client import VertexExtractor
 from parrilladas.modules.assistant.config import AssistantSettings
+from parrilladas.modules.assistant.date_parsing import parse_relative_event_date
 from parrilladas.modules.assistant.errors import ExtractionUnavailable
 from parrilladas.modules.assistant.schemas import EventDetails, ExtractionRequest
 from parrilladas.modules.assistant.service import AssistantService
@@ -91,7 +92,6 @@ def test_new_fields_complete_an_existing_request_without_erasing_confirmed_value
     ("message", "evidence", "event_date"),
     [
         ("Parrillada el 20 de diciembre", "20 de diciembre", "2026-12-20"),
-        ("Parrillada mañana", "20 de diciembre de 2026", "2026-12-20"),
         ("Parrillada el 20 de diciembre de 2026", None, "2026-12-20"),
         ("Parrillada el 20 de diciembre de 2025", "20 de diciembre de 2025", "2025-12-20"),
     ],
@@ -104,6 +104,28 @@ def test_dates_without_current_message_evidence_or_in_the_past_need_clarificatio
     assert outcome.details.event_date is None
     assert "event_date" in outcome.missing_fields
     assert outcome.ambiguities == ("event_date",)
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("El evento es mañana", date(2026, 11, 16)),
+        ("El martes dentro de 3 semanas", date(2026, 12, 8)),
+        ("La parrillada es en 10 días", date(2026, 11, 25)),
+    ],
+)
+def test_relative_event_dates_are_resolved_from_reference_date(message, expected):
+    parsed = parse_relative_event_date(message, date(2026, 11, 15))
+    assert parsed is not None
+    assert parsed.value == expected
+
+    raw = candidate(details={"event_date": None}, date_evidence=None)
+    outcome = AssistantService(provider_returning(raw), enabled=True).extract(
+        request(message, requested_field="event_date")
+    )
+    assert outcome.details.event_date == expected
+    assert "event_date" not in outcome.missing_fields
+    assert "event_date" not in outcome.ambiguities
 
 
 def test_model_ambiguity_cannot_overwrite_confirmed_data_or_fill_missing_fields():

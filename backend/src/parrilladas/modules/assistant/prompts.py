@@ -27,10 +27,12 @@ Si el mensaje mezcla una pregunta con datos del evento, prioriza business_questi
 los datos podrán recogerse en el siguiente turno, sin perder los ya guardados.
 Normaliza parrillada/parrilla como service_type=parrilla; no asumas ese servicio
 si no se menciona. Usa null para los datos ausentes o ambiguos.
-Solo devuelve event_date si el mensaje contiene una fecha completa con año
-explícito. Copia en date_evidence la cita exacta del mensaje que contiene esa fecha
-y año. No deduzcas el año, ni interpretes fechas relativas o fechas numéricas ambiguas.
-Marca event_date en ambiguities si la fecha es incompleta, pasada o ambigua.
+Devuelve event_date para fechas completas con año explícito o expresiones relativas
+claras. La fecha de referencia está disponible en el contexto de la solicitud:
+resuelve "mañana", "en 10 días" y "el martes dentro de 3 semanas" contando desde
+esa fecha. Copia en date_evidence la cita exacta del mensaje. No deduzcas años para
+meses/días incompletos ni interpretes fechas numéricas ambiguas. Marca event_date en
+ambiguities si la fecha es incompleta, pasada o ambigua.
 Para cualquier otro campo ambiguo usa null y añade su nombre a ambiguities.
 guest_count es un entero positivo explícito, nunca un rango o un total inferido.
 No se requiere tipo de evento ni presupuesto. Devuelve solo el esquema JSON pedido.
