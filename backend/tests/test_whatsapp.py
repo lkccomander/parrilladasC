@@ -1009,7 +1009,7 @@ def test_natural_language_sends_shared_branded_welcome_then_accepts_intake(
     state.model.extract.assert_not_called()
     assert len(state.outbound) == 1
     first = state.outbound[0]["interactive"]
-    assert first["body"]["text"].startswith(GREETING + "\n\nCódigo de interacción: PEC-")
+    assert first["body"]["text"].startswith(GREETING + "\n\nCódigo de interacción: *PEC-")
     assert first["header"] == {
         "type": "image",
         "image": {"link": "https://example.com/assets/welcome_header.png"},

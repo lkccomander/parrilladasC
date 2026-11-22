@@ -187,7 +187,7 @@ class ConversationService:
             interaction.closed_at = datetime.now(UTC)
         text = decision.text
         if text == GREETING and decision.buttons == MENU_BUTTONS:
-            text += f"\n\nCódigo de interacción: {interaction.reference}"
+            text += f"\n\nCódigo de interacción: *{interaction.reference}*"
         action = OutboundAction(
             event_key=event.event_key,
             recipient=recipient,
@@ -274,7 +274,7 @@ class ConversationService:
                     "text": (
                         "Enviamos tu consulta al asesor. Te responderá desde su propio WhatsApp "
                         "tan pronto esté disponible.\n"
-                        f"Código de consulta: {interaction.reference}"
+                        f"Código de consulta: *{interaction.reference}*"
                     ),
                     "buttons": [],
                     "advisor_ack": True,
@@ -299,7 +299,7 @@ class ConversationService:
             depends_on_id=acknowledgement.id,
             content=json.dumps(
                 {
-                    "text": GREETING + f"\n\nCódigo de interacción: {following.reference}",
+                    "text": GREETING + f"\n\nCódigo de interacción: *{following.reference}*",
                     "buttons": MENU_BUTTONS,
                 },
                 ensure_ascii=False,
