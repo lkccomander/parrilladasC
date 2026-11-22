@@ -24,6 +24,13 @@ class ButtonReply:
 
 
 @dataclass(frozen=True)
+class FlowReply:
+    """Structured data submitted by a WhatsApp Flow form."""
+
+    data: Mapping[str, object]
+
+
+@dataclass(frozen=True)
 class FlowDecision:
     step: str
     text: str

@@ -173,6 +173,40 @@ class MetaClient:
             },
         )
 
+    def send_flow(
+        self,
+        *,
+        version: str,
+        phone_id: str,
+        token: str,
+        recipient: str,
+        body: str,
+        flow_id: str,
+        flow_cta: str = "Completar formulario",
+    ) -> str:
+        return self._send(
+            version=version,
+            phone_id=phone_id,
+            token=token,
+            payload={
+                "messaging_product": "whatsapp",
+                "to": recipient,
+                "type": "interactive",
+                "interactive": {
+                    "type": "flow",
+                    "body": {"text": body},
+                    "action": {
+                        "name": "flow",
+                        "parameters": {
+                            "flow_message_version": "3",
+                            "flow_id": flow_id,
+                            "flow_cta": flow_cta,
+                        },
+                    },
+                },
+            },
+        )
+
     def _send(self, *, version: str, phone_id: str, token: str, payload: dict[str, Any]) -> str:
         try:
             response = self.http.post(

@@ -2,13 +2,13 @@
 
 ## Documento de referencia del proyecto
 
-**Versión:** 1.9
+**Versión:** 1.10
 
 **Fecha:** 20 de octubre de 2026
 
-**Última actualización:** 21 de noviembre de 2026 (America/Costa_Rica)
+**Última actualización:** 22 de noviembre de 2026 (America/Costa_Rica)
 
-**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.17 (`1.0.0-beta.18`) añade fechas relativas seguras al asistente. Ver secciones 30, 31, 32 y 34.
+**Estado:** Admin y API separados en Railway; Gemini y RAG activos para WhatsApp. Beta 1.17 (`1.0.0-beta.18`) añade fechas relativas seguras al asistente. El formulario estructurado de WhatsApp está listo en código y pendiente de publicación en Meta. Ver secciones 30, 31, 32, 34 y 35.
 
 **Carpeta de trabajo:** `proyect_brain`
 
@@ -1459,3 +1459,71 @@ empaquetado y catálogo. El commit `f015f01` está activo en API
 - [x] Resolver expresiones claras como «mañana», «en 10 días» y «el martes dentro de 3 semanas» usando la fecha de referencia del mensaje.
 - [x] Mantener validación determinista, evidencia de la frase original y confirmación del cliente antes de continuar.
 - [x] Mantener ambiguas las fechas incompletas o numéricas sin contexto suficiente.
+
+## 35. Formulario estructurado de cotización en WhatsApp · 22 de noviembre de 2026
+
+La captura de cotizaciones adopta un modelo híbrido: lenguaje natural para consultas
+libres y WhatsApp Flows para confirmar datos exactos antes de construir el resumen.
+El Flow no reemplaza Gemini ni el RAG; entrega valores estructurados al mismo webhook
+de WhatsApp y reutiliza las reglas existentes de validación, confirmación y generación
+del código de solicitud.
+
+### Implementación en el API
+
+- [x] Añadir `MetaClient.send_flow` para enviar un mensaje `interactive` de tipo `flow`.
+- [x] Interpretar respuestas `interactive.nfm_reply.response_json` sin enviarlas al
+  extractor de lenguaje natural.
+- [x] Validar y limitar los campos permitidos: `contact_name`, `event_date`,
+  `guest_count`, `location`, `service_type` y `event_type`.
+- [x] Reutilizar el resumen y la confirmación actuales después de completar el Flow.
+- [x] Mantener el flujo conversacional como respaldo cuando no exista un Flow ID o
+  el formulario no se complete.
+- [x] Persistir el Flow ID en el outbox para que funcione igual en procesamiento
+  inmediato y en el worker durable.
+- [x] Añadir `WHATSAPP_QUOTE_FLOW_ID` como configuración opcional del servicio API.
+
+### Configuración en Meta
+
+- [x] Crear el Flow `Parrilladas - Solicitud de cotización` con plantilla **Without
+  Endpoint** y categoría **Lead generation**.
+- [x] Configurar los campos con las claves exactas del contrato API y un `Footer`
+  terminal con acción `complete`.
+- [ ] Validar y publicar el Flow en Meta Business Manager.
+- [ ] Copiar el Flow ID numérico publicado.
+
+### Habilitación por calidad de mensajería
+
+Meta exige verificación empresarial o una cuenta con calidad y actividad suficientes
+antes de publicar un Flow. Se adopta la alternativa operativa mientras la empresa no
+esté verificada:
+
+- [ ] Mantener el indicador de calidad del número en **Green/High**.
+- [ ] Iniciar conversaciones útiles con al menos tres contactos que hayan dado
+  consentimiento y obtener respuesta de cada uno.
+- [ ] Evitar mensajes repetitivos, envíos masivos, contactos sin consentimiento,
+  bloqueos y reportes.
+- [ ] Esperar la actualización de la métrica de Meta y volver a intentar publicar.
+- [ ] Si el requisito no se habilita, completar la verificación empresarial.
+
+### Activación en Railway y prueba de aceptación
+
+- [ ] Configurar en el servicio API la variable sellada
+  `WHATSAPP_QUOTE_FLOW_ID=<ID_NUMERICO_PUBLICADO>`.
+- [ ] Esperar el redeploy de API y comprobar `ready 200`.
+- [ ] Probar desde WhatsApp: **Solicitar cotización → completar formulario →
+  Confirmar solicitud**.
+- [ ] Confirmar que `event_date` llegue como `YYYY-MM-DD`, que los datos aparezcan
+  en la interacción y que el flujo guiado siga funcionando si se retira la variable.
+- [ ] Registrar la publicación y el Flow ID en el inventario operativo sin guardar
+  tokens ni datos de clientes.
+
+El código está validado con las pruebas de WhatsApp (26 aprobadas, 28 omitidas por
+falta de una base PostgreSQL desechable), Ruff y `pip check`. La activación productiva
+queda bloqueada únicamente por la publicación de Meta y la variable de Railway.
+## 36. Notificaciones de confirmación por WhatsApp y correo
+
+**Estado:** Implementado en código; requiere configurar variables selladas en Railway y desplegar API.
+
+Al confirmar una solicitud, el API crea notificaciones idempotentes por cada número WhatsApp y correo configurado. Se reutiliza el outbox durable de conversaciones para que el worker entregue, registre estados y evite duplicados. WhatsApp usa el adaptador Meta existente y el correo usa SMTP Gmail con STARTTLS.
+
+Variables y prueba operativa: `docs/notifications.md`. Destinatarios iniciales: `+50687200700`, `+50683383928` e `info@parrillasensucasa.com`; el segundo número y las listas completas se pueden cambiar desde variables del servicio API. La configuración editable desde Admin queda como siguiente incremento de configuración operativa.

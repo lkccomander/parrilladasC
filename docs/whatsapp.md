@@ -33,6 +33,22 @@ estas variables adicionales exclusivamente en el API:
 | `API_PUBLIC_BASE_URL` | Origen público del API, por ejemplo `https://api.example.com`; HTTPS obligatorio en producción/staging |
 | `WHATSAPP_ACCESS_TOKEN` | Token de Meta con acceso a la cuenta y permiso `whatsapp_business_management` |
 | `WHATSAPP_GRAPH_API_VERSION` | Versión de Graph API habilitada para la aplicación, con formato `vNN.N` |
+| `WHATSAPP_QUOTE_FLOW_ID` | ID numérico de un WhatsApp Flow publicado para capturar la cotización; opcional |
+
+### Formulario estructurado de cotización
+
+Cuando `WHATSAPP_QUOTE_FLOW_ID` está configurado, el botón **Solicitar
+cotización** lanza un WhatsApp Flow publicado por Meta. El Flow debe devolver
+los campos `contact_name`, `event_date` (`YYYY-MM-DD`), `guest_count`,
+`location`, `service_type` y, opcionalmente, `event_type`. La respuesta llega
+como `interactive.nfm_reply`, se valida en el API y reutiliza el resumen y la
+confirmación existentes. Si la variable no existe o el Flow no se completa,
+el flujo conversacional permanece disponible como respaldo.
+
+El Flow se crea y publica en WhatsApp Manager; el API solo necesita su ID. No
+se guardan tokens del Flow ni se consulta RAG para interpretar los campos
+estructurados. La información se registra en el snapshot de la interacción,
+igual que los datos ingresados por lenguaje natural.
 
 La URL visible se construye con el origen público y `/webhooks/whatsapp`. No se
 infiere desde `API_BASE_URL`, que puede ser una dirección privada de Railway.

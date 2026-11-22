@@ -10,6 +10,7 @@ from parrilladas.modules.assistant.preferences import ACTIVE_TENANT_ID, Assistan
 from parrilladas.modules.assistant.service import AssistantService
 from parrilladas.modules.conversations.contracts import (
     ButtonReply,
+    FlowReply,
     InboxEvent,
     IncomingText,
     child_event_key,
@@ -18,6 +19,9 @@ from parrilladas.modules.conversations.flow import GREETING, MENU_BUTTONS, decid
 from parrilladas.modules.conversations.models import Conversation
 from parrilladas.modules.conversations.natural_language import NL_STEPS, natural_language_decision
 from parrilladas.modules.conversations.repository import ConversationRepository, InboxRepository
+from parrilladas.modules.notifications.service import (
+    enqueue_confirmation_notifications,
+)
 
 
 @dataclass(frozen=True)
@@ -30,6 +34,9 @@ class OutboundAction:
     template_name: str | None = None
     template_language: str | None = None
     template_parameters: tuple[str, ...] = ()
+    flow_id: str | None = None
+    channel: str = "whatsapp"
+    subject: str | None = None
 
 
 OutboundSender = Callable[[OutboundAction], str]
@@ -57,12 +64,18 @@ class ConversationService:
         sender: OutboundSender | None = None,
         *,
         assistant: AssistantService | None = None,
+        quote_flow_id: str | None = None,
+        notification_whatsapp_numbers: tuple[str, ...] = (),
+        notification_email_recipients: tuple[str, ...] = (),
     ):
         self.session = session
         self.inbox = InboxRepository(session)
         self.repository = ConversationRepository(session)
         self.sender = sender
         self.assistant = assistant or AssistantService()
+        self.quote_flow_id = quote_flow_id
+        self.notification_whatsapp_numbers = notification_whatsapp_numbers
+        self.notification_email_recipients = notification_email_recipients
 
     def receive(self, events: list[InboxEvent]) -> None:
         if not any(event.kind == "message" for event in events):
@@ -71,6 +84,11 @@ class ConversationService:
             prepared = self._prepare(event)
             if prepared is not None and self.sender is not None:
                 self._deliver(*prepared)
+                # Inline webhook mode must also drain confirmation notifications;
+                # the durable worker performs the same work asynchronously.
+                for _ in range(8):
+                    if not self.deliver_next(not_before=datetime.min.replace(tzinfo=UTC)):
+                        break
             elif self.sender is not None:
                 # Legacy inline mode drains only this event's newly queued handoff.
                 for _ in range(3):
@@ -159,8 +177,41 @@ class ConversationService:
             self.session
         ).requested_for_tenant(ACTIVE_TENANT_ID)
         decision = None
+        if isinstance(incoming, FlowReply):
+            allowed = {
+                "event_type",
+                "contact_name",
+                "event_date",
+                "location",
+                "guest_count",
+                "service_type",
+            }
+            form_data = {
+                key: str(value).strip()[:120]
+                for key, value in incoming.data.items()
+                if key in allowed and value is not None and str(value).strip()
+            }
+            if form_data.get("guest_count", "").isdigit() and form_data.get("event_date"):
+                conversation.flow_data = {
+                    **(conversation.flow_data or {}),
+                    **form_data,
+                    "_invalid_attempts": 0,
+                }
+                decision = decide(
+                    "service_type",
+                    ButtonReply("service_parrilla"),
+                    flow_data=conversation.flow_data,
+                )
+            else:
+                # Never pass an unvalidated Flow payload to the natural
+                # language extractor; ask for the missing form fields instead.
+                decision = decide(
+                    conversation.flow_step,
+                    IncomingText(""),
+                    flow_data=conversation.flow_data,
+                )
         if nl_enabled:
-            decision = natural_language_decision(
+            decision = decision or natural_language_decision(
                 conversation.flow_step, incoming, conversation.flow_data or {}, self.assistant
             )
         elif conversation.flow_step in NL_STEPS:
@@ -185,6 +236,16 @@ class ConversationService:
         if decision.step == "submitted":
             interaction.status = "submitted"
             interaction.closed_at = datetime.now(UTC)
+            enqueue_confirmation_notifications(
+                self.repository,
+                conversation_id=conversation.id,
+                interaction_id=interaction.id,
+                event_key=event.event_key,
+                snapshot=dict(conversation.flow_data or {}),
+                reference=interaction.reference,
+                whatsapp_numbers=self.notification_whatsapp_numbers,
+                email_recipients=self.notification_email_recipients,
+            )
         text = decision.text
         if text == GREETING and decision.buttons == MENU_BUTTONS:
             text += f"\n\nCódigo de interacción: *{interaction.reference}*"
@@ -193,6 +254,7 @@ class ConversationService:
             recipient=recipient,
             text=text,
             buttons=decision.buttons,
+            flow_id=(self.quote_flow_id if decision.step == "event_type" else None),
         )
         outbound = self.repository.add_outbound(
             conversation_id=conversation.id,
@@ -202,6 +264,9 @@ class ConversationService:
                 {
                     "text": action.text,
                     "buttons": action.buttons,
+                    "flow_id": action.flow_id,
+                    "channel": action.channel,
+                    "subject": action.subject,
                     "handoff_notice": decision.handoff,
                 },
                 ensure_ascii=False,
@@ -373,6 +438,9 @@ class ConversationService:
                 template_name=payload.get("template_name"),
                 template_language=payload.get("template_language"),
                 template_parameters=tuple(payload.get("template_parameters", [])),
+                flow_id=payload.get("flow_id"),
+                channel=payload.get("channel", "whatsapp"),
+                subject=payload.get("subject"),
             )
         self._deliver(message_id, action, uncertain_on_failure=True)
         return True
@@ -384,7 +452,7 @@ class ConversationService:
             external_id = self.sender(action)
         except Exception as error:
             with self.session.begin():
-                if action.purpose == "advisor_notification":
+                if action.purpose in {"advisor_notification", "confirmation_notification"}:
                     row = self.repository.get_message(message_id)
                     row.delivery_status = (
                         "failed"
@@ -404,9 +472,19 @@ class ConversationService:
             self.repository.mark_sent(message_id, external_id)
 
     @staticmethod
-    def _incoming(message: dict) -> IncomingText | ButtonReply:
+    def _incoming(message: dict) -> IncomingText | ButtonReply | FlowReply:
         if message.get("type") == "interactive":
             interactive = message.get("interactive")
+            nfm_reply = interactive.get("nfm_reply") if isinstance(interactive, dict) else None
+            if isinstance(nfm_reply, dict):
+                raw = nfm_reply.get("response_json")
+                if isinstance(raw, str):
+                    try:
+                        data = json.loads(raw)
+                    except json.JSONDecodeError:
+                        data = None
+                    if isinstance(data, dict):
+                        return FlowReply(data=data)
             reply = interactive.get("button_reply") if isinstance(interactive, dict) else None
             if isinstance(reply, dict) and isinstance(reply.get("id"), str):
                 return ButtonReply(id=reply["id"], title=reply.get("title"))
@@ -415,9 +493,11 @@ class ConversationService:
         return IncomingText(body=body if isinstance(body, str) else "")
 
     @staticmethod
-    def _content(message: dict, incoming: IncomingText | ButtonReply) -> str:
+    def _content(message: dict, incoming: IncomingText | ButtonReply | FlowReply) -> str:
         if isinstance(incoming, IncomingText):
             return incoming.body
+        if isinstance(incoming, FlowReply):
+            return json.dumps({"flow_reply": dict(incoming.data)}, ensure_ascii=False)
         return json.dumps(
             {"id": incoming.id, "title": incoming.title},
             ensure_ascii=False,

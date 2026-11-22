@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 
 from parrilladas.core.config import ApiSettings
 from parrilladas.db.session import get_session
+from parrilladas.integrations.email import SmtpEmailClient
 from parrilladas.integrations.whatsapp.client import MetaClient
 from parrilladas.integrations.whatsapp.webhook import (
     InvalidWebhook,
@@ -23,6 +24,7 @@ from parrilladas.modules.conversations.service import (
     InboxService,
     OutboundAction,
 )
+from parrilladas.modules.notifications.service import parse_recipients
 
 router = APIRouter(prefix="/webhooks/whatsapp", tags=["whatsapp"])
 MAX_BODY_BYTES = 1024 * 1024
@@ -100,7 +102,20 @@ async def receive_webhook(
             await run_in_threadpool(InboxService(session).receive, events)
             if not settings.conversation_worker_enabled:
                 sender = _outbound_sender(request, settings)
-                await run_in_threadpool(ConversationService(session, sender).receive, events)
+                await run_in_threadpool(
+                    ConversationService(
+                        session,
+                        sender,
+                        quote_flow_id=settings.whatsapp_quote_flow_id,
+                        notification_whatsapp_numbers=parse_recipients(
+                            settings.notification_whatsapp_numbers
+                        ),
+                        notification_email_recipients=parse_recipients(
+                            settings.notification_email_recipients
+                        ),
+                    ).receive,
+                    events,
+                )
         except SQLAlchemyError as error:
             # Meta must retry failures, never receive a success before commit.
             logger.error("WhatsApp webhook storage failure: %s", type(error).__name__)
@@ -114,15 +129,41 @@ def _outbound_sender(request: Request, settings: ApiSettings):
 
 def create_outbound_sender(http, settings: ApiSettings):
     client = MetaClient(http)
+    email_client = SmtpEmailClient()
     token = settings.whatsapp_access_token
     version = settings.whatsapp_graph_api_version
     phone_id = settings.whatsapp_phone_number_id
     base_url = settings.api_public_base_url
 
     def send(action: OutboundAction) -> str:
+        if action.channel == "email":
+            password = (
+                settings.notifications_email_password.get_secret_value()
+                if settings.notifications_email_password
+                else None
+            )
+            return email_client.send(
+                host=settings.notifications_email_host,
+                port=settings.notifications_email_port,
+                username=settings.notifications_email_username,
+                password=password,
+                sender=settings.notifications_email_from,
+                recipient=action.recipient,
+                subject=action.subject or "Notificación de solicitud",
+                body=action.text,
+            )
         if token is None or version is None or phone_id is None:
             raise RuntimeError("WhatsApp outbound messaging is not configured")
         access_token = token.get_secret_value()
+        if action.flow_id:
+            return client.send_flow(
+                version=version,
+                phone_id=phone_id,
+                token=access_token,
+                recipient=action.recipient,
+                body=action.text,
+                flow_id=action.flow_id,
+            )
         if action.template_name:
             return client.send_template(
                 version=version,

@@ -317,7 +317,7 @@ class ConversationRepository:
         self.session.execute(
             update(Message)
             .where(
-                Message.purpose == "advisor_notification",
+                Message.purpose.in_(("advisor_notification", "confirmation_notification")),
                 Message.delivery_status == "sending",
                 Message.attempted_at < before,
             )

@@ -4,6 +4,7 @@ import logging
 from threading import Event, Thread
 
 from parrilladas.modules.conversations.service import ConversationService
+from parrilladas.modules.notifications.service import parse_recipients
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,18 @@ class ConversationWorker:
 
     def tick(self) -> bool:
         with self.session_factory() as session:
-            service = ConversationService(session, self.sender, assistant=self.assistant)
+            service = ConversationService(
+                session,
+                self.sender,
+                assistant=self.assistant,
+                quote_flow_id=self.settings.whatsapp_quote_flow_id,
+                notification_whatsapp_numbers=parse_recipients(
+                    self.settings.notification_whatsapp_numbers
+                ),
+                notification_email_recipients=parse_recipients(
+                    self.settings.notification_email_recipients
+                ),
+            )
             processed = service.process_next(
                 not_before=self.settings.conversation_processing_start_at,
                 business_account_id=self.settings.whatsapp_business_account_id,

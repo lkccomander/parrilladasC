@@ -42,6 +42,14 @@ class ApiSettings(Settings):
     whatsapp_graph_api_version: str | None = Field(
         default=None, pattern=r"^v[0-9]{1,3}\.[0-9]{1,2}$"
     )
+    whatsapp_quote_flow_id: str | None = Field(default=None, pattern=r"^[0-9]+$")
+    notification_whatsapp_numbers: str = "+50687200700,+50683383928"
+    notification_email_recipients: str = "info@parrillasensucasa.com"
+    notifications_email_host: str = "smtp.gmail.com"
+    notifications_email_port: int = Field(default=587, ge=1, le=65535)
+    notifications_email_username: str | None = None
+    notifications_email_password: SecretStr | None = Field(default=None, repr=False)
+    notifications_email_from: str | None = None
     api_public_base_url: str | None = None
     conversation_worker_enabled: bool = False
     conversation_processing_start_at: datetime | None = None

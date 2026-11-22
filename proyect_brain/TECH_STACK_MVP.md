@@ -1,6 +1,7 @@
 # Stack y alcance acordados para el MVP
 
-Fecha: 1 de noviembre de 2026.
+Fecha de las decisiones base: 1 de noviembre de 2026.
+Actualización de dirección RAG: 10 de noviembre de 2026.
 
 Este documento registra las decisiones confirmadas por el usuario y prevalece sobre las propuestas iniciales del roadmap cuando exista una diferencia.
 
@@ -25,7 +26,7 @@ Admin y API se despliegan en servicios separados, por indicación posterior del 
 ## Operación confirmada
 
 - WhatsApp es el canal del cliente; la conexión con Meta ya existe, según el usuario.
-- Primera versión con preguntas guiadas, sin IA.
+- El MVP comercial inicial usa preguntas guiadas, sin IA. La dirección acordada para la siguiente etapa es agregar comprensión de lenguaje natural y RAG, manteniendo el flujo actual disponible como fallback.
 - Daniel atiende y responde conversaciones desde el dashboard.
 - La intervención de Daniel pausa las respuestas del bot en esa conversación; la reanudación debe ser explícita.
 - El sistema prepara un borrador de cotización con los datos del evento.
@@ -38,6 +39,22 @@ Admin y API se despliegan en servicios separados, por indicación posterior del 
 - Google Calendar queda fuera del lanzamiento inicial y se integrará posteriormente.
 
 Las reglas de pausa del bot y revisión tras editar son criterios de implementación propuestos para preservar el control humano acordado.
+
+## Dirección de la siguiente etapa: lenguaje natural y RAG
+
+La arquitectura actual se mantiene. El RAG se integrará dentro del API FastAPI existente; no se agregará Node.js ni un microservicio de IA separado. El Admin seguirá consumiendo el API por HTTP con Bearer JWT, y solo el API tendrá acceso a PostgreSQL y a las credenciales de Google Cloud.
+
+Diagrama editable: [arquitectura RAG multi-tenant](../diagrams/rag_multitenant.excalidraw).
+
+- **Tenant activo:** Parrilladas. El diseño debe permitir más tenants en el futuro, pero esta etapa no incluye onboarding, facturación ni administración SaaS de tenants.
+- **Aislamiento:** las entidades de negocio y conocimiento que sean tenant-scoped llevarán `tenant_id`. El API resolverá el tenant a partir del mapeo verificado del canal Meta; nunca confiará en un `tenant_id` enviado por el cliente o inferido por el modelo. Las consultas aplicarán el filtro de tenant explícitamente. RLS se evaluará si encaja con los roles y el manejo de transacciones/conexiones existentes.
+- **Datos y búsqueda:** PostgreSQL continúa en Railway. `pgvector` 0.8.7 ya está instalado en la base verificada y una operación de distancia vectorial respondió correctamente. Las pruebas de migración/esquema de la aplicación siguen usando una base vacía y desechable mediante `TEST_DATABASE_URL`; no usar la base comercial para ellas.
+- **Google Cloud:** Vertex AI se utilizará para generación y embeddings. Los nombres de modelo, región y SDK quedarán configurables y se confirmarán contra disponibilidad, IAM, cuotas y costo antes de desplegar; no fijar `gemini-3.8-flash` sin validarlo.
+- **Latencia:** la ingesta de documentos será manual/offline y generará embeddings fuera del camino de cada mensaje. Solo se llamará al modelo cuando la intención lo requiera; extracción estructurada, filtros y cálculos de cotización se validarán y ejecutarán en Python.
+- **Crecimiento gradual:** iniciar con búsqueda exacta si el corpus piloto es pequeño y medir latencia/recall. Añadir HNSW, particionado o almacenamiento separado solo cuando las métricas o el aislamiento requerido lo justifiquen. El API seguirá siendo stateless; un worker persistente se incorporará cuando la ingesta o los trabajos lo necesiten.
+- **Límites funcionales:** el RAG no confirma disponibilidad, reserva fechas, fija precios sin reglas aprobadas ni envía cotizaciones finales automáticamente. Daniel conserva aprobación y envío.
+
+La decisión de Google Calendar sigue pospuesta. Esta dirección de RAG no amplía el alcance del lanzamiento comercial hasta que se complete y valide la etapa correspondiente.
 
 ## Datos de la conversación de referencia
 
