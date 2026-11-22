@@ -19,6 +19,7 @@ from parrilladas.modules.accounts.schemas import (
 )
 from parrilladas.modules.assistant.monitoring.schemas import (
     EvalRunView,
+    MonitoringHealth,
     MonitoringReport,
     TraceDetail,
 )
@@ -178,6 +179,11 @@ class AdminApiClient:
     def monitoring_report(self, *, days: int = 7) -> MonitoringReport:
         return MonitoringReport.model_validate(
             self._call("GET", "/rag/monitoring/summary", params={"days": days})
+        )
+
+    def monitoring_health(self, *, days: int = 1) -> MonitoringHealth:
+        return MonitoringHealth.model_validate(
+            self._call("GET", "/rag/monitoring/health", params={"days": days})
         )
 
     def monitoring_trace(self, trace_id: UUID) -> TraceDetail:

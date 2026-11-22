@@ -12,6 +12,7 @@ from .schemas import (
     IndexInfo,
     KnowledgeRow,
     Metric,
+    MonitoringHealth,
     MonitoringReport,
     TraceDetail,
     TraceResult,
@@ -19,6 +20,16 @@ from .schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _catalog_valid_until(catalog):
+    value = catalog.get("valid_until") if isinstance(catalog, dict) else None
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
 
 
 def metric(
@@ -73,6 +84,7 @@ class MonitoringService:
             calls = repository.calls(tenant_id, since, now)
             vectors = repository.vectors(tenant_id)
             storage = repository.storage()
+            database = repository.database_health(tenant_id)
             indexes = repository.indexes()
             recent = repository.traces(tenant_id, since, now)
             traces = [trace_summary(row) for row in recent]
@@ -80,7 +92,15 @@ class MonitoringService:
                 KnowledgeRow(
                     source=row["source"],
                     content_version=row["content_version"],
-                    status="Publicada" if row["active"] else "Inactiva",
+                    status=(
+                        "Vencida"
+                        if (valid_until := _catalog_valid_until(row["catalog"]))
+                        and valid_until.date() < now.date()
+                        else "Publicada"
+                        if row["active"]
+                        else "Inactiva"
+                    ),
+                    valid_until=valid_until,
                     chunks=row["chunks"],
                     created_at=row["created_at"],
                 )
@@ -93,9 +113,23 @@ class MonitoringService:
             probe = repository.latest_probe(tenant_id, since)
             leaks = repository.observed_leaks(tenant_id, since)
             checks = repository.latest_index_checks(tenant_id, since)
+            index_definition = indexes[0]["definition"] if indexes else ""
+            distance = next(
+                (
+                    name
+                    for name, label in (
+                        ("Cosine", "vector_cosine_ops"),
+                        ("L2", "vector_l2_ops"),
+                        ("Inner product", "vector_ip_ops"),
+                    )
+                    if label in index_definition
+                ),
+                None,
+            )
             index = IndexInfo(
                 mode=indexes[0]["mode"] if indexes else "exact",
                 name=indexes[0]["name"] if indexes else None,
+                distance=distance,
                 parameters=dict(option.split("=", 1) for option in (indexes[0]["options"] or []))
                 if indexes
                 else {},
@@ -151,8 +185,8 @@ class MonitoringService:
         empty = stats["empty"] / stats["count"] if stats["count"] else None
         no_evidence = stats["no_evidence"] / stats["count"] if stats["count"] else None
         error_rate = calls["errors"] / calls["count"] if calls["count"] else None
-        total_tuples = storage["n_live_tup"] + storage["n_dead_tup"]
-        bloat = storage["n_dead_tup"] / total_tuples if total_tuples else None
+        total_tuples = storage["n_live_tup"] + storage["n_dead_tup"] if storage else 0
+        bloat = storage["n_dead_tup"] / total_tuples if storage and total_tuples else None
         # No conversation IDs are collected; a trace is not a customer conversation.
         kpis = [
             recall,
@@ -242,6 +276,16 @@ class MonitoringService:
         ]
         health = [
             metric("vectors", "Vectores publicados", vectors["vectors"]),
+            metric("documents_total", "Documentos del tenant", database["documents_total"]),
+            metric("documents_active", "Documentos publicados", database["documents_active"]),
+            metric("chunks_total", "Fragmentos totales", database["chunks_total"]),
+            Metric(
+                key="pgvector_version",
+                label="Extensión pgvector",
+                display=database["pgvector_version"] or "No medido",
+                status="ok" if database["pgvector_version"] else "not_measured",
+                note="Versión reportada por PostgreSQL en tiempo real.",
+            ),
             Metric(
                 key="embedding_profile",
                 label="Perfil de embedding",
@@ -272,10 +316,26 @@ class MonitoringService:
             metric(
                 "storage_bytes",
                 "Tabla e índices · instalación",
-                storage["total_bytes"],
+                storage["total_bytes"] if storage else None,
                 unit=" bytes",
             ),
-            metric("index_bytes", "Índices · instalación", storage["index_bytes"], unit=" bytes"),
+            metric(
+                "table_bytes",
+                "Tabla · instalación",
+                storage["table_bytes"] if storage else None,
+                unit=" bytes",
+            ),
+            metric(
+                "index_bytes",
+                "Índices · instalación",
+                storage["index_bytes"] if storage else None,
+                unit=" bytes",
+            ),
+            metric(
+                "dead_tuples",
+                "Tuplas muertas",
+                storage["n_dead_tup"] if storage else None,
+            ),
             metric(
                 "bloat_ratio",
                 "Proporción estimada de tuplas muertas",
@@ -353,6 +413,28 @@ class MonitoringService:
             eval_enabled=cfg.rag_eval_enabled,
         )
 
+    def health(self, *, tenant_id="parrilladas", days=1):
+        """Return one live health snapshot for SSE and bounded polling clients."""
+        report = self.report(tenant_id=tenant_id, days=days)
+        measured = [
+            item for item in (*report.kpis, *report.vector_health) if item.status != "not_measured"
+        ]
+        statuses = {item.status for item in (*report.kpis, *report.vector_health)}
+        if "breach" in statuses:
+            status = "critical"
+        elif "watch" in statuses:
+            status = "degraded"
+        elif measured:
+            status = "healthy"
+        else:
+            status = "unknown"
+        return MonitoringHealth(
+            status=status,
+            generated_at=report.generated_at,
+            freshness_seconds=0,
+            report=report,
+        )
+
     def traces(self, *, tenant_id, days, limit=25, decision=None):
         now = datetime.now(UTC)
         with self.sessions() as session, session.begin():
@@ -376,6 +458,12 @@ class MonitoringService:
             repository.purge(tenant_id, since)
             stats = repository.trace_stats(tenant_id, window, now)
             calls = repository.calls(tenant_id, window, now)
+            vectors = repository.vectors(tenant_id)
+            database = repository.database_health(tenant_id)
+            storage = repository.storage()
+            indexes = repository.indexes()
+            checks = repository.latest_index_checks(tenant_id, window)
+            probe = repository.latest_probe(tenant_id, window)
             total = stats["count"]
             error_rate = calls["errors"] / calls["count"] if calls["count"] else None
             no_evidence = stats["no_evidence"] / total if total else None
@@ -415,6 +503,61 @@ class MonitoringService:
                 else None,
                 "La recuperación devuelve evidencia insuficiente con demasiada frecuencia.",
                 no_evidence,
+                now,
+            )
+            repository.set_alert(
+                tenant_id,
+                "missing_metadata",
+                "breach" if vectors["missing_metadata"] else None,
+                "Hay fragmentos publicados sin metadatos requeridos.",
+                vectors["missing_metadata"],
+                now,
+            )
+            bloat = None
+            if storage:
+                total_tuples = storage["n_live_tup"] + storage["n_dead_tup"]
+                bloat = storage["n_dead_tup"] / total_tuples if total_tuples else None
+            repository.set_alert(
+                tenant_id,
+                "bloat_ratio",
+                "breach"
+                if bloat is not None and bloat > self.settings.rag_target_bloat_breach
+                else "watch"
+                if bloat is not None and bloat > self.settings.rag_target_bloat_watch
+                else None,
+                "La proporción estimada de tuplas muertas requiere mantenimiento.",
+                bloat,
+                now,
+            )
+            index_recall = checks[0].recall_vs_exact if checks else 1.0 if not indexes else None
+            repository.set_alert(
+                tenant_id,
+                "index_recall",
+                "breach"
+                if index_recall is not None
+                and index_recall < self.settings.rag_target_index_recall_breach
+                else "watch"
+                if index_recall is not None
+                and index_recall < self.settings.rag_target_index_recall_watch
+                else None,
+                "El recall del índice ANN cayó frente a la búsqueda exacta.",
+                index_recall,
+                now,
+            )
+            repository.set_alert(
+                tenant_id,
+                "cross_tenant_results",
+                "breach" if probe and probe.violations else None,
+                "La prueba de aislamiento encontró resultados de otro tenant.",
+                probe.violations if probe else None,
+                now,
+            )
+            repository.set_alert(
+                tenant_id,
+                "pgvector_extension",
+                "breach" if not database["pgvector_version"] else None,
+                "La extensión pgvector no está disponible en PostgreSQL.",
+                None,
                 now,
             )
 

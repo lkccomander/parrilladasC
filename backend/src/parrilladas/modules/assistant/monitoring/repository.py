@@ -103,6 +103,7 @@ class MonitoringRepository:
                     KnowledgeDocument.source,
                     KnowledgeDocument.content_version,
                     KnowledgeDocument.active,
+                    KnowledgeDocument.catalog,
                     KnowledgeDocument.created_at,
                     func.count(KnowledgeChunk.id).label("chunks"),
                 )
@@ -148,13 +149,15 @@ class MonitoringRepository:
             self.session.execute(
                 text("""
             SELECT pg_total_relation_size('knowledge_chunks') AS total_bytes,
+                   pg_relation_size('knowledge_chunks') AS table_bytes,
                    pg_indexes_size('knowledge_chunks') AS index_bytes,
-                   n_live_tup, n_dead_tup
+                   n_live_tup, n_dead_tup,
+                   (SELECT extversion FROM pg_extension WHERE extname = 'vector') AS vector_version
             FROM pg_stat_user_tables WHERE relid = 'knowledge_chunks'::regclass
         """)
             )
             .mappings()
-            .one()
+            .one_or_none()
         )
 
     def indexes(self):
@@ -162,7 +165,8 @@ class MonitoringRepository:
             self.session.execute(
                 text("""
             SELECT c.relname AS name, am.amname AS mode, c.reloptions AS options,
-                   pg_relation_size(c.oid) AS size_bytes
+                   pg_relation_size(c.oid) AS size_bytes,
+                   pg_get_indexdef(i.indexrelid) AS definition
             FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
             JOIN pg_am am ON am.oid = c.relam
             WHERE i.indrelid = 'knowledge_chunks'::regclass
@@ -173,6 +177,42 @@ class MonitoringRepository:
             .mappings()
             .all()
         )
+
+    def database_health(self, tenant_id):
+        """Return cheap, read-only health facts for the vector store.
+
+        This deliberately does not expose connection details or customer data.  It is
+        called on every dashboard refresh, so keep the probes bounded and metadata-only.
+        """
+        vector = self.session.execute(
+            text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+        ).scalar_one_or_none()
+        documents = (
+            self.session.execute(
+                select(
+                    func.count().label("total"),
+                    func.count().filter(KnowledgeDocument.active.is_(True)).label("active"),
+                ).where(KnowledgeDocument.tenant_id == tenant_id)
+            )
+            .mappings()
+            .one()
+        )
+        chunks = (
+            self.session.execute(
+                select(func.count().label("total"))
+                .select_from(KnowledgeChunk)
+                .join(KnowledgeDocument)
+                .where(KnowledgeDocument.tenant_id == tenant_id)
+            )
+            .mappings()
+            .one()
+        )
+        return {
+            "pgvector_version": vector,
+            "documents_total": documents["total"],
+            "documents_active": documents["active"],
+            "chunks_total": chunks["total"],
+        }
 
     def latest_probe(self, tenant_id, since):
         return self.session.scalar(

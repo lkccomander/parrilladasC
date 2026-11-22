@@ -1442,3 +1442,14 @@ Validación y despliegue: CI `44989008170` pasó pruebas, migraciones PostgreSQL
 empaquetado y catálogo. El commit `f015f01` está activo en API
 `402a9386-1e76-4aee-897a-9c72b0507522` y Admin
 `21e4266e-8def-40fc-8fcf-9d2fa32720ac`, ambos `SUCCESS`; API y Admin ready 200.
+
+## 33. Dashboard RAG & Vector Health · 22 de noviembre de 2026
+
+- [x] Vista Dev-only `/dashboard/rag/health` basada en `logs/RAG & vector DB health.pdf`.
+- [x] KPIs de recuperación/generación, salud pgvector, almacenamiento, bloat estimado,
+  metadatos faltantes, tamaño de tabla/índices y estado de la extensión.
+- [x] Estructura de índice, distancia, parámetros disponibles, recall frente a exacta,
+  trazas, frescura/cobertura y alertas operativas.
+- [x] Snapshot protegido `/rag/monitoring/health` y stream SSE `/rag/monitoring/stream`;
+  Admin usa polling acotado de 10 segundos como fallback visible.
+- [x] Valores no verificables se muestran como «No medido»; no se guarda texto de clientes.

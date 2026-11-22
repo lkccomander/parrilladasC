@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}RAG &amp; Vector Health{% endblock %}
+{% block notices %}{% endblock %}
+{% block content %}
+<nav class="rag-subnav" aria-label="Secciones RAG">
+  <a href="/dashboard/rag">Conocimiento</a>
+  <a href="/dashboard/rag/health" aria-current="page">RAG &amp; Vector Health</a>
+  <a href="/dashboard/rag/monitoring">Monitoreo</a>
+  <a href="/dashboard/rag/telemetry">Telemetría Gemini</a>
+</nav>
+<script src="/static/htmx.min.js" defer></script>
+<script src="/static/rag-health.js" defer></script>
+<noscript><p class="notice">Active JavaScript o recargue la página para actualizar las métricas.</p></noscript>
+{% include "rag_health/_content.html" %}
+{% endblock %}

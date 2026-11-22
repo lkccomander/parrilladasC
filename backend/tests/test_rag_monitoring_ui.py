@@ -86,6 +86,17 @@ def test_monitoring_all_views_require_dev(role, suffix):
     service.monitoring_trace.assert_not_called()
 
 
+def test_rag_vector_health_page_uses_live_refresh_and_keeps_unknowns_explicit():
+    client, service = monitoring_client()
+    with client:
+        response = client.get("/dashboard/rag/health?days=1")
+    assert response.status_code == 200
+    assert "RAG &amp; Vector Health" in response.text
+    assert 'hx-trigger="every 10s"' in response.text
+    assert "No medido" in response.text
+    service.monitoring_report.assert_called_once_with(days=1)
+
+
 def test_monitoring_unavailable_has_safe_error_and_retry():
     client, service = monitoring_client()
     service.monitoring_report.side_effect = ApiUnavailable("SECRET CONFIG")

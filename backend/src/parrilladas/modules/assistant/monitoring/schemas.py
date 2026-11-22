@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 MetricStatus = Literal["ok", "watch", "breach", "not_measured"]
+HealthStatus = Literal["healthy", "degraded", "critical", "unknown"]
 
 
 class Metric(BaseModel):
@@ -22,6 +23,7 @@ class Metric(BaseModel):
 class IndexInfo(BaseModel):
     mode: str = "unknown"
     name: str | None = None
+    distance: str | None = None
     parameters: dict[str, str] = Field(default_factory=dict)
     checks: list[dict[str, float | int | str | None]] = Field(default_factory=list)
     note: str = ""
@@ -113,3 +115,18 @@ class MonitoringReport(BaseModel):
     price_table_updated_at: str | None = None
     latency_series: list[float] = Field(default_factory=list)
     eval_enabled: bool = False
+
+
+class MonitoringHealth(BaseModel):
+    """A bounded live snapshot envelope for operators.
+
+    The nested report contains only the already-approved monitoring aggregates and
+    identifiers.  ``freshness_seconds`` is computed by the API at response time so
+    the Admin can distinguish a current snapshot from stale cached markup.
+    """
+
+    status: HealthStatus = "unknown"
+    generated_at: datetime
+    freshness_seconds: int = Field(ge=0)
+    stale_after_seconds: int = Field(default=15, ge=1)
+    report: MonitoringReport

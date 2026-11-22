@@ -491,6 +491,29 @@ def rag_monitoring(
     return page(request, name, context=context, report=report, days=int(days))
 
 
+@router.get("/dashboard/rag/health", response_class=HTMLResponse)
+@router.get("/dashboard/rag/health/content", response_class=HTMLResponse)
+def rag_health(
+    request: Request, service: Service, context: Dev, days: Literal["1", "7", "30"] = "1"
+):
+    """Live RAG and vector database health view for Dev operators."""
+    partial = request.url.path.endswith("/content")
+    name = "rag_health/_content.html" if partial else "rag_health/dashboard.html"
+    try:
+        report = service.monitoring_report(days=int(days))
+    except (AccountNotFound, ApiUnavailable):
+        return page(
+            request,
+            name,
+            503,
+            context=context,
+            report=None,
+            days=int(days),
+            error="No pudimos consultar la salud RAG. Intente actualizar en un momento.",
+        )
+    return page(request, name, context=context, report=report, days=int(days))
+
+
 @router.get("/dashboard/rag/monitoring/traces/{trace_id}", response_class=HTMLResponse)
 def rag_monitoring_trace(request: Request, trace_id: UUID, service: Service, context: Dev):
     try:
