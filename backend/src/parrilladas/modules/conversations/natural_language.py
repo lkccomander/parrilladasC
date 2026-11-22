@@ -5,6 +5,10 @@ from datetime import date
 
 from pydantic import ValidationError
 
+from parrilladas.modules.assistant.date_parsing import (
+    parse_relative_event_week,
+    resolve_weekday_in_week,
+)
 from parrilladas.modules.assistant.schemas import EVENT_FIELDS, EventDetails, ExtractionRequest
 from parrilladas.modules.assistant.service import AssistantService
 from parrilladas.modules.assistant.telemetry import telemetry_trace
@@ -64,6 +68,7 @@ def review(details: EventDetails, contact_name: str | None = None) -> FlowDecisi
             "_nl_draft": details.model_dump(mode="json"),
             "_nl_changes": None,
             "_nl_date_parts": None,
+            "_nl_week_start": None,
             "_nl_contact_name": contact,
         },
     )
@@ -82,6 +87,7 @@ def next_question(
             updates={
                 "_nl_contact_name": None,
                 "_nl_date_parts": None,
+                "_nl_week_start": None,
                 "_require_contact_name": True,
             },
         )
@@ -103,6 +109,7 @@ def next_question(
             "_nl_draft": details.model_dump(mode="json"),
             "_nl_changes": None,
             "_nl_date_parts": date_parts,
+            "_nl_week_start": None,
         },
     )
 
@@ -128,6 +135,18 @@ def continue_request(step: str, data: dict) -> FlowDecision:
 
 
 def date_answer(message: str, details: EventDetails, data: dict) -> FlowDecision | None:
+    pending_week = data.get("_nl_week_start")
+    if isinstance(pending_week, str):
+        try:
+            resolved = resolve_weekday_in_week(message, date.fromisoformat(pending_week))
+        except ValueError:
+            resolved = None
+        if resolved is not None:
+            return next_question(
+                details.model_copy(update={"event_date": resolved.value}),
+                contact_name=data.get("_nl_contact_name"),
+                require_contact_name=bool(data.get("_require_contact_name")),
+            )
     parsed = parse_date_answer(message, data.get("_nl_date_parts"))
     if parsed is None:
         return None
@@ -329,6 +348,19 @@ def natural_language_decision(
     try:
         details = EventDetails.model_validate(data.get("_nl_draft") or {})
         if step == "nl_collect" and details.event_date is None:
+            week = parse_relative_event_week(
+                incoming.body,
+                ExtractionRequest(message="date validation").reference_date,
+            )
+            if week is not None:
+                return FlowDecision(
+                    step="nl_collect",
+                    text="¿Qué día de esa semana sería? Por ejemplo: martes.",
+                    updates={
+                        "_nl_week_start": week.week_start.isoformat(),
+                        "_nl_date_parts": None,
+                    },
+                )
             clarified = date_answer(incoming.body, details, data)
             if clarified is not None:
                 return clarified

@@ -13,7 +13,11 @@ from pydantic import ValidationError
 
 from parrilladas.integrations.vertex_ai.client import VertexExtractor
 from parrilladas.modules.assistant.config import AssistantSettings
-from parrilladas.modules.assistant.date_parsing import parse_relative_event_date
+from parrilladas.modules.assistant.date_parsing import (
+    parse_relative_event_date,
+    parse_relative_event_week,
+    resolve_weekday_in_week,
+)
 from parrilladas.modules.assistant.errors import ExtractionUnavailable
 from parrilladas.modules.assistant.schemas import EventDetails, ExtractionRequest
 from parrilladas.modules.assistant.service import AssistantService
@@ -126,6 +130,17 @@ def test_relative_event_dates_are_resolved_from_reference_date(message, expected
     assert outcome.details.event_date == expected
     assert "event_date" not in outcome.missing_fields
     assert "event_date" not in outcome.ambiguities
+
+
+@pytest.mark.parametrize("message", ["La otra semana", "En 3 semanas"])
+def test_relative_weeks_require_a_day_before_resolving(message):
+    reference = date(2026, 11, 15)
+    expected = date(2026, 11, 17) if message == "La otra semana" else date(2026, 12, 1)
+    week = parse_relative_event_week(message, reference)
+    assert week is not None
+    resolved = resolve_weekday_in_week("martes", week.week_start)
+    assert resolved is not None
+    assert resolved.value == expected
 
 
 def test_model_ambiguity_cannot_overwrite_confirmed_data_or_fill_missing_fields():

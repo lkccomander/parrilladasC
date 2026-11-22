@@ -61,6 +61,21 @@ def test_natural_language_quote_button_requests_contact_name():
     assert "fecha" in answer.text.casefold()
 
 
+def test_relative_week_asks_for_weekday_then_resolves_date():
+    assistant = AssistantService(provider(), enabled=True)
+    data = {
+        "_nl_draft": {**DETAILS, "event_date": None},
+        "_nl_contact_name": "German",
+        "_require_contact_name": True,
+    }
+    week = natural_language_decision("nl_collect", IncomingText("En 3 semanas"), data, assistant)
+    assert "qué día" in week.text.casefold()
+    data.update(week.updates)
+    resolved = natural_language_decision("nl_collect", IncomingText("martes"), data, assistant)
+    assert resolved.step == "nl_review"
+    assert "Fecha: 2026-12-08" in resolved.text
+
+
 def test_short_answers_include_the_requested_field_and_keep_previous_data():
     model = provider({"guest_count": 20}, date_evidence=None)
     assistant = AssistantService(model, enabled=True)
