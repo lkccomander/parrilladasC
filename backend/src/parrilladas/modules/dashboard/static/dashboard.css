@@ -928,6 +928,7 @@ meter { width: min(14rem, 100%); accent-color: var(--accent); }
 .rag-sparkline text { fill: currentColor; font: 11px var(--mono); opacity: .75; }
 .rag-chart-grid { stroke: currentColor; stroke-width: 1; opacity: .14; }
 .rag-hnsw-diagram { margin: 1rem 0 0; color: var(--accent); }
+.rag-hnsw-inactive { color: var(--muted); opacity: .65; }
 .rag-hnsw-diagram svg { width: 100%; max-width: 420px; height: auto; }
 .rag-hnsw-diagram figcaption { color: var(--muted); font-size: .8rem; }
 .rag-alert-detail { display: inline-block; margin: .25rem .5rem 0 0; color: var(--muted); font: .75rem var(--mono); }
