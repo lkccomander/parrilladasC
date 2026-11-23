@@ -3,7 +3,7 @@
 {%- endmacro %}
 {% macro metric_row(metric) -%}
 <div class="rag-metric-row"><div><strong>{{ metric.label }}</strong><span>{{ metric.display if metric.value is not none else 'No medido' }}</span></div>
-{% if metric.value is not none and metric.value >= 0 and metric.value <= 1 %}<progress aria-label="{{ metric.label }}" max="1" value="{{ metric.value }}"></progress>{% elif metric.value is not none %}<div class="rag-metric-bar" role="img" aria-label="{{ metric.label }}: {{ metric.display }}"><span class="rag-metric-bar-fill rag-metric-bar-{{ metric.status }}"></span></div>{% endif %}
+{% if metric.value is not none and metric.value >= 0 and metric.value <= 1 %}<progress aria-hidden="true" aria-label="{{ metric.label }}" max="1" value="{{ metric.value }}"></progress>{% elif metric.value is not none %}<div class="rag-metric-bar" role="img" aria-label="{{ metric.label }}: {{ metric.display }}"><span class="rag-metric-bar-fill rag-metric-bar-{{ metric.status }}"></span></div>{% endif %}
 <p class="help">{{ metric.target_text }} {{ metric.note }}</p>{{ status_pill(metric.status) }}</div>
 {%- endmacro %}
 {% macro sparkline(values) -%}
