@@ -156,8 +156,14 @@ def dashboard(request: Request, service: Service, context: Authenticated) -> HTM
             raise HTTPException(403, str(error)) from None
     with contextlib.suppress(ApiUnavailable, AccountNotFound):
         timeline = service.interaction_timeline(days=30)
+    timeline_payload = timeline.model_dump(mode="json") if timeline else None
     return page(
-        request, "dashboard.html", context=context, preferences=preferences, timeline=timeline
+        request,
+        "dashboard.html",
+        context=context,
+        preferences=preferences,
+        timeline=timeline,
+        timeline_payload=timeline_payload,
     )
 
 

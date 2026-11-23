@@ -19,7 +19,7 @@
         <div><span>Promedio diario</span><strong>{{ '%.1f'|format(timeline.total / timeline.days) }}</strong></div>
         <div><span>Máximo en un día</span><strong>{{ timeline.points | map(attribute='count') | max }}</strong></div>
       </div>
-      <div class="interaction-timeline" data-points='{{ timeline.points | tojson }}'>
+      <div class="interaction-timeline" data-points='{{ timeline_payload.points | tojson }}'>
         <svg class="timeline-chart" viewBox="0 0 900 260" role="img" aria-labelledby="timeline-chart-title timeline-chart-description">
           <title id="timeline-chart-title">Interacciones recibidas por día</title>
           <desc id="timeline-chart-description">Gráfico de línea de las solicitudes recibidas durante los últimos {{ timeline.days }} días.</desc>
