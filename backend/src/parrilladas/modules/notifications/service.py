@@ -22,8 +22,8 @@ def parse_recipients(value: str | Iterable[str] | None) -> tuple[str, ...]:
 
 
 def _body(snapshot: dict[str, object], reference: str, customer_number: str) -> str:
+    contact_name = snapshot.get("contact_name") or snapshot.get("_nl_contact_name")
     labels = (
-        ("contact_name", "Contacto"),
         ("event_date", "Fecha"),
         ("guest_count", "Personas"),
         ("location", "Lugar"),
@@ -35,6 +35,7 @@ def _body(snapshot: dict[str, object], reference: str, customer_number: str) -> 
         f"*Código:* {reference}",
         f"📲 *Cliente:* +{customer_number.lstrip('+')}",
     ]
+    lines.append(f"Contacto: {contact_name or 'Pendiente'}")
     lines.extend(f"{label}: {snapshot.get(key) or 'Pendiente'}" for key, label in labels)
     return "\n".join(lines)[:4000]
 

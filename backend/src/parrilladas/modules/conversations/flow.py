@@ -67,8 +67,13 @@ def _summary_text(flow_data: Mapping[str, object]) -> str:
 def _submitted_text(flow_data: Mapping[str, object]) -> str:
     reference = str(flow_data.get("request_reference", "")).strip()
     reference_line = f"Código de solicitud: *{reference}*\n\n" if reference else ""
+    contact = str(
+        flow_data.get("contact_name") or flow_data.get("_nl_contact_name") or ""
+    ).strip()
+    contact_line = f"Nombre de contacto: *{contact}*\n\n" if contact else ""
     return (
         "¡Gracias por compartirnos los detalles!\n\n"
+        f"{contact_line}"
         f"{reference_line}"
         "Te enviaremos la información de tu cotización en un PDF.\n\n"
         "Quedamos súper atentos a cualquier duda o consulta.\n\n"
