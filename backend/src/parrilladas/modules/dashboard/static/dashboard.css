@@ -915,6 +915,18 @@ meter { width: min(14rem, 100%); accent-color: var(--accent); }
 .rag-section-heading h2 { margin: .2rem 0 0; }
 .rag-section-caption { color: var(--muted); font-size: .88rem; }
 .rag-health-metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 1.5rem; }
+.rag-live-chip { display: inline-flex; align-items: center; gap: .4rem; color: #17653f; font: .75rem var(--mono); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.rag-live-chip span { width: .55rem; height: .55rem; border-radius: 50%; background: #27ae68; box-shadow: 0 0 0 .2rem rgba(39,174,104,.16); }
+.rag-metric-bar { height: .42rem; margin: .55rem 0 .2rem; border-radius: 999px; background: #e9edf1; overflow: hidden; }
+.rag-metric-bar-fill { display: block; width: 64%; height: 100%; border-radius: inherit; background: #3b82f6; }
+.rag-metric-bar-ok { background: #27ae68; width: 82%; }
+.rag-metric-bar-watch { background: #e2a72f; width: 58%; }
+.rag-metric-bar-breach { background: #d9534f; width: 35%; }
+.rag-time-chart { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #e3e7eb; }
+.rag-time-chart h3 { margin: 0; font-size: 1rem; }
+.rag-sparkline { display: block; width: 100%; height: 12rem; margin-top: .45rem; color: #2f78c4; background: linear-gradient(180deg, rgba(47,120,196,.08), rgba(47,120,196,0)); border-radius: .5rem; }
+.rag-sparkline text { fill: currentColor; font: 11px var(--mono); opacity: .75; }
+.rag-chart-grid { stroke: currentColor; stroke-width: 1; opacity: .14; }
 .rag-hnsw-diagram { margin: 1rem 0 0; color: var(--accent); }
 .rag-hnsw-diagram svg { width: 100%; max-width: 420px; height: auto; }
 .rag-hnsw-diagram figcaption { color: var(--muted); font-size: .8rem; }

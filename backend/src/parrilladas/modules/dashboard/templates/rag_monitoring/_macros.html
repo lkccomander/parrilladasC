@@ -3,14 +3,17 @@
 {%- endmacro %}
 {% macro metric_row(metric) -%}
 <div class="rag-metric-row"><div><strong>{{ metric.label }}</strong><span>{{ metric.display if metric.value is not none else 'No medido' }}</span></div>
-{% if metric.value is not none and metric.value >= 0 and metric.value <= 1 %}<progress aria-hidden="true" max="1" value="{{ metric.value }}"></progress>{% endif %}
+{% if metric.value is not none and metric.value >= 0 and metric.value <= 1 %}<progress aria-label="{{ metric.label }}" max="1" value="{{ metric.value }}"></progress>{% elif metric.value is not none %}<div class="rag-metric-bar" role="img" aria-label="{{ metric.label }}: {{ metric.display }}"><span class="rag-metric-bar-fill rag-metric-bar-{{ metric.status }}"></span></div>{% endif %}
 <p class="help">{{ metric.target_text }} {{ metric.note }}</p>{{ status_pill(metric.status) }}</div>
 {%- endmacro %}
 {% macro sparkline(values) -%}
 {% if values|length > 1 %}
 {% set high = values|max %}{% set low = values|min %}
-<svg class="rag-sparkline" viewBox="0 0 300 64" role="img" aria-label="Latencia de las últimas {{ values|length }} consultas, entre {{ low|round(1) }} y {{ high|round(1) }} milisegundos">
-<title>Latencias registradas en milisegundos</title><polyline fill="none" stroke="currentColor" stroke-width="2" points="{% for value in values %}{{ (loop.index0 * 296 / (values|length - 1) + 2)|round(2) }},{{ (60 - (value - low) / (high-low if high > low else 1) * 56)|round(2) }} {% endfor %}"/>
+<svg class="rag-sparkline" viewBox="0 0 640 180" role="img" aria-label="Latencia de las últimas {{ values|length }} consultas, entre {{ low|round(1) }} y {{ high|round(1) }} milisegundos">
+<title>Health through time: latencias registradas en milisegundos</title>
+<g class="rag-chart-grid"><path d="M38 20H628M38 75H628M38 130H628"/><path d="M38 20V145M185 20V145M333 20V145M480 20V145M628 20V145"/></g>
+<polyline fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="{% for value in values %}{{ (loop.index0 * 586 / (values|length - 1) + 38)|round(2) }},{{ (130 - (value - low) / (high-low if high > low else 1) * 100)|round(2) }} {% endfor %}"/>
+<text x="38" y="165">{{ low|round(1) }} ms</text><text x="570" y="165">{{ high|round(1) }} ms</text>
 </svg><p class="help">Latencia observada: {{ low|round(1) }}–{{ high|round(1) }} ms.</p>
 {% else %}<p class="help">Todavía no hay suficientes consultas para mostrar una tendencia.</p>{% endif %}
 {%- endmacro %}
