@@ -31,7 +31,13 @@ from parrilladas.modules.assistant.schemas import (
     AssistantPreferencesView,
 )
 from parrilladas.modules.assistant.telemetry_contracts import TelemetryReport
-from parrilladas.modules.conversations.schemas import InteractionFilters, InteractionPage
+from parrilladas.modules.conversations.schemas import (
+    InteractionDetail,
+    InteractionFilters,
+    InteractionPage,
+    InteractionTimeline,
+    InteractionUpdate,
+)
 from parrilladas.modules.dashboard.cookies import cookie_name, refresh_cookie_name
 from parrilladas.modules.integrations.schemas import WhatsAppIntegrationStatus
 
@@ -113,6 +119,27 @@ class AdminApiClient:
         return InteractionPage.model_validate(
             self._call(
                 "GET", "/conversations/interactions", params=filters.model_dump(exclude_none=True)
+            )
+        )
+
+    def interaction_timeline(self, *, days: int = 30) -> InteractionTimeline:
+        return InteractionTimeline.model_validate(
+            self._call("GET", "/conversations/interactions/timeline", params={"days": days})
+        )
+
+    def get_interaction(self, interaction_id: UUID) -> InteractionDetail:
+        return InteractionDetail.model_validate(
+            self._call("GET", f"/conversations/interactions/{interaction_id}")
+        )
+
+    def update_interaction(
+        self, interaction_id: UUID, data: InteractionUpdate
+    ) -> InteractionDetail:
+        return InteractionDetail.model_validate(
+            self._call(
+                "PATCH",
+                f"/conversations/interactions/{interaction_id}",
+                data=data.model_dump(mode="json"),
             )
         )
 

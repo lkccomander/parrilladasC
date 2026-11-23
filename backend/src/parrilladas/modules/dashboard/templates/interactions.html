@@ -37,7 +37,7 @@
           <tbody>
             {% for item in report.items %}
               <tr>
-                <td><strong>{{ item.reference }}</strong></td>
+                <td><a href="/dashboard/interactions/{{ item.id }}"><strong>{{ item.reference }}</strong></a></td>
                 <td>+{{ item.whatsapp_number.lstrip('+') }}</td>
                 <td>
                   <span class="badge{% if item.status != 'active' %} muted{% endif %}">{{ {'active': 'En curso', 'submitted': 'Registrada', 'referred': 'Derivada al asesor'}[item.status] }}</span>

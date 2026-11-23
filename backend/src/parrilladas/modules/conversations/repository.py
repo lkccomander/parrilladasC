@@ -111,6 +111,39 @@ class ConversationRepository:
         ).all()
         return rows, total
 
+    def interaction_detail(self, interaction_id: UUID):
+        row = self.session.execute(
+            select(Interaction, Conversation)
+            .join(Conversation, Conversation.id == Interaction.conversation_id)
+            .where(Interaction.id == interaction_id)
+        ).first()
+        if row is None:
+            return None, []
+        interaction, conversation = row
+        messages = list(
+            self.session.scalars(
+                select(Message)
+                .where(Message.interaction_id == interaction.id)
+                .order_by(Message.created_at, Message.id)
+            )
+        )
+        return (interaction, conversation), messages
+
+    def update_interaction(self, interaction_id: UUID, *, status: str, notes: str | None):
+        interaction = self.session.scalar(
+            select(Interaction).where(Interaction.id == interaction_id).with_for_update()
+        )
+        if interaction is None:
+            return None
+        interaction.status = status
+        interaction.notes = notes.strip() if notes else None
+        if status == "active":
+            interaction.closed_at = None
+        elif interaction.closed_at is None:
+            interaction.closed_at = datetime.now(UTC)
+        self.session.flush()
+        return interaction
+
     def interaction_for_reference(
         self, conversation_id: UUID, reference: str | None
     ) -> Interaction | None:

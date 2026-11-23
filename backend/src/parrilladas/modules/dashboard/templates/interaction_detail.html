@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Detalle {{ detail.reference if detail else 'interacción' }}{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow"><a href="/dashboard/interactions">ATENCIÓN Y VENTAS</a> / DETALLE</p>
+      <h1>{{ detail.reference if detail else 'Detalle de interacción' }}</h1>
+      <p>Revise los datos capturados, el historial y el seguimiento interno.</p>
+    </div>
+  </div>
+  {% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}
+  {% if detail %}
+    <div class="detail-grid">
+      <section class="card">
+        <h2>Requerimiento</h2>
+        <dl class="detail-list">
+          <div><dt>Código</dt><dd><strong>{{ detail.reference }}</strong></dd></div>
+          <div><dt>WhatsApp</dt><dd>+{{ detail.whatsapp_number.lstrip('+') }}</dd></div>
+          <div><dt>Punto de contacto</dt><dd>{{ detail.contact_name or 'Sin indicar' }}</dd></div>
+          <div><dt>Fecha del evento</dt><dd>{{ detail.event_date or 'Sin indicar' }}</dd></div>
+          <div><dt>Personas</dt><dd>{{ detail.guest_count if detail.guest_count is not none else 'Sin indicar' }}</dd></div>
+          <div><dt>Ubicación</dt><dd>{{ detail.location or 'Sin indicar' }}</dd></div>
+          <div><dt>Servicio</dt><dd>{{ 'Parrilla' if detail.service_type == 'parrilla' else (detail.service_type or 'Sin indicar') }}</dd></div>
+          <div><dt>Creada</dt><dd>{{ detail.created_at.astimezone(local_time).strftime('%d/%m/%Y %H:%M') }}</dd></div>
+          <div><dt>Cierre</dt><dd>{{ detail.closed_at.astimezone(local_time).strftime('%d/%m/%Y %H:%M') if detail.closed_at else 'Abierta' }}</dd></div>
+        </dl>
+      </section>
+      <section class="card">
+        <h2>Seguimiento</h2>
+        <form method="post" action="/dashboard/interactions/{{ detail.id }}">
+          <input type="hidden" name="csrf_token" value="{{ request.state.auth_context.csrf_token }}">
+          <label for="interaction-status">Estado
+            <select id="interaction-status" name="status" required>
+              <option value="active"{% if detail.status == 'active' %} selected{% endif %}>En curso</option>
+              <option value="submitted"{% if detail.status == 'submitted' %} selected{% endif %}>Registrada</option>
+              <option value="referred"{% if detail.status == 'referred' %} selected{% endif %}>Derivada al asesor</option>
+            </select>
+          </label>
+          <label for="interaction-notes">Notas internas
+            <textarea id="interaction-notes" name="notes" rows="8" maxlength="5000" placeholder="Agregue información útil para el seguimiento…">{{ detail.notes or '' }}</textarea>
+          </label>
+          <button type="submit">Guardar cambios</button>
+        </form>
+      </section>
+    </div>
+    <section class="card detail-messages">
+      <h2>Historial de mensajes</h2>
+      {% if detail.messages %}
+        <ol>
+          {% for message in detail.messages %}
+            <li class="message-row {{ message.direction }}">
+              <div><strong>{{ 'Cliente' if message.direction == 'inbound' else 'Parrilladas' }}</strong><small>{{ message.created_at.astimezone(local_time).strftime('%d/%m/%Y %H:%M') }} · {{ message.delivery_status }}</small></div>
+              <p>{{ message.content }}</p>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}<p>No hay mensajes asociados a esta interacción.</p>{% endif %}
+    </section>
+  {% endif %}
+{% endblock %}

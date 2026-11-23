@@ -4,6 +4,37 @@
   <p class="eyebrow">PANEL COMERCIAL</p>
   <h1>Hola, {{ context.account.display_name }}</h1>
   <p class="lead">Su espacio para organizar la atención de Parrillas en su Casa.</p>
+  {% if timeline %}
+    <section class="card interaction-timeline-card" aria-labelledby="interaction-timeline-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">ATENCIÓN Y VENTAS</p>
+          <h2 id="interaction-timeline-heading">Interacciones a través del tiempo</h2>
+          <p>Solicitudes recibidas por día durante los últimos {{ timeline.days }} días.</p>
+        </div>
+        <a class="button quiet" href="/dashboard/interactions">Ver detalle</a>
+      </div>
+      <div class="timeline-summary" aria-label="Resumen de interacciones">
+        <div><span>Total</span><strong>{{ timeline.total }}</strong></div>
+        <div><span>Promedio diario</span><strong>{{ '%.1f'|format(timeline.total / timeline.days) }}</strong></div>
+        <div><span>Máximo en un día</span><strong>{{ timeline.points | map(attribute='count') | max }}</strong></div>
+      </div>
+      <div class="interaction-timeline" data-points='{{ timeline.points | tojson }}'>
+        <svg class="timeline-chart" viewBox="0 0 900 260" role="img" aria-labelledby="timeline-chart-title timeline-chart-description">
+          <title id="timeline-chart-title">Interacciones recibidas por día</title>
+          <desc id="timeline-chart-description">Gráfico de línea de las solicitudes recibidas durante los últimos {{ timeline.days }} días.</desc>
+          <g class="timeline-grid" aria-hidden="true"></g>
+          <polyline class="timeline-line" points=""></polyline>
+          <g class="timeline-dots" aria-hidden="true"></g>
+          <g class="timeline-labels" aria-hidden="true"></g>
+        </svg>
+        <p class="help timeline-empty" hidden>No hay interacciones en este período.</p>
+      </div>
+      <details class="timeline-data"><summary>Ver datos del gráfico</summary><ul>{% for point in timeline.points %}<li>{{ point.day.strftime('%d/%m') }}: {{ point.count }}</li>{% endfor %}</ul></details>
+    </section>
+  {% else %}
+    <p class="notice" role="status">No pudimos cargar la línea de tiempo de interacciones.</p>
+  {% endif %}
   {% if context.account.is_admin %}
     <h2>Modo de atención</h2>
     {% if not preferences %}
@@ -57,3 +88,4 @@
     </section>
   </div>
 {% endblock %}
+{% block scripts %}<script src="/static/interaction-timeline.js" defer></script>{% endblock %}

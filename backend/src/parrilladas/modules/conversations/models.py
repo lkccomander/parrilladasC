@@ -54,6 +54,7 @@ class Interaction(Record, Base):
     reference: Mapped[str] = mapped_column(String(40), unique=True)
     status: Mapped[str] = mapped_column(String(24), default="active", server_default="active")
     snapshot: Mapped[dict] = mapped_column(JSONB, default=dict)
+    notes: Mapped[str | None] = mapped_column(Text)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

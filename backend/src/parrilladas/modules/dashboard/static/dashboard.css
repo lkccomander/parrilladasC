@@ -224,6 +224,33 @@ p {
   background: var(--surface);
 }
 
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.detail-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 28px;
+}
+
+.detail-list div { min-width: 0; }
+.detail-list dt { color: var(--muted); font: 11px/1.4 var(--mono); text-transform: uppercase; letter-spacing: 1px; }
+.detail-list dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.detail-messages ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.message-row { border-left: 3px solid var(--line); padding: 12px 16px; background: var(--raised); }
+.message-row.inbound { border-left-color: var(--success); }
+.message-row.outbound { border-left-color: var(--accent); }
+.message-row small { color: var(--muted); margin-left: 12px; }
+.message-row p { white-space: pre-wrap; margin: 6px 0 0; }
+
+@media (max-width: 760px) {
+  .detail-grid, .detail-list { grid-template-columns: 1fr; }
+}
+
 .welcome {
   padding-block: 44px;
 }
@@ -864,6 +891,26 @@ td a {
 }
 .interaction-filters label { flex: 1 1 16rem; }
 .pagination { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-top: 1.5rem; }
+.interaction-timeline-card { margin: 2rem 0; }
+.section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.section-heading h2 { margin-top: 0; }
+.timeline-summary { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: .75rem; margin: 1.5rem 0 1rem; }
+.timeline-summary div { padding: .85rem 1rem; border: 1px solid var(--line); background: var(--raised); }
+.timeline-summary span { display: block; color: var(--muted); font: .72rem var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.timeline-summary strong { display: block; font: 1.6rem var(--mono); margin-top: .35rem; }
+.interaction-timeline { min-height: 220px; }
+.timeline-chart { display: block; width: 100%; height: auto; min-height: 210px; overflow: visible; color: var(--accent); }
+.timeline-line { fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.timeline-grid-line { stroke: var(--line); stroke-width: 1; stroke-dasharray: 4 5; }
+.timeline-axis-label { fill: var(--muted); font: 12px var(--mono); }
+.timeline-dot { fill: var(--surface); stroke: currentColor; stroke-width: 3; }
+.timeline-dot:focus { outline: none; fill: var(--accent); }
+.timeline-data { color: var(--muted); font-size: .85rem; }
+.timeline-data ul { columns: 4; padding-left: 1.5rem; }
+@media (max-width: 600px) {
+  .timeline-summary { grid-template-columns: 1fr; }
+  .timeline-data ul { columns: 2; }
+}
 
 .telemetry-metrics .metric-value { font-size: 2rem; font-weight: 700; margin: .5rem 0; }
 meter { width: min(14rem, 100%); accent-color: var(--accent); }

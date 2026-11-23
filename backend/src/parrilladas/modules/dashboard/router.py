@@ -1,3 +1,4 @@
+import contextlib
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
@@ -18,7 +19,7 @@ from parrilladas.modules.accounts.errors import (
 )
 from parrilladas.modules.accounts.schemas import AccountCreate, AccountUpdate
 from parrilladas.modules.assistant.schemas import AdvisorSettings, AssistantPreferencesUpdate
-from parrilladas.modules.conversations.schemas import InteractionFilters
+from parrilladas.modules.conversations.schemas import InteractionFilters, InteractionUpdate
 from parrilladas.modules.dashboard.client import ApiUnavailable
 from parrilladas.modules.dashboard.cookies import clear_cookies, set_session_cookie
 from parrilladas.modules.dashboard.dependencies import (
@@ -145,6 +146,7 @@ def logout(
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, service: Service, context: Authenticated) -> HTMLResponse:
     preferences = None
+    timeline = None
     if context.account.is_admin:
         try:
             preferences = service.assistant_preferences()
@@ -152,7 +154,11 @@ def dashboard(request: Request, service: Service, context: Authenticated) -> HTM
             pass
         except AccessDenied as error:
             raise HTTPException(403, str(error)) from None
-    return page(request, "dashboard.html", context=context, preferences=preferences)
+    with contextlib.suppress(ApiUnavailable, AccountNotFound):
+        timeline = service.interaction_timeline(days=30)
+    return page(
+        request, "dashboard.html", context=context, preferences=preferences, timeline=timeline
+    )
 
 
 @router.get("/dashboard/interactions", response_class=HTMLResponse)
@@ -190,6 +196,63 @@ def interactions(
         filters=filters,
         local_dates=local_dates,
     )
+
+
+@router.get("/dashboard/interactions/{interaction_id}", response_class=HTMLResponse)
+def interaction_detail(
+    request: Request, interaction_id: UUID, service: Service, context: Authenticated
+) -> HTMLResponse:
+    try:
+        detail = service.get_interaction(interaction_id)
+    except AccessDenied as error:
+        raise HTTPException(403, str(error)) from None
+    except (ApiUnavailable, AccountNotFound):
+        return page(
+            request,
+            "interaction_detail.html",
+            503,
+            context=context,
+            detail=None,
+            local_time=ZoneInfo("America/Costa_Rica"),
+            error="No pudimos cargar el detalle. Intente nuevamente.",
+        )
+    return page(
+        request,
+        "interaction_detail.html",
+        context=context,
+        detail=detail,
+        local_time=ZoneInfo("America/Costa_Rica"),
+    )
+
+
+@router.post("/dashboard/interactions/{interaction_id}", response_class=HTMLResponse)
+def update_interaction(
+    request: Request,
+    interaction_id: UUID,
+    service: Service,
+    context: Authenticated,
+    form: CheckedForm,
+) -> Response:
+    if set(form) - {"csrf_token", "status", "notes"}:
+        raise HTTPException(422, "Revise los datos de la interacción.")
+    try:
+        data = InteractionUpdate(status=form.get("status", ""), notes=form.get("notes") or None)
+        service.update_interaction(interaction_id, data)
+    except ValidationError:
+        return page(
+            request,
+            "interaction_detail.html",
+            422,
+            context=context,
+            detail=service.get_interaction(interaction_id),
+            local_time=ZoneInfo("America/Costa_Rica"),
+            error="Seleccione un estado válido y revise las notas.",
+        )
+    except AccessDenied as error:
+        raise HTTPException(403, str(error)) from None
+    except AccountNotFound as error:
+        raise HTTPException(404, str(error)) from None
+    return RedirectResponse(f"/dashboard/interactions/{interaction_id}", status_code=303)
 
 
 def integration_page(request: Request, context, report: WhatsAppIntegrationStatus) -> HTMLResponse:

@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Literal
 from uuid import UUID
 
@@ -29,8 +30,40 @@ class InteractionView(BaseModel):
     service_type: str | None
 
 
+class InteractionMessageView(BaseModel):
+    id: UUID
+    direction: Literal["inbound", "outbound"]
+    purpose: str
+    content: str
+    delivery_status: str
+    created_at: AwareDatetime
+
+
+class InteractionDetail(InteractionView):
+    notes: str | None
+    messages: list[InteractionMessageView]
+
+
+class InteractionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: InteractionStatus
+    notes: str | None = Field(default=None, max_length=5000)
+
+
 class InteractionPage(BaseModel):
     items: list[InteractionView]
     total: int
     page: int
     page_size: int
+
+
+class InteractionTimelinePoint(BaseModel):
+    day: date
+    count: int = Field(ge=0)
+
+
+class InteractionTimeline(BaseModel):
+    days: int
+    points: list[InteractionTimelinePoint]
+    total: int = Field(ge=0)
